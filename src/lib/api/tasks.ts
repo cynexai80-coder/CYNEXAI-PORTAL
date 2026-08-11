@@ -100,25 +100,68 @@ export const ensureDailyTasks = async (tasks: Task[], userId: string) => {
   const today = new Date().toISOString().split('T')[0];
   const dailyTasks = tasks.filter(t => t.task_type === 'Daily');
 
+  // Group daily tasks by title (each unique title = one recurring task template)
+  const grouped = new Map<string, Task[]>();
+  dailyTasks.forEach(t => {
+    const arr = grouped.get(t.title) || [];
+    arr.push(t);
+    grouped.set(t.title, arr);
+  });
+
   let updatedAny = false;
 
-  // Auto-mark ALL past incomplete daily tasks as Missed
-  // (Generation is now handled exclusively by the backend cron job to prevent duplication bugs)
-  for (const t of dailyTasks) {
-    const taskDate = t.due_date ? t.due_date.split('T')[0] : '';
-    if (taskDate && taskDate < today && t.status !== 'Done' && t.status !== 'Excused' && t.status !== 'Missed') {
-      if (isTursoConfigured && client) {
-        try {
-          await client.execute({
-            sql: `UPDATE tasks SET status = 'Missed' WHERE id = ?`,
-            args: [t.id]
-          });
-          t.status = 'Missed'; // update in-memory too
-          updatedAny = true;
-        } catch (e) {
-          console.error('Failed to mark task as Missed', e);
+  for (const [, groupTasks] of grouped.entries()) {
+    // Sort descending — latest first
+    groupTasks.sort((a, b) => new Date(b.due_date || '').getTime() - new Date(a.due_date || '').getTime());
+
+    // Auto-mark ALL past incomplete daily tasks as Missed
+    for (const t of groupTasks) {
+      const taskDate = t.due_date ? t.due_date.split('T')[0] : '';
+      if (taskDate && taskDate < today && t.status !== 'Done' && t.status !== 'Excused' && t.status !== 'Missed') {
+        if (isTursoConfigured && client) {
+          try {
+            await client.execute({
+              sql: `UPDATE tasks SET status = 'Missed' WHERE id = ?`,
+              args: [t.id]
+            });
+            t.status = 'Missed'; // update in-memory too
+            updatedAny = true;
+          } catch (e) {
+            console.error('Failed to mark task as Missed', e);
+          }
         }
       }
+    }
+
+    // Check if today's copy already exists
+    const todayExists = groupTasks.some(t => {
+      const d = t.due_date ? t.due_date.split('T')[0] : '';
+      return d === today;
+    });
+
+    if (!todayExists) {
+      // Use the most recent task as the template for today's new copy
+      const template = groupTasks[0];
+      if (!template) continue;
+
+      const newTask = {
+        title: template.title,
+        description: template.description,
+        assignee_id: template.assignee_id,
+        priority: template.priority,
+        due_date: today,
+        related_entity: template.related_entity,
+        task_type: 'Daily' as const,
+        target_number: template.target_number,
+        current_number: 0,
+        tags: template.tags,
+        created_by: template.created_by,
+        lead_id: template.lead_id,
+        student_id: template.student_id,
+        recurrence_rule: template.recurrence_rule,
+      };
+      await createTask(newTask as any);
+      updatedAny = true;
     }
   }
 
