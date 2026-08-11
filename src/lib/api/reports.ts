@@ -335,15 +335,15 @@ export const getEmployeeReports = async (
 
       // Call stats (from CRM activities)
       const callRes = await client.execute({
-        sql: `SELECT COUNT(*) as total_calls FROM crm_activities WHERE user_id = ? AND type = 'Call'`,
-        args: [userId]
+        sql: `SELECT COUNT(*) as total_calls FROM crm_activities WHERE user_id = ? AND type = 'Call' ${dateFilter.replace(/t\.created_at/g, 'created_at')}`,
+        args: [userId, ...dateArgs]
       });
       const totalCalls = Number(callRes.rows[0]?.total_calls) || 0;
 
       // Time spent
       const timeRes = await client.execute({
-        sql: `SELECT COALESCE(SUM(duration_minutes), 0) as total_time FROM time_logs WHERE user_id = ? AND ended_at IS NOT NULL`,
-        args: [userId]
+        sql: `SELECT COALESCE(SUM(duration_minutes), 0) as total_time FROM time_logs WHERE user_id = ? AND ended_at IS NOT NULL ${dateFilter.replace(/t\.created_at/g, 'created_at')}`,
+        args: [userId, ...dateArgs]
       });
       const totalTimeMinutes = Number(timeRes.rows[0]?.total_time) || 0;
 
@@ -353,8 +353,8 @@ export const getEmployeeReports = async (
         const convRes = await client.execute({
           sql: `SELECT COUNT(*) as cnt FROM admissions a 
                 JOIN leads l ON a.lead_id = l.id 
-                WHERE l.assigned_to = ?`,
-          args: [userId]
+                WHERE l.assigned_to = ? ${dateFilter.replace(/t\.created_at/g, 'l.created_at')}`,
+          args: [userId, ...dateArgs]
         });
         conversions = Number(convRes.rows[0]?.cnt) || 0;
       } catch { /* table may not exist */ }
