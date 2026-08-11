@@ -250,7 +250,7 @@ export const TaskDetailPanel: React.FC<Props> = ({ task, onClose, onUpdate, curr
             </select>
           </div>
 
-          {editedTask.task_type === 'Number' && (
+          {['Number', 'Daily'].includes(editedTask.task_type || '') && (
             <>
               <div className="col-span-4 text-erp-text/60 flex items-center gap-2 font-medium">
                 <AlignLeft className="w-4 h-4" /> Goal Target

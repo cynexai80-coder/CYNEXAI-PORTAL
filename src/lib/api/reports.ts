@@ -293,7 +293,7 @@ export const getEmployeeReports = async (
     }
     if (dateTo) {
       dateFilter += ` AND t.created_at <= ?`;
-      dateArgs.push(dateTo);
+      dateArgs.push(`${dateTo}T23:59:59.999Z`);
     }
 
     // Fetch all staff users
