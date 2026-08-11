@@ -326,6 +326,8 @@ export default function ModuleMap() {
   const navigate = useNavigate();
 
   const [moduleData, setModuleData] = useState<any>(null);
+  const [batchProgress, setBatchProgress] = useState<any>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [virtualNodes, setVirtualNodes] = useState<VirtualNode[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -341,6 +343,7 @@ export default function ModuleMap() {
     getModuleMapData(moduleId, user.id)
       .then((data: any) => {
         setModuleData(data.moduleData);
+        setBatchProgress(data.batchProgress);
         
         const vNodes: VirtualNode[] = [];
         
@@ -519,17 +522,30 @@ export default function ModuleMap() {
               
               const isCompleted = state === 'completed';
               const isCurrent = state === 'current';
-              const isLocked = false;
+              
+              let isLocked = false;
+              if (moduleData?.title && batchProgress && batchProgress[moduleData.title] !== undefined) {
+                 if (i + 1 > batchProgress[moduleData.title]) {
+                    isLocked = true;
+                 }
+              }
               
               return (
                 <div 
                   key={node.id} 
                   id={`node-${i}`}
-                  onClick={() => handleNodeClick(node)}
-                  className={`relative p-4 rounded-2xl flex items-center gap-4 transition-all duration-200 border-2 ${isCurrent ? 'cursor-pointer border-indigo-500 bg-white dark:bg-white/10 shadow-lg scale-[1.02]' : 'cursor-pointer border-transparent bg-white dark:bg-white/10 hover:-translate-y-1'}`}
+                  onClick={() => {
+                     if (isLocked) {
+                        setToastMessage('Content locked! Wait for the live class to complete.');
+                        setTimeout(() => setToastMessage(null), 3000);
+                        return;
+                     }
+                     handleNodeClick(node);
+                  }}
+                  className={`relative p-4 rounded-2xl flex items-center gap-4 transition-all duration-200 border-2 ${isLocked ? 'opacity-60 cursor-not-allowed bg-slate-100 dark:bg-black/30 border-transparent' : isCurrent ? 'cursor-pointer border-indigo-500 bg-white dark:bg-white/10 shadow-lg scale-[1.02]' : 'cursor-pointer border-transparent bg-white dark:bg-white/10 hover:-translate-y-1'}`}
                 >
-                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors ${isCompleted ? 'bg-emerald-100 text-emerald-500 dark:bg-emerald-500/20' : isCurrent ? 'bg-indigo-100 text-indigo-500 dark:bg-indigo-500/20' : 'bg-slate-100 text-slate-500 dark:bg-white dark:bg-black/5 dark:text-white/40'}`}>
-                    {isCompleted ? <NodeIcons.check size={24} /> : React.createElement(NodeIcons[kind as keyof typeof NodeIcons] || NodeIcons.lesson, { size: 24 })}
+                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors ${isLocked ? 'bg-slate-200 text-slate-500 dark:bg-black/50 dark:text-white/40' : isCompleted ? 'bg-emerald-100 text-emerald-500 dark:bg-emerald-500/20' : isCurrent ? 'bg-indigo-100 text-indigo-500 dark:bg-indigo-500/20' : 'bg-slate-100 text-slate-500 dark:bg-white dark:bg-black/5 dark:text-white/40'}`}>
+                    {isLocked ? <NodeIcons.lock size={24} /> : isCompleted ? <NodeIcons.check size={24} /> : React.createElement(NodeIcons[kind as keyof typeof NodeIcons] || NodeIcons.lesson, { size: 24 })}
                   </div>
                   
                   <div className="flex-1 min-w-0">
@@ -580,6 +596,14 @@ export default function ModuleMap() {
           onClose={() => setSelectedNode(null)}
           onGo={handleGo}
         />
+      )}
+
+      {/* ── Toast ── */}
+      {toastMessage && (
+        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-4 py-2 rounded-full shadow-xl flex items-center gap-2 z-50 animate-in slide-in-from-bottom-5">
+           <NodeIcons.lock size={16} />
+           <span className="text-sm font-bold">{toastMessage}</span>
+        </div>
       )}
     </div>
   );

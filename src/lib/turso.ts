@@ -835,7 +835,8 @@ export const initTursoDB = async () => {
           status TEXT,
           course_id TEXT,
           primary_teacher_id TEXT,
-          created_at TEXT
+          created_at TEXT,
+          module_progress_json TEXT
         )
       `);
 
@@ -1311,6 +1312,7 @@ export const initTursoDB = async () => {
       await addColumn('batches', 'primary_teacher_id TEXT');
       await addColumn('batches', 'created_at TEXT');
       await addColumn('batches', 'schedule_pattern TEXT');
+      await addColumn('batches', 'module_progress_json TEXT');
       await addColumn('classes', 'batch_id TEXT');
       await addColumn('classes', 'date TEXT');
       await addColumn('classes', 'start_time TEXT');

@@ -17,6 +17,7 @@ import {
   getPendingStudents, approveStudent, rejectStudent,
   bulkImportStudents, saveStudent, updateStudentProfile, patchUser
 } from '../../../lib/api/users';
+import { BatchesTab } from './BatchesTab';
 
 interface StudentStat {
   id: string; name: string; email: string; phone?: string;
@@ -39,7 +40,7 @@ export default function StudentsPage() {
   const navigate = useNavigate();
   const me = getCurrentUser();
 
-  const [activeTab, setActiveTab] = useState<'students' | 'pending'>('students');
+  const [activeTab, setActiveTab] = useState<'students' | 'pending' | 'batches'>('students');
 
   // Students Data
   const [students, setStudents] = useState<StudentStat[]>([]);
@@ -50,7 +51,7 @@ export default function StudentsPage() {
   const [batchFilter, setBatchFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [courses, setCourses] = useState<string[]>([]);
-  const [batches, setBatches] = useState<string[]>([]);
+  const [batches, setBatches] = useState<{id: string, name: string, course_id: string, module_progress_json: string}[]>([]);
   
   // Details Panel
   const [selectedStudent, setSelectedStudent] = useState<StudentStat | null>(null);
@@ -140,9 +141,14 @@ export default function StudentsPage() {
       setStudents(data);
 
       const cRes = await client.execute({ sql: `SELECT title FROM courses ORDER BY title`, args: [] }).catch(() => ({ rows: [] }));
-      const bRes = await client.execute({ sql: `SELECT name FROM batches ORDER BY name`, args: [] }).catch(() => ({ rows: [] }));
+      const bRes = await client.execute({ sql: `SELECT id, name, course_id, module_progress_json FROM batches ORDER BY name`, args: [] }).catch(() => ({ rows: [] }));
       setCourses(cRes.rows.map((r: any) => r.title).filter(Boolean));
-      setBatches(bRes.rows.map((r: any) => r.name).filter(Boolean));
+      setBatches(bRes.rows.map((r: any) => ({
+        id: r.id,
+        name: r.name,
+        course_id: r.course_id,
+        module_progress_json: r.module_progress_json
+      })));
     } catch (e) { console.error(e); }
   };
 
@@ -446,10 +452,57 @@ export default function StudentsPage() {
               Pending Approvals {pendingStudents.length > 0 && <span className="ml-1 px-1.5 py-0.5 rounded-full bg-red-500 text-white text-[10px]">{pendingStudents.length}</span>}
             </button>
           )}
+          {(me?.role === 'CEO' || me?.role === 'Manager') && (
+            <button
+              className={`pb-2 px-1 font-bold capitalize ${activeTab === 'batches' ? 'text-erp-primary border-b-2 border-erp-primary' : 'text-erp-text/50 hover:text-erp-text'}`}
+              onClick={() => { setActiveTab('batches'); }}
+            >
+              Batches
+            </button>
+          )}
         </div>
 
         {activeTab === 'students' && (
           <>
+            {/* Aggregate Cards */}
+            <div className="flex gap-4 overflow-x-auto mb-4 pb-2 snap-x hide-scrollbar">
+              <div 
+                onClick={() => { setCourseFilter(''); setBatchFilter(''); }}
+                className={`snap-start flex-shrink-0 cursor-pointer min-w-[150px] p-4 rounded-2xl border ${!courseFilter && !batchFilter ? 'border-indigo-500 bg-indigo-500/10' : 'border-erp-border bg-erp-surface hover:border-indigo-500/50'}`}
+              >
+                <div className="text-xs font-bold text-erp-text/50 uppercase">All Students</div>
+                <div className="text-2xl font-black mt-1">{students.length}</div>
+              </div>
+              {courses.map(c => {
+                const cStudents = students.filter(s => s.course === c);
+                const cBatches = batches.filter(b => b.course_id === c || b.name.includes(c));
+                return (
+                  <div key={c} className="snap-start flex-shrink-0 flex gap-2">
+                    <div 
+                      onClick={() => { setCourseFilter(c); setBatchFilter(''); }}
+                      className={`cursor-pointer min-w-[180px] p-4 rounded-2xl border ${courseFilter === c && !batchFilter ? 'border-indigo-500 bg-indigo-500/10' : 'border-erp-border bg-erp-surface hover:border-indigo-500/50'}`}
+                    >
+                      <div className="text-xs font-bold text-erp-text/50 uppercase truncate" title={c}>{c}</div>
+                      <div className="text-2xl font-black mt-1">{cStudents.length} <span className="text-sm font-normal text-erp-text/50">students</span></div>
+                    </div>
+                    {courseFilter === c && cBatches.map(b => {
+                      const bStudents = students.filter(s => s.batch_number === b.id);
+                      return (
+                        <div 
+                          key={b.id}
+                          onClick={() => { setCourseFilter(c); setBatchFilter(b.id); }}
+                          className={`cursor-pointer min-w-[150px] p-4 rounded-2xl border ${batchFilter === b.id ? 'border-emerald-500 bg-emerald-500/10' : 'border-erp-border bg-erp-surface hover:border-emerald-500/50'}`}
+                        >
+                          <div className="text-xs font-bold text-erp-text/50 uppercase truncate" title={b.name}>{b.name}</div>
+                          <div className="text-2xl font-black mt-1">{bStudents.length} <span className="text-sm font-normal text-erp-text/50">students</span></div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                );
+              })}
+            </div>
+
             {/* Filters */}
             <div className="bg-erp-surface border border-erp-border rounded-2xl p-4 mb-4 flex flex-wrap gap-3">
               <div className="flex-1 min-w-[200px] relative">
@@ -462,7 +515,7 @@ export default function StudentsPage() {
               </select>
               <select value={batchFilter} onChange={e => setBatchFilter(e.target.value)} className={`w-36 ${inputCls}`}>
                 <option value="">All Batches</option>
-                {batches.map(b => <option key={b} value={b}>{b}</option>)}
+                {batches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
               </select>
               <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className={`w-32 ${inputCls}`}>
                 <option value="">All Status</option>
@@ -521,6 +574,10 @@ export default function StudentsPage() {
               data={pendingStudents} 
             />
           </div>
+        )}
+
+        {activeTab === 'batches' && (
+          <BatchesTab />
         )}
       </div>
 
@@ -652,16 +709,16 @@ export default function StudentsPage() {
                     </div>
                     <div>
                       <label className="text-xs font-bold mb-1 block">Batch</label>
-                      <input 
-                        list="batch-options" 
+                      <select 
                         className={inputCls} 
                         value={stuBatch} 
-                        onChange={e=>setStuBatch(e.target.value)} 
-                        placeholder="Select or type new batch"
-                      />
-                      <datalist id="batch-options">
-                        {batches.map(b => <option key={b} value={b} />)}
-                      </datalist>
+                        onChange={e=>setStuBatch(e.target.value)}
+                      >
+                        <option value="">Select Batch</option>
+                        {batches.filter(b => b.course_id === stuCourse || (stuCourse && b.name.toLowerCase().includes(stuCourse.toLowerCase())) || b.course_id === null).map(b => (
+                          <option key={b.id} value={b.id}>{b.name}</option>
+                        ))}
+                      </select>
                     </div>
                     <div><label className="text-xs font-bold mb-1 block">Joining Date</label><input type="date" className={inputCls} value={joiningDate} onChange={e=>setJoiningDate(e.target.value)} /></div>
                     <div><label className="text-xs font-bold mb-1 block">Training Start Date</label><input type="date" className={inputCls} value={trainingStartDate} onChange={e=>setTrainingStartDate(e.target.value)} /></div>
@@ -712,10 +769,13 @@ export default function StudentsPage() {
               <div><label className="block text-xs font-bold mb-1">Set Password *</label><input type="text" value={approveForm.password} onChange={e => setApproveForm({...approveForm, password: e.target.value})} className={inputCls} /></div>
               <div>
                 <label className="block text-xs font-bold mb-1">Assign Batch</label>
-                <input list="approve-batch-options" type="text" value={approveForm.batch} onChange={e => setApproveForm({...approveForm, batch: e.target.value})} className={inputCls} placeholder="Select or type batch" />
-                <datalist id="approve-batch-options">
-                  {batches.map(b => <option key={b} value={b} />)}
-                </datalist>
+                <select value={approveForm.batch} onChange={e => setApproveForm({...approveForm, batch: e.target.value})} className={inputCls}>
+                   <option value="">Select Batch</option>
+                   {batches.filter(b => {
+                      const stu = pendingStudents.find(s => s.id === approvingStudentId);
+                      return !stu || b.course_id === stu.course || (stu.course && b.name.toLowerCase().includes(stu.course.toLowerCase())) || b.course_id === null;
+                   }).map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                </select>
               </div>
             </div>
             <div className="mt-4 flex justify-end gap-2">

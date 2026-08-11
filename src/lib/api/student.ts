@@ -379,16 +379,28 @@ export async function getModuleMapData(moduleId: string, studentId: string) {
       if (r.type === 'coding') completedCodingIds.add(r.class_id);
     });
 
+    const studentRes = await executeWithRetry("SELECT batch_number FROM students WHERE id = ?", [studentId]);
+    let batchProgress = null;
+    if (studentRes.rows.length > 0 && studentRes.rows[0].batch_number) {
+        const batchRes = await executeWithRetry("SELECT module_progress_json FROM batches WHERE id = ?", [studentRes.rows[0].batch_number]);
+        if (batchRes.rows.length > 0 && batchRes.rows[0].module_progress_json) {
+           try {
+             batchProgress = JSON.parse(batchRes.rows[0].module_progress_json as string);
+           } catch(e) {}
+        }
+    }
+
     return {
       moduleData: modRes.rows.length > 0 ? modRes.rows[0] : null,
       classes: clsRes.rows,
       completedLessonIds: new Set(progRes.rows.map((r: any) => r.lesson_id)),
       completedQaIds,
-      completedCodingIds
+      completedCodingIds,
+      batchProgress
     };
   } catch (e) {
     console.error(e);
-    return { moduleData: null, classes: [], completedLessonIds: new Set(), completedQaIds: new Set(), completedCodingIds: new Set() };
+    return { moduleData: null, classes: [], completedLessonIds: new Set(), completedQaIds: new Set(), completedCodingIds: new Set(), batchProgress: null };
   }
 }
 
