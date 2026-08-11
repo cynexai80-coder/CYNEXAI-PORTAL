@@ -44,6 +44,7 @@ export default function StudentsPage() {
 
   // Students Data
   const [students, setStudents] = useState<StudentStat[]>([]);
+  const [studentStats, setStudentStats] = useState<any[]>([]);
   const [pendingStudents, setPendingStudents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -142,6 +143,9 @@ export default function StudentsPage() {
 
       const cRes = await client.execute({ sql: `SELECT title FROM courses ORDER BY title`, args: [] }).catch(() => ({ rows: [] }));
       const bRes = await client.execute({ sql: `SELECT id, name, course_id, module_progress_json FROM batches ORDER BY name`, args: [] }).catch(() => ({ rows: [] }));
+      const statsRes = await client.execute({ sql: `SELECT course, batch_number, COUNT(*) as cnt FROM students WHERE (approval_status = 'Approved' OR approval_status IS NULL) GROUP BY course, batch_number`, args: [] }).catch(() => ({ rows: [] }));
+      
+      setStudentStats(statsRes.rows || []);
       setCourses(cRes.rows.map((r: any) => r.title).filter(Boolean));
       setBatches(bRes.rows.map((r: any) => ({
         id: r.id,
@@ -471,10 +475,10 @@ export default function StudentsPage() {
                 className={`snap-start flex-shrink-0 cursor-pointer min-w-[150px] p-4 rounded-2xl border ${!courseFilter && !batchFilter ? 'border-indigo-500 bg-indigo-500/10' : 'border-erp-border bg-erp-surface hover:border-indigo-500/50'}`}
               >
                 <div className="text-xs font-bold text-erp-text/50 uppercase">All Students</div>
-                <div className="text-2xl font-black mt-1">{students.length}</div>
+                <div className="text-2xl font-black mt-1">{studentStats.reduce((s, r) => s + Number(r.cnt), 0)}</div>
               </div>
               {courses.map(c => {
-                const cStudents = students.filter(s => s.course === c);
+                const cCount = studentStats.filter(s => s.course === c).reduce((s, r) => s + Number(r.cnt), 0);
                 const cBatches = batches.filter(b => b.course_id === c || b.name.includes(c));
                 return (
                   <div key={c} className="snap-start flex-shrink-0 flex gap-2">
@@ -483,10 +487,10 @@ export default function StudentsPage() {
                       className={`cursor-pointer min-w-[180px] p-4 rounded-2xl border ${courseFilter === c && !batchFilter ? 'border-indigo-500 bg-indigo-500/10' : 'border-erp-border bg-erp-surface hover:border-indigo-500/50'}`}
                     >
                       <div className="text-xs font-bold text-erp-text/50 uppercase truncate" title={c}>{c}</div>
-                      <div className="text-2xl font-black mt-1">{cStudents.length} <span className="text-sm font-normal text-erp-text/50">students</span></div>
+                      <div className="text-2xl font-black mt-1">{cCount} <span className="text-sm font-normal text-erp-text/50">students</span></div>
                     </div>
                     {courseFilter === c && cBatches.map(b => {
-                      const bStudents = students.filter(s => s.batch_number === b.id);
+                      const bCount = studentStats.filter(s => s.course === c && String(s.batch_number) === String(b.id)).reduce((s, r) => s + Number(r.cnt), 0);
                       return (
                         <div 
                           key={b.id}
@@ -494,7 +498,7 @@ export default function StudentsPage() {
                           className={`cursor-pointer min-w-[150px] p-4 rounded-2xl border ${batchFilter === b.id ? 'border-emerald-500 bg-emerald-500/10' : 'border-erp-border bg-erp-surface hover:border-emerald-500/50'}`}
                         >
                           <div className="text-xs font-bold text-erp-text/50 uppercase truncate" title={b.name}>{b.name}</div>
-                          <div className="text-2xl font-black mt-1">{bStudents.length} <span className="text-sm font-normal text-erp-text/50">students</span></div>
+                          <div className="text-2xl font-black mt-1">{bCount} <span className="text-sm font-normal text-erp-text/50">students</span></div>
                         </div>
                       )
                     })}
