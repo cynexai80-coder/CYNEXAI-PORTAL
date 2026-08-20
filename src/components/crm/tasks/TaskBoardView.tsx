@@ -1,7 +1,7 @@
 import React from 'react';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
-import { Task, updateTaskStatus } from '../../../lib/api/tasks';
-import { Clock, CheckCircle, MessageSquare, MoreVertical, AlertCircle } from 'lucide-react';
+import { Task, updateTaskStatus, deleteTask } from '../../../lib/api/tasks';
+import { Clock, CheckCircle, MessageSquare, MoreVertical, AlertCircle, Trash2 } from 'lucide-react';
 
 interface Props {
   tasks: Task[];
@@ -35,6 +35,18 @@ export const TaskBoardView: React.FC<Props> = ({ tasks, users, onTaskClick, onUp
   const getUserName = (id: string) => {
     const user = users.find(u => u.id === id);
     return user ? user.name : id;
+  };
+
+  const handleDeleteTask = async (e: React.MouseEvent, task: Task) => {
+    e.stopPropagation();
+    if (confirm(`Delete "${task.title}"?`)) {
+      const res = await deleteTask(task.id);
+      if (res.success) {
+        onUpdate();
+      } else {
+        alert(res.error || 'Failed to delete task');
+      }
+    }
   };
   const handleDragEnd = async (result: DropResult) => {
     if (!result.destination) return;
@@ -114,14 +126,23 @@ export const TaskBoardView: React.FC<Props> = ({ tasks, users, onTaskClick, onUp
                                 borderLeft: `3px solid ${pStyle.dot}`,
                               }}
                             >
-                              {/* Top row: type badge + priority */}
+                              {/* Top row: type badge + priority + delete */}
                               <div className="flex items-center justify-between mb-2">
                                 <span className="text-[10px] font-bold text-gray-400">
                                   {TYPE_LABELS[task.task_type || 'One-Time'] || task.task_type}
                                 </span>
-                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${pStyle.label}`}>
-                                  {task.priority}
-                                </span>
+                                <div className="flex items-center gap-1.5">
+                                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${pStyle.label}`}>
+                                    {task.priority}
+                                  </span>
+                                  <button
+                                    onClick={(e) => handleDeleteTask(e, task)}
+                                    className="opacity-0 group-hover:opacity-100 p-0.5 text-red-500 hover:text-red-700 dark:text-red-400 transition-all rounded hover:bg-red-500/10"
+                                    title="Delete Task"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
                               </div>
 
                               {/* Title */}

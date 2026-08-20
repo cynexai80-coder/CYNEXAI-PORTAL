@@ -269,10 +269,21 @@ export const deleteTask = async (taskId: string): Promise<{ success: boolean, er
   if (!isAuthorized(task)) return { success: false, error: 'Unauthorized' };
 
   try {
-    await client.execute({
-      sql: `DELETE FROM tasks WHERE id = ?`,
-      args: [taskId]
-    });
+    if (task && task.task_type === 'Daily') {
+      // If deleting a Daily task, delete all historical & recurring copies with this title & assignee
+      // so ensureDailyTasks doesn't immediately resurrect it!
+      await client.execute({
+        sql: `DELETE FROM tasks WHERE id = ? OR (task_type = 'Daily' AND title = ? AND assignee_id = ?)`,
+        args: [taskId, task.title, task.assignee_id]
+      });
+    } else {
+      await client.execute({
+        sql: `DELETE FROM tasks WHERE id = ?`,
+        args: [taskId]
+      });
+    }
+    await client.execute({ sql: `DELETE FROM task_comments WHERE task_id = ?`, args: [taskId] }).catch(() => {});
+    await client.execute({ sql: `DELETE FROM task_subtasks WHERE task_id = ?`, args: [taskId] }).catch(() => {});
     return { success: true };
   } catch (e) {
     return { success: false, error: 'Delete failed' };

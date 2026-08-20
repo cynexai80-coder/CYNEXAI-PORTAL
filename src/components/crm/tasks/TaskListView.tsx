@@ -1,6 +1,6 @@
 import React from 'react';
-import { Task, updateTaskStatus } from '../../../lib/api/tasks';
-import { CheckCircle, Circle, MoreVertical, Clock, AlertTriangle } from 'lucide-react';
+import { Task, updateTaskStatus, deleteTask } from '../../../lib/api/tasks';
+import { CheckCircle, Circle, MoreVertical, Clock, AlertTriangle, Trash2 } from 'lucide-react';
 
 interface Props {
   tasks: Task[];
@@ -15,6 +15,18 @@ export const TaskListView: React.FC<Props> = ({ tasks, users, onTaskClick, onUpd
     const newStatus = task.status === 'Done' ? 'To Do' : 'Done';
     await updateTaskStatus(task.id, newStatus);
     onUpdate();
+  };
+
+  const handleDeleteTask = async (e: React.MouseEvent, task: Task) => {
+    e.stopPropagation();
+    if (confirm(`Delete "${task.title}"?`)) {
+      const res = await deleteTask(task.id);
+      if (res.success) {
+        onUpdate();
+      } else {
+        alert(res.error || 'Failed to delete task');
+      }
+    }
   };
 
   const getUserName = (id: string) => {
@@ -154,8 +166,12 @@ export const TaskListView: React.FC<Props> = ({ tasks, users, onTaskClick, onUpd
                 </span>
               </td>
               <td className="p-3 text-right flex items-center justify-end gap-1">
-                <button className="opacity-0 group-hover:opacity-100 p-1 text-erp-text/40 hover:text-erp-text transition-all rounded hover:bg-erp-surface">
-                  <MoreVertical className="w-4 h-4" />
+                <button
+                  onClick={(e) => handleDeleteTask(e, task)}
+                  className="opacity-0 group-hover:opacity-100 p-1 text-red-500 hover:text-red-700 dark:text-red-400 transition-all rounded hover:bg-red-500/10"
+                  title="Delete Task"
+                >
+                  <Trash2 className="w-4 h-4" />
                 </button>
               </td>
             </tr>
