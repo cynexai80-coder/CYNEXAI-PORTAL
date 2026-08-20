@@ -126,16 +126,20 @@ export const getSales = async (): Promise<Sale[]> => {
   return [];
 };
 
+import { cachedQuery, cacheInvalidate } from '../cache';
+
 export const getCoursesForPitch = async () => {
-  if (isTursoConfigured && client) {
-    try {
-      const result = await client.execute("SELECT id, title, description, price, sales_pitch_summary, sales_pitch_script FROM courses ORDER BY created_at ASC");
-      return result.rows;
-    } catch (e) {
-      console.error(e);
+  return cachedQuery('courses_for_pitch', async () => {
+    if (isTursoConfigured && client) {
+      try {
+        const result = await client.execute("SELECT id, title, description, price, sales_pitch_summary, sales_pitch_script FROM courses ORDER BY created_at ASC");
+        return result.rows;
+      } catch (e) {
+        console.error(e);
+      }
     }
-  }
-  return [];
+    return [];
+  }, 5 * 60 * 1000);
 };
 
 export const updateCoursePitch = async (id: string, summary: string, script: string) => {
@@ -145,6 +149,8 @@ export const updateCoursePitch = async (id: string, summary: string, script: str
         sql: "UPDATE courses SET sales_pitch_summary = ?, sales_pitch_script = ? WHERE id = ?",
         args: [summary, script, id]
       });
+      cacheInvalidate('courses_for_pitch');
+      cacheInvalidate('cms_courses');
       return true;
     } catch (e) {
       console.error("Failed to update course pitch", e);
@@ -154,24 +160,26 @@ export const updateCoursePitch = async (id: string, summary: string, script: str
 };
 
 export const getCourseModules = async (courseId: string) => {
-  if (isTursoConfigured && client) {
-    try {
-      const result = await client.execute({
-        sql: `
-          SELECT m.title 
-          FROM course_module_mapping cmm
-          JOIN modules m ON cmm.module_id = m.id
-          WHERE cmm.course_id = ? 
-          ORDER BY cmm.order_index ASC
-        `,
-        args: [courseId]
-      });
-      return result.rows.map(r => r.title as string);
-    } catch (e) {
-      console.error(e);
+  return cachedQuery(`course_modules_${courseId}`, async () => {
+    if (isTursoConfigured && client) {
+      try {
+        const result = await client.execute({
+          sql: `
+            SELECT m.title 
+            FROM course_module_mapping cmm
+            JOIN modules m ON cmm.module_id = m.id
+            WHERE cmm.course_id = ? 
+            ORDER BY cmm.order_index ASC
+          `,
+          args: [courseId]
+        });
+        return result.rows.map(r => r.title as string);
+      } catch (e) {
+        console.error(e);
+      }
     }
-  }
-  return [];
+    return [];
+  }, 5 * 60 * 1000);
 };
 
 export const createLead = async (id: string, name: string, phone: string, courseInterest: string, userId: string) => {

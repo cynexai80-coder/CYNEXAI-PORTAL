@@ -449,7 +449,15 @@ export const syncSamplePosts = async () => {
   return { success: 0, failed: 0 };
 };
 
+let isTursoDBInitialized = false;
+
 export const initTursoDB = async () => {
+  if (isTursoDBInitialized) return true;
+  if (typeof window !== 'undefined' && sessionStorage.getItem('turso_db_initialized')) {
+    isTursoDBInitialized = true;
+    return true;
+  }
+
   if (isTursoConfigured && client && !dbConnectionFailed) {
     try {
       // Create tables if they don't exist
@@ -1378,6 +1386,10 @@ export const initTursoDB = async () => {
       await syncSamplePosts();
 
       console.log("Turso Cloud Database Connected and Initialized");
+      isTursoDBInitialized = true;
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('turso_db_initialized', 'true');
+      }
       return true;
     } catch (e) {
       console.error("Turso Cloud Initialization Failed (Using Local Fallback):", e);
@@ -1386,14 +1398,27 @@ export const initTursoDB = async () => {
     }
   } else {
     console.log("Using LocalStorage fallback for blog posts and mock tests");
+    isTursoDBInitialized = true;
     return true;
   }
 };
 
+let isCrmDataSeeded = false;
+
 export const seedCRMData = async () => {
+  if (isCrmDataSeeded) return;
+  if (typeof window !== 'undefined' && sessionStorage.getItem('turso_crm_seeded')) {
+    isCrmDataSeeded = true;
+    return;
+  }
+
   if (isTursoConfigured && client && !dbConnectionFailed) {
     try {
       const { rows } = await client.execute('SELECT count(*) as count FROM leads');
+      isCrmDataSeeded = true;
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('turso_crm_seeded', 'true');
+      }
       if (Number(rows[0].count) === 0) {
         console.log('Seeding CRM demo data...');
         // 1. Create a Lead

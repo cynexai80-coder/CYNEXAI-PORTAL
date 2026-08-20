@@ -1,4 +1,5 @@
 import { client } from '../turso';
+import { cachedQuery, cacheInvalidate } from '../cache';
 
 const MAX_RETRIES = 3;
 const RETRY_DELAY = 1000;
@@ -93,6 +94,7 @@ export async function getStudentMode(studentId: string): Promise<string> {
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 
 export async function getStudentDashboardData(studentId: string): Promise<StudentDashboardData> {
+  return cachedQuery(`student_dashboard_${studentId}`, async () => {
   // NEVER throw from this function — always return a safe default
   let stu: any = null;
   try {
@@ -243,6 +245,7 @@ export async function getStudentDashboardData(studentId: string): Promise<Studen
   ]);
 
   return { course: activeCourse, gamification, modules: modulesDataResult, upcomingClass: upcomingClassResult };
+}, 2 * 60 * 1000);
 }
 
 // ─── Class Flow ───────────────────────────────────────────────────────────────
@@ -312,6 +315,7 @@ export async function markClassWatched(studentId: string, classId: string): Prom
       `UPDATE students SET last_streak_date = ?, streak = streak + 1 WHERE id = ? AND (last_streak_date IS NULL OR last_streak_date != date('now'))`,
       [new Date().toISOString().split('T')[0], realStudentId]
     );
+    cacheInvalidate(`student_dashboard_${studentId}`);
   } catch (e) {
     console.error('Failed to mark class watched', e);
   }
@@ -349,6 +353,8 @@ export async function saveQaResponse(input: QaResponseInput): Promise<void> {
       [realStudentId]
     );
   }
+  cacheInvalidate(`student_dashboard_${input.studentId}`);
+  cacheInvalidate('student_leaderboard');
 }
 
 // ─── Module Map ───────────────────────────────────────────────────────────────
@@ -470,31 +476,33 @@ export async function getAttendanceHistory(studentId: string) {
 // ─── Leaderboard ─────────────────────────────────────────────────────────────
 
 export async function getLeaderboardData(): Promise<LeaderboardEntry[]> {
-  try {
-    const res = await executeWithRetry(
-      `SELECT 
-         r.referrer_student_id as student_id,
-         u.name as student_name,
-         COUNT(r.id) as referral_count,
-         COALESCE(st.coins, 0) as coins
-       FROM referrals r
-       JOIN students st ON r.referrer_student_id = st.id
-       JOIN users u ON st.portal_login_email = u.email
-       WHERE r.status = 'Completed'
-       GROUP BY r.referrer_student_id
-       ORDER BY referral_count DESC
-       LIMIT 50`
-    );
-    return res.rows.map((r: any) => ({
-      student_id: r.student_id,
-      student_name: r.student_name,
-      referral_count: Number(r.referral_count),
-      coins: Number(r.coins)
-    }));
-  } catch (e) {
-    console.error(e);
-    return [];
-  }
+  return cachedQuery('student_leaderboard', async () => {
+    try {
+      const res = await executeWithRetry(
+        `SELECT 
+           r.referrer_student_id as student_id,
+           u.name as student_name,
+           COUNT(r.id) as referral_count,
+           COALESCE(st.coins, 0) as coins
+         FROM referrals r
+         JOIN students st ON r.referrer_student_id = st.id
+         JOIN users u ON st.portal_login_email = u.email
+         WHERE r.status = 'Completed'
+         GROUP BY r.referrer_student_id
+         ORDER BY referral_count DESC
+         LIMIT 50`
+      );
+      return res.rows.map((r: any) => ({
+        student_id: r.student_id,
+        student_name: r.student_name,
+        referral_count: Number(r.referral_count),
+        coins: Number(r.coins)
+      }));
+    } catch (e) {
+      console.error(e);
+      return [];
+    }
+  }, 3 * 60 * 1000);
 }
 
 // ─── Referrals ────────────────────────────────────────────────────────────────
@@ -589,38 +597,42 @@ export async function getLastMockInterview(studentId: string): Promise<MockInter
 // ─── Announcements ────────────────────────────────────────────────────────────
 
 export async function getAnnouncements(): Promise<Announcement[]> {
-  try {
-    const res = await executeWithRetry(
-      "SELECT * FROM announcements WHERE is_active = 1 ORDER BY created_at DESC LIMIT 10"
-    );
-    
-    const now = new Date().getTime();
-    return (res.rows as Announcement[]).filter(a => {
-      // Auto-hide reschedule popups after 48 hours so they don't pop forever
-      if (a.title?.startsWith('⏰')) {
-        const created = new Date(a.created_at).getTime();
-        if (now - created > 172800000) return false;
-      }
-      return true;
-    });
-  } catch (e) {
-    console.error(e);
-    return [];
-  }
+  return cachedQuery('student_announcements', async () => {
+    try {
+      const res = await executeWithRetry(
+        "SELECT * FROM announcements WHERE is_active = 1 ORDER BY created_at DESC LIMIT 10"
+      );
+      
+      const now = new Date().getTime();
+      return (res.rows as Announcement[]).filter(a => {
+        // Auto-hide reschedule popups after 48 hours so they don't pop forever
+        if (a.title?.startsWith('⏰')) {
+          const created = new Date(a.created_at).getTime();
+          if (now - created > 172800000) return false;
+        }
+        return true;
+      });
+    } catch (e) {
+      console.error(e);
+      return [];
+    }
+  }, 5 * 60 * 1000);
 }
 
 // ─── Job Listings ─────────────────────────────────────────────────────────────
 
 export async function getJobListings(): Promise<JobListing[]> {
-  try {
-    const res = await executeWithRetry(
-      "SELECT * FROM job_listings WHERE is_active = 1 ORDER BY scraped_at DESC"
-    );
-    return res.rows as JobListing[];
-  } catch (e) {
-    console.error(e);
-    return [];
-  }
+  return cachedQuery('student_job_listings', async () => {
+    try {
+      const res = await executeWithRetry(
+        "SELECT * FROM job_listings WHERE is_active = 1 ORDER BY scraped_at DESC"
+      );
+      return res.rows as JobListing[];
+    } catch (e) {
+      console.error(e);
+      return [];
+    }
+  }, 10 * 60 * 1000);
 }
 
 // ─── Voice Interview ──────────────────────────────────────────────────────────

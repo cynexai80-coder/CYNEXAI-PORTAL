@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { getCurrentUser } from '../../../lib/auth';
 import { client } from '../../../lib/turso';
+import { cachedQuery } from '../../../lib/cache';
 import { decryptPassword } from '../../../lib/crypto';
 import { Button } from '../../../components/ui/erp/Button';
 import { DataTable } from '../../../components/ui/erp/DataTable';
@@ -141,18 +142,26 @@ export default function StudentsPage() {
       }));
       setStudents(data);
 
-      const cRes = await client.execute({ sql: `SELECT title FROM courses ORDER BY title`, args: [] }).catch(() => ({ rows: [] }));
-      const bRes = await client.execute({ sql: `SELECT id, name, course_id, module_progress_json FROM batches ORDER BY name`, args: [] }).catch(() => ({ rows: [] }));
+      const coursesList = await cachedQuery('courses_title_list', async () => {
+        const cRes = await client.execute({ sql: `SELECT title FROM courses ORDER BY title`, args: [] }).catch(() => ({ rows: [] }));
+        return cRes.rows.map((r: any) => r.title).filter(Boolean);
+      }, 5 * 60 * 1000);
+
+      const batchesList = await cachedQuery('batches_full_list', async () => {
+        const bRes = await client.execute({ sql: `SELECT id, name, course_id, module_progress_json FROM batches ORDER BY name`, args: [] }).catch(() => ({ rows: [] }));
+        return bRes.rows.map((r: any) => ({
+          id: r.id,
+          name: r.name,
+          course_id: r.course_id,
+          module_progress_json: r.module_progress_json
+        }));
+      }, 5 * 60 * 1000);
+
       const statsRes = await client.execute({ sql: `SELECT course, batch_number, COUNT(*) as cnt FROM students WHERE (approval_status = 'Approved' OR approval_status IS NULL) GROUP BY course, batch_number`, args: [] }).catch(() => ({ rows: [] }));
       
       setStudentStats(statsRes.rows || []);
-      setCourses(cRes.rows.map((r: any) => r.title).filter(Boolean));
-      setBatches(bRes.rows.map((r: any) => ({
-        id: r.id,
-        name: r.name,
-        course_id: r.course_id,
-        module_progress_json: r.module_progress_json
-      })));
+      setCourses(coursesList);
+      setBatches(batchesList);
     } catch (e) { console.error(e); }
   };
 

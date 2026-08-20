@@ -435,15 +435,20 @@ export const updateLeaveStatus = async (leaveId: string, status: string) => {
   return false;
 };
 
+import { cachedQuery } from '../cache';
+
 export const checkTeacherAssignment = async (userId: string): Promise<boolean> => {
-  if (isTursoConfigured && client) {
-    try {
-      const res = await executeWithRetry("SELECT count(*) as count FROM timetable_slots WHERE teacher_id = ?", [userId]);
-      const count = Number(res.rows[0]?.count || 0);
-      return count > 0;
-    } catch (e) {
-      console.error(e);
+  if (!userId) return false;
+  return cachedQuery(`teacher_assigned_${userId}`, async () => {
+    if (isTursoConfigured && client) {
+      try {
+        const res = await executeWithRetry("SELECT count(*) as count FROM timetable_slots WHERE teacher_id = ?", [userId]);
+        const count = Number(res.rows[0]?.count || 0);
+        return count > 0;
+      } catch (e) {
+        console.error(e);
+      }
     }
-  }
-  return false;
+    return false;
+  }, 5 * 60 * 1000); // 5 minutes cache
 };
