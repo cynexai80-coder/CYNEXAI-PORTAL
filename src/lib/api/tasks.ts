@@ -18,6 +18,7 @@ export interface Task {
   start_date?: string;
   tags?: string;
   recurrence_rule?: string | null;
+  expire_date?: string | null;
   created_at?: string;
   updated_at?: string;
   lead_id?: string | null;
@@ -143,6 +144,9 @@ export const ensureDailyTasks = async (tasks: Task[], userId: string) => {
       // Use the most recent task as the template for today's new copy
       const template = groupTasks[0];
       if (!template) continue;
+
+        // Check if template has expired
+        if (template.expire_date && template.expire_date < today) continue;
 
       const newTask = {
         title: template.title,

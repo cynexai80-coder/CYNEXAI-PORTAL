@@ -66,6 +66,7 @@ export const TaskDetailPanel: React.FC<Props> = ({ task, onClose, onUpdate, curr
       target_number: editedTask.target_number,
       current_number: editedTask.current_number,
       project_id: editedTask.project_id,
+      expire_date: editedTask.expire_date,
     });
     setIsSaving(false);
     onUpdate();
@@ -200,6 +201,22 @@ export const TaskDetailPanel: React.FC<Props> = ({ task, onClose, onUpdate, curr
               className="bg-transparent hover:bg-erp-background px-2 py-1 -mx-2 rounded outline-none border-none text-erp-text font-medium cursor-pointer"
             />
           </div>
+
+          {editedTask.task_type === 'Daily' && (
+            <>
+              <div className="col-span-4 text-erp-text/60 flex items-center gap-2 font-medium">
+                <Calendar className="w-4 h-4" /> Expires On
+              </div>
+              <div className="col-span-8">
+                <input 
+                  type="date"
+                  value={editedTask.expire_date || ''}
+                  onChange={(e) => handleChange('expire_date', e.target.value)}
+                  className="bg-transparent hover:bg-erp-background px-2 py-1 -mx-2 rounded outline-none border-none text-erp-text font-medium cursor-pointer"
+                />
+              </div>
+            </>
+          )}
 
           <div className="col-span-4 text-erp-text/60 flex items-center gap-2 font-medium">
             <Flag className="w-4 h-4" /> Priority

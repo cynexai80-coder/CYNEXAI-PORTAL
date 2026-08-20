@@ -94,6 +94,7 @@ function NewTaskForm({ users, projects, currentProjectId, currentUserId, isManag
   const [description, setDescription] = useState('');
   const [tags, setTags] = useState('');
   const [recurrenceDays, setRecurrenceDays] = useState<number[]>([1,2,3,4,5]); // Default Mon-Fri
+  const [expireDate, setExpireDate] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -113,6 +114,7 @@ function NewTaskForm({ users, projects, currentProjectId, currentUserId, isManag
       current_number: 0,
       tags: tags || null,
       recurrence_rule: taskType === 'Daily' ? recurrenceDays.join(',') : null,
+      expire_date: taskType === 'Daily' ? expireDate || null : null,
     });
     setSubmitting(false);
     onCreated();
@@ -195,18 +197,29 @@ function NewTaskForm({ users, projects, currentProjectId, currentUserId, isManag
 
         {/* Recurrence Days (for Daily type) */}
         {taskType === 'Daily' && (
-          <div className="flex gap-1 items-center bg-white dark:bg-black border border-erp-border rounded-lg px-1.5 py-1">
-            {['S','M','T','W','T','F','S'].map((d, i) => (
-              <button
-                key={i}
-                type="button"
-                onClick={() => setRecurrenceDays(prev => prev.includes(i) ? prev.filter(x => x !== i) : [...prev, i])}
-                className={`w-5 h-5 rounded text-[10px] font-bold flex items-center justify-center transition-colors ${recurrenceDays.includes(i) ? 'bg-erp-primary text-white' : 'hover:bg-erp-surface text-erp-text/50'}`}
-              >
-                {d}
-              </button>
-            ))}
-          </div>
+          <>
+            <div className="flex gap-1 items-center bg-white dark:bg-black border border-erp-border rounded-lg px-1.5 py-1">
+              {['S','M','T','W','T','F','S'].map((d, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => setRecurrenceDays(prev => prev.includes(i) ? prev.filter(x => x !== i) : [...prev, i])}
+                  className={`w-5 h-5 rounded text-[10px] font-bold flex items-center justify-center transition-colors ${recurrenceDays.includes(i) ? 'bg-erp-primary text-white' : 'hover:bg-erp-surface text-erp-text/50'}`}
+                >
+                  {d}
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center gap-1 bg-white dark:bg-black border border-erp-border rounded-lg px-2 py-1">
+              <span className="text-[10px] font-bold text-erp-text/50">Expires:</span>
+              <input
+                type="date"
+                value={expireDate}
+                onChange={e => setExpireDate(e.target.value)}
+                className="bg-transparent text-xs font-semibold text-erp-text outline-none"
+              />
+            </div>
+          </>
         )}
 
         {/* Project */}
