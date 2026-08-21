@@ -39,6 +39,7 @@
     "react-pageflip": "^2.0.3",
     "react-player": "^3.4.0",
     "react-router-dom": "^6.20.1",
+    "razorpay": "^2.9.6",
     "recharts": "^3.9.1",
     "spectacle": "^10.2.3",
     "three": "^0.177.0"

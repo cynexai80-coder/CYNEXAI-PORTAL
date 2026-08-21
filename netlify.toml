@@ -1,0 +1,31 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+  functions = "netlify/functions"
+
+# API Route redirects to Netlify Serverless Functions
+[[redirects]]
+  from = "/api/create-order"
+  to = "/.netlify/functions/create-order"
+  status = 200
+
+[[redirects]]
+  from = "/create-order"
+  to = "/.netlify/functions/create-order"
+  status = 200
+
+[[redirects]]
+  from = "/api/verify-payment"
+  to = "/.netlify/functions/verify-payment"
+  status = 200
+
+[[redirects]]
+  from = "/verify-payment"
+  to = "/.netlify/functions/verify-payment"
+  status = 200
+
+# Single Page App (SPA) redirect for React Router routes
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
