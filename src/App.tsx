@@ -62,6 +62,7 @@ import AttendancePage from './pages/student/AttendancePage';
 import Leaderboard from './pages/student/Leaderboard';
 import StudentLayout from './components/layout/StudentLayout';
 import EnrollPage from './pages/EnrollPage';
+import PreRegistrationPage from './pages/PreRegistrationPage';
 
 // DM Imports
 import DMDashboard from './pages/crm/dm/DMDashboard';
@@ -206,6 +207,8 @@ function App() {
         <Route path="/test/result" element={<TestResults />} />
 
         <Route path="/" element={<MainLayout><HomePage /></MainLayout>} />
+        <Route path="/courses/pre-registration" element={<MainLayout><PreRegistrationPage /></MainLayout>} />
+        <Route path="/pre-registration" element={<MainLayout><PreRegistrationPage /></MainLayout>} />
         <Route path="/course/:courseId" element={<MainLayout><CourseDetail /></MainLayout>} />
         <Route path="/apply/:courseId" element={<MainLayout><ApplicationForm /></MainLayout>} />
         <Route path="/webinar" element={<MainLayout><WebinarPortal /></MainLayout>} />
