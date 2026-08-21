@@ -31,7 +31,7 @@ import {
 // You can paste your direct Razorpay Payment Link here or via .env
 // Example: 'https://rzp.io/l/cynexai-prereg'
 // =========================================================================
-const RAZORPAY_PAYMENT_URL = import.meta.env.VITE_RAZORPAY_PRE_REG_URL || '';
+import { openRazorpayCheckout } from '../lib/razorpay';
 
 export default function PreRegistrationPage() {
   const [activeFaq, setActiveFaq] = useState<number | null>(0);
@@ -41,15 +41,16 @@ export default function PreRegistrationPage() {
   const [copied, setCopied] = useState(false);
   const [cartAdded, setCartAdded] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [paymentSuccessData, setPaymentSuccessData] = useState<any>(null);
 
-  // Form state for direct slot booking fallback
+  // Form state for slot booking customer details
   const [leadForm, setLeadForm] = useState({
     name: '',
     email: '',
     phone: '',
     courseInterest: 'Data Science & AI'
   });
-  const [formSubmitted, setFormSubmitted] = useState(false);
 
   const basePrice = 2000;
   const discountAmount = appliedCoupon === 'LAST10' ? 200 : 0;
@@ -93,23 +94,55 @@ export default function PreRegistrationPage() {
     }
   };
 
+  const triggerRazorpayPayment = async (customerDetails?: { name: string; email: string; phone: string }) => {
+    setIsProcessingPayment(true);
+
+    const name = customerDetails?.name || leadForm.name || 'Candidate';
+    const email = customerDetails?.email || leadForm.email || 'candidate@cynexai.in';
+    const phone = customerDetails?.phone || leadForm.phone || '9999999999';
+
+    await openRazorpayCheckout({
+      amount: finalPrice,
+      name: 'CynexAI',
+      description: `Course Pre-Registration & Token Booking ${appliedCoupon ? `(Coupon: ${appliedCoupon})` : ''}`,
+      customer: {
+        name,
+        email,
+        contact: phone
+      },
+      notes: {
+        course: leadForm.courseInterest || 'Pre-Registration',
+        coupon: appliedCoupon || 'NONE',
+        type: 'Token Slot Booking'
+      },
+      onSuccess: (result) => {
+        setIsProcessingPayment(false);
+        setPaymentSuccessData(result);
+        setIsModalOpen(true); // Open modal with success view
+      },
+      onError: (err) => {
+        setIsProcessingPayment(false);
+        alert(err.description || 'Payment could not be completed. Please try again.');
+      },
+      onDismiss: () => {
+        setIsProcessingPayment(false);
+      }
+    });
+  };
+
   const handleBuyNow = () => {
-    if (RAZORPAY_PAYMENT_URL && RAZORPAY_PAYMENT_URL.trim() !== '') {
-      window.open(RAZORPAY_PAYMENT_URL, '_blank');
-    } else {
-      // If Razorpay link not yet configured, open reservation modal
-      setIsModalOpen(true);
-    }
+    // Open modal to confirm contact info and initiate payment
+    setIsModalOpen(true);
+  };
+
+  const handleLeadSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    triggerRazorpayPayment(leadForm);
   };
 
   const handleAddToCart = () => {
     setCartAdded(true);
     setTimeout(() => setCartAdded(false), 3000);
-  };
-
-  const handleLeadSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setFormSubmitted(true);
   };
 
   const faqs = [
@@ -526,32 +559,60 @@ export default function PreRegistrationPage() {
 
       </div>
 
-      {/* Direct Slot Booking / Lead Modal (Fallback when direct Razorpay URL is being configured) */}
+      {/* Direct Slot Booking / Razorpay Checkout Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="relative max-w-md w-full rounded-2xl border border-slate-800 bg-slate-900 p-6 sm:p-8 shadow-2xl text-left">
             
             <button
-              onClick={() => { setIsModalOpen(false); setFormSubmitted(false); }}
+              onClick={() => { setIsModalOpen(false); setPaymentSuccessData(null); }}
               className="absolute top-4 right-4 text-slate-400 hover:text-white text-lg font-bold"
             >
               ✕
             </button>
 
-            {formSubmitted ? (
-              <div className="text-center py-6 space-y-4">
-                <div className="w-14 h-14 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center mx-auto border border-emerald-500/30">
-                  <CheckCircle2 className="w-8 h-8" />
+            {paymentSuccessData ? (
+              <div className="text-center py-4 space-y-4">
+                <div className="w-16 h-16 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center mx-auto border border-emerald-500/40 animate-pulse">
+                  <CheckCircle2 className="w-9 h-9" />
                 </div>
-                <h3 className="text-xl font-bold text-white">Slot Reserved!</h3>
-                <p className="text-sm text-slate-300">
-                  Thank you, <strong className="text-white">{leadForm.name}</strong>. Our admissions counselor will contact you via WhatsApp/Call at <strong className="text-cyan-400">{leadForm.phone}</strong> with the instant Razorpay payment link for ₹{finalPrice}.
+                <div>
+                  <h3 className="text-2xl font-black text-white">Payment Verified!</h3>
+                  <p className="text-xs text-emerald-400 font-semibold mt-1">
+                    Slot Pre-Registration Successfully Confirmed
+                  </p>
+                </div>
+
+                <div className="p-4 rounded-xl bg-slate-800/80 border border-slate-700/80 text-left space-y-2 text-xs">
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Amount Paid:</span>
+                    <span className="font-bold text-white">₹{finalPrice.toLocaleString('en-IN')}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Payment ID:</span>
+                    <span className="font-mono text-cyan-300 font-bold">{paymentSuccessData.razorpay_payment_id}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Order ID:</span>
+                    <span className="font-mono text-slate-300">{paymentSuccessData.razorpay_order_id}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Status:</span>
+                    <span className="text-emerald-400 font-semibold flex items-center gap-1">
+                      <Check className="w-3 h-3" /> Captured & Signature Verified
+                    </span>
+                  </div>
+                </div>
+
+                <p className="text-xs text-slate-300 leading-relaxed">
+                  Thank you! Your AI Resume Builder and AI Mock Interview features are unlocked. A confirmation receipt has been sent to your email.
                 </p>
+
                 <button
-                  onClick={() => { setIsModalOpen(false); setFormSubmitted(false); }}
-                  className="w-full py-2.5 rounded-xl bg-cyan-500 text-slate-950 font-bold text-sm"
+                  onClick={() => { setIsModalOpen(false); setPaymentSuccessData(null); }}
+                  className="w-full py-3 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-sm uppercase tracking-wider transition-colors"
                 >
-                  Done
+                  Access Student Portal
                 </button>
               </div>
             ) : (
@@ -563,7 +624,7 @@ export default function PreRegistrationPage() {
                   </div>
                   <h3 className="text-xl font-black text-white">Complete Slot Booking</h3>
                   <p className="text-xs text-slate-400 mt-1">
-                    Total token amount: <strong className="text-cyan-300">₹{finalPrice}</strong> {appliedCoupon && `(Coupon ${appliedCoupon} applied)`}
+                    Token Amount to Pay: <strong className="text-cyan-300 font-bold">₹{finalPrice.toLocaleString('en-IN')}</strong> {appliedCoupon && `(Coupon ${appliedCoupon} applied)`}
                   </p>
                 </div>
 
@@ -620,9 +681,17 @@ export default function PreRegistrationPage() {
 
                 <button
                   type="submit"
-                  className="w-full mt-2 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-500 text-slate-950 font-black text-sm uppercase tracking-wider shadow-lg shadow-cyan-500/25 hover:opacity-95"
+                  disabled={isProcessingPayment}
+                  className="w-full mt-2 py-3.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-500 text-slate-950 font-black text-sm uppercase tracking-wider shadow-lg shadow-cyan-500/25 hover:opacity-95 disabled:opacity-70 flex items-center justify-center gap-2 cursor-pointer"
                 >
-                  Confirm & Book Slot (₹{finalPrice})
+                  {isProcessingPayment ? (
+                    'Opening Razorpay...'
+                  ) : (
+                    <>
+                      <ShoppingCart className="w-4 h-4" />
+                      Pay ₹{finalPrice.toLocaleString('en-IN')} with Razorpay
+                    </>
+                  )}
                 </button>
               </form>
             )}

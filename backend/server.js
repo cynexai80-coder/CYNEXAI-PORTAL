@@ -3,6 +3,8 @@ require('dotenv').config({ path: '../.env' }); // load parent .env
 const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
+const crypto = require('crypto');
+const Razorpay = require('razorpay');
 const { Client, LocalAuth } = require('whatsapp-web.js');
 const { createClient } = require('@libsql/client');
 const multer = require('multer');
@@ -11,6 +13,12 @@ const { processVoiceTurn, generateInitialQuestionVoice } = require('./voiceLogic
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+
+// Initialize Razorpay
+const razorpay = new Razorpay({
+  key_id: process.env.RAZORPAY_KEY_ID || 'rzp_test_TSKMGfh7KVHbUh',
+  key_secret: process.env.RAZORPAY_KEY_SECRET || 'MPON4w2yEDSkVPLRCwi7gAvh'
+});
 
 app.use(cors()); 
 app.use(bodyParser.json());
@@ -96,9 +104,113 @@ app.post('/api/whatsapp/send', async (req, res) => {
     }
 });
 
-// Export Razorpay routes if needed later
-app.post('/create-order', (req, res) => {
-    res.status(200).json({ status: 'mock', orderId: 'ord_mock123' });
+// --- Razorpay Payment Endpoints ---
+
+// 1. Get Public Key ID
+app.get(['/api/razorpay/config', '/razorpay/config'], (req, res) => {
+    res.json({
+        keyId: process.env.RAZORPAY_KEY_ID || 'rzp_test_TSKMGfh7KVHbUh'
+    });
+});
+
+// 2. Create Order Endpoint
+app.post(['/api/create-order', '/create-order'], async (req, res) => {
+    try {
+        const { amount, currency = 'INR', receipt, notes } = req.body;
+        
+        // Amount must be in paise (e.g. 2000 INR = 200000 paise)
+        const numericAmount = Math.round(Number(amount));
+        
+        if (!numericAmount || numericAmount < 100) {
+            return res.status(400).json({
+                success: false,
+                error: 'Amount is required and must be at least 100 paise (₹1)'
+            });
+        }
+
+        const options = {
+            amount: numericAmount,
+            currency: currency || 'INR',
+            receipt: receipt || `rcpt_${Date.now()}`,
+            notes: notes || {}
+        };
+
+        const order = await razorpay.orders.create(options);
+        
+        return res.json({
+            success: true,
+            order_id: order.id,
+            amount: order.amount,
+            currency: order.currency,
+            key_id: process.env.RAZORPAY_KEY_ID || 'rzp_test_TSKMGfh7KVHbUh'
+        });
+    } catch (error) {
+        console.error('Razorpay create-order error:', error);
+        return res.status(500).json({
+            success: false,
+            error: error.message || 'Failed to create Razorpay order'
+        });
+    }
+});
+
+// 3. Verify Payment Signature Endpoint
+app.post(['/api/verify-payment', '/verify-payment'], async (req, res) => {
+    try {
+        const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
+
+        if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+            return res.status(400).json({
+                success: false,
+                error: 'Missing required payment verification fields'
+            });
+        }
+
+        const secret = process.env.RAZORPAY_KEY_SECRET || 'MPON4w2yEDSkVPLRCwi7gAvh';
+        const hmac = crypto.createHmac('sha256', secret);
+        hmac.update(razorpay_order_id + '|' + razorpay_payment_id);
+        const generated_signature = hmac.digest('hex');
+
+        if (generated_signature === razorpay_signature) {
+            console.log(`Payment Verified: Order ${razorpay_order_id}, Payment ${razorpay_payment_id}`);
+
+            // Optional: Save transaction record if DB is configured
+            if (db && process.env.VITE_TURSO_DATABASE_URL) {
+                try {
+                    await db.execute({
+                        sql: `INSERT OR IGNORE INTO payment_transactions (id, order_id, payment_id, status, created_at) VALUES (?, ?, ?, ?, ?)`,
+                        args: [
+                            `pay_${Date.now()}`,
+                            razorpay_order_id,
+                            razorpay_payment_id,
+                            'captured',
+                            new Date().toISOString()
+                        ]
+                    }).catch(() => {});
+                } catch (dbErr) {
+                    console.error('Failed to log payment transaction:', dbErr);
+                }
+            }
+
+            return res.json({
+                success: true,
+                message: 'Payment verified successfully',
+                order_id: razorpay_order_id,
+                payment_id: razorpay_payment_id
+            });
+        } else {
+            console.warn(`Payment signature mismatch: order ${razorpay_order_id}`);
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid payment signature'
+            });
+        }
+    } catch (error) {
+        console.error('Razorpay verify-payment error:', error);
+        return res.status(500).json({
+            success: false,
+            error: error.message || 'Payment verification failed'
+        });
+    }
 });
 
 

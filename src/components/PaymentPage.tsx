@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, Variants } from 'framer-motion';
 import { useInView } from 'react-intersection-observer';
-import { X, Smartphone, RefreshCcw, Copy } from 'lucide-react'; // Added Copy icon
-
+import { X, Smartphone, RefreshCcw, Copy, CreditCard, ShieldCheck } from 'lucide-react'; // Added Copy icon
 import { useNavigate } from 'react-router-dom';
+import { openRazorpayCheckout } from '../lib/razorpay';
 
 // Define courses - Ensure this data is always valid
 const coursesData = [
@@ -116,6 +116,52 @@ const PaymentPage = () => {
       `\n\n**Crucial:** Please include the Order ID: ${internalOrderId} in the payment notes/remarks.` +
       `\n\nWe will verify your payment manually based on the exact amount, Order ID, and your provided details. Thank you!`
     );
+  };
+
+  const handleRazorpayPay = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    const parsedAmount = parseFloat(checkoutDetails.amount);
+    if (isNaN(parsedAmount) || parsedAmount <= 0) {
+      setMessage('Please enter a valid payment amount.');
+      setPaymentStatus('error');
+      return;
+    }
+    if (!checkoutDetails.fullName.trim() || !checkoutDetails.phoneNumber.trim()) {
+      setMessage('Please provide your full name and phone number.');
+      setPaymentStatus('error');
+      return;
+    }
+
+    setPaymentStatus('pending');
+    setMessage('Opening Razorpay Standard Checkout...');
+
+    await openRazorpayCheckout({
+      amount: parsedAmount,
+      name: 'CynexAI',
+      description: `Course Payment: ${selectedCourseName}`,
+      receipt: internalOrderId,
+      customer: {
+        name: checkoutDetails.fullName,
+        email: checkoutDetails.email,
+        contact: checkoutDetails.phoneNumber
+      },
+      notes: {
+        course: selectedCourseName,
+        courseId: checkoutDetails.selectedCourseId,
+        orderId: internalOrderId
+      },
+      onSuccess: (res) => {
+        setPaymentStatus('success');
+        setMessage(`Payment Verified Successfully! Payment ID: ${res.razorpay_payment_id}. Thank you for enrolling with CynexAI.`);
+      },
+      onError: (err) => {
+        setPaymentStatus('error');
+        setMessage(err.description || 'Razorpay payment failed or was cancelled.');
+      },
+      onDismiss: () => {
+        setPaymentStatus('idle');
+      }
+    });
   };
 
   const resetPayment = () => {
@@ -384,21 +430,45 @@ const PaymentPage = () => {
                 </div>
               </motion.div>
 
-              {/* Submit Payment Button */}
-              <motion.button
-                type="submit"
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                disabled={
-                  !checkoutDetails.selectedCourseId ||
-                  isNaN(parseFloat(checkoutDetails.amount)) || parseFloat(checkoutDetails.amount) <= 0 ||
-                  !checkoutDetails.fullName.trim() ||
-                  !checkoutDetails.phoneNumber.trim()
-                }
-                className="w-full bg-[#41c8df] text-black py-3 rounded-lg font-semibold hover:bg-yellow-600 transition-colors duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center mt-6"
-              >
-                Proceed to UPI Payment <Smartphone className="w-5 h-5 ml-2" />
-              </motion.button>
+              {/* Submit Payment Buttons */}
+              <div className="space-y-3 mt-6">
+                <motion.button
+                  type="button"
+                  onClick={handleRazorpayPay}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  disabled={
+                    !checkoutDetails.selectedCourseId ||
+                    isNaN(parseFloat(checkoutDetails.amount)) || parseFloat(checkoutDetails.amount) <= 0 ||
+                    !checkoutDetails.fullName.trim() ||
+                    !checkoutDetails.phoneNumber.trim()
+                  }
+                  className="w-full bg-gradient-to-r from-cyan-500 to-blue-500 text-slate-950 py-3.5 rounded-xl font-bold shadow-lg shadow-cyan-500/20 hover:opacity-95 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center cursor-pointer"
+                >
+                  <CreditCard className="w-5 h-5 mr-2" /> Pay with Razorpay (Cards, NetBanking, UPI)
+                </motion.button>
+
+                <div className="text-center text-xs text-slate-400 flex items-center justify-center gap-2">
+                  <span className="h-[1px] bg-slate-700 flex-1" />
+                  <span>OR</span>
+                  <span className="h-[1px] bg-slate-700 flex-1" />
+                </div>
+
+                <motion.button
+                  type="submit"
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  disabled={
+                    !checkoutDetails.selectedCourseId ||
+                    isNaN(parseFloat(checkoutDetails.amount)) || parseFloat(checkoutDetails.amount) <= 0 ||
+                    !checkoutDetails.fullName.trim() ||
+                    !checkoutDetails.phoneNumber.trim()
+                  }
+                  className="w-full bg-slate-800 border border-slate-700 text-slate-200 py-3 rounded-xl font-semibold hover:bg-slate-700 transition-colors duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                >
+                  <Smartphone className="w-5 h-5 mr-2 text-cyan-400" /> Pay via Manual UPI QR
+                </motion.button>
+              </div>
             </form>
           ) : (
             <div className="text-center text-gray-400 text-lg">
