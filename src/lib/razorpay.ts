@@ -96,13 +96,20 @@ export async function openRazorpayCheckout(options: RazorpayCheckoutOptions): Pr
 
       if (res.ok) {
         orderData = await res.json();
+      } else {
+        const errText = await res.text();
+        throw new Error(`Server returned ${res.status}: ${errText}`);
       }
-    } catch (e) {
-      console.warn('Backend order creation call failed, trying fallback or checking server status:', e);
+    } catch (e: any) {
+      console.warn('Backend order creation call failed:', e);
+      const errMsg = `Order creation failed: ${e.message}. \n\nCheck your Netlify Function logs!`;
+      options.onError?.({ description: errMsg });
+      alert(errMsg);
+      return;
     }
 
     if (!orderData || !orderData.order_id) {
-      const errMsg = 'Could not create order. Is the backend server running?';
+      const errMsg = 'Order data is empty. Could not create order.';
       console.error(errMsg);
       options.onError?.({ description: errMsg });
       alert(errMsg);
