@@ -33,7 +33,7 @@ export interface RazorpayCheckoutOptions {
 
 const API_BASE = (import.meta.env.VITE_API_URL && import.meta.env.VITE_API_URL.trim() !== '')
   ? import.meta.env.VITE_API_URL
-  : (typeof window !== 'undefined' && window.location.hostname !== 'localhost' ? '' : 'http://localhost:5000');
+  : ''; // Use relative path for Netlify Functions (Serverless)
 const DEFAULT_KEY_ID = import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_TSKMGfh7KVHbUh';
 
 /**
@@ -102,11 +102,14 @@ export async function openRazorpayCheckout(options: RazorpayCheckoutOptions): Pr
     }
 
     if (!orderData || !orderData.order_id) {
-      // Direct Razorpay test fallback if backend is unreachable during dev preview
-      console.warn('Using client fallback for test credentials if server not responding');
+      const errMsg = 'Could not create order. Is the backend server running?';
+      console.error(errMsg);
+      options.onError?.({ description: errMsg });
+      alert(errMsg);
+      return;
     }
 
-    const razorpayKey = orderData?.key_id || DEFAULT_KEY_ID;
+    const razorpayKey = orderData.key_id || DEFAULT_KEY_ID;
 
     // 3. Configure Razorpay modal options
     const rzpOptions: any = {
@@ -116,7 +119,7 @@ export async function openRazorpayCheckout(options: RazorpayCheckoutOptions): Pr
       name: options.name || 'CynexAI',
       description: options.description || 'Course Pre-Registration & Token Booking',
       image: options.image || 'https://cynexai.in/logo.png',
-      order_id: orderData?.order_id,
+      order_id: orderData.order_id,
       prefill: {
         name: options.customer?.name || '',
         email: options.customer?.email || '',
