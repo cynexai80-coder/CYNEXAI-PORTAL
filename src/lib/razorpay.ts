@@ -31,9 +31,15 @@ export interface RazorpayCheckoutOptions {
   onDismiss?: () => void;
 }
 
-const API_BASE = (import.meta.env.VITE_API_URL && import.meta.env.VITE_API_URL.trim() !== '')
-  ? import.meta.env.VITE_API_URL
-  : ''; // Use relative path for Netlify Functions (Serverless)
+// In production (Netlify), call the function directly to avoid SPA redirect conflicts.
+// In local dev (localhost), call the local backend server.
+const isLocalDev = typeof window !== 'undefined' && window.location.hostname === 'localhost';
+const CREATE_ORDER_URL = isLocalDev
+  ? 'http://localhost:5000/api/create-order'
+  : '/.netlify/functions/create-order';
+const VERIFY_PAYMENT_URL = isLocalDev
+  ? 'http://localhost:5000/api/verify-payment'
+  : '/.netlify/functions/verify-payment';
 const DEFAULT_KEY_ID = import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_TSKMGfh7KVHbUh';
 
 /**
@@ -83,7 +89,7 @@ export async function openRazorpayCheckout(options: RazorpayCheckoutOptions): Pr
     let orderData: { success: boolean; order_id: string; key_id?: string; amount: number; currency: string } | null = null;
 
     try {
-      const res = await fetch(`${API_BASE}/api/create-order`, {
+      const res = await fetch(CREATE_ORDER_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -149,7 +155,7 @@ export async function openRazorpayCheckout(options: RazorpayCheckoutOptions): Pr
           let serverVerificationResult: any = null;
 
           try {
-            const verifyRes = await fetch(`${API_BASE}/api/verify-payment`, {
+            const verifyRes = await fetch(VERIFY_PAYMENT_URL, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
