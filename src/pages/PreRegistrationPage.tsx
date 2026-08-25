@@ -38,21 +38,21 @@ interface Coupon {
 
 const AVAILABLE_COUPONS: Coupon[] = [
   {
-    code: 'LAST10',
-    discount: 200,
-    description: 'Get ₹200 Flat Discount on token booking amount',
+    code: 'SAVE25',
+    discount: 500,
+    description: 'Get 25% OFF — Save ₹500 on your token booking',
     badge: 'POPULAR'
   },
   {
     code: 'CYNEX50',
     discount: 1000,
-    description: 'Special 50% Early Bird Token Waiver',
+    description: 'Get 50% OFF — Save ₹1000 Early Bird Offer',
     badge: 'SUPER SAVER'
   },
   {
-    code: 'EARLYBIRD',
-    discount: 300,
-    description: 'Save ₹300 for first 50 early applicant registrations',
+    code: 'LAUNCH70',
+    discount: 1400,
+    description: 'Get 70% OFF — Save ₹1400 Limited Launch Offer',
     badge: 'LIMITED'
   }
 ];
@@ -95,7 +95,7 @@ export default function PreRegistrationPage() {
     } else if (cleanCode === '') {
       setCouponError('Please enter a coupon code');
     } else {
-      setCouponError(`Invalid coupon code '${cleanCode}'. Try LAST10 or CYNEX50`);
+      setCouponError(`Invalid coupon code '${cleanCode}'. Try SAVE25, CYNEX50 or LAUNCH70`);
     }
   };
 
