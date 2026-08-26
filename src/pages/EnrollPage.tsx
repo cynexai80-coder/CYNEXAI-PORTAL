@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { GraduationCap, User, Phone, Mail, Calendar, School, BookOpen, CheckCircle2, AlertCircle, Monitor, MapPin, CreditCard } from 'lucide-react';
+import { GraduationCap, User, Phone, Mail, Calendar, School, BookOpen, CheckCircle2, AlertCircle, Video, Radio, CreditCard } from 'lucide-react';
 import { openRazorpayCheckout } from '../lib/razorpay';
 
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxxYUOSw5Ca8CRwVj1Nu8KfnzOzwI01fjoz058y4mQWWzuO29It1CAll_oUJ7_sWdu0/exec';
@@ -279,10 +279,10 @@ export default function EnrollPage() {
             <div className="space-y-1.5">
               <label className="text-sm font-semibold text-slate-700 dark:text-white ml-1">Learning Mode *</label>
               <div className="relative">
-                {formData.mode === 'Offline' ? (
-                  <MapPin className="w-5 h-5 absolute left-3.5 top-3 text-slate-400" />
+                {formData.mode === 'Live Classes' ? (
+                  <Radio className="w-5 h-5 absolute left-3.5 top-3 text-slate-400" />
                 ) : (
-                  <Monitor className="w-5 h-5 absolute left-3.5 top-3 text-slate-400" />
+                  <Video className="w-5 h-5 absolute left-3.5 top-3 text-slate-400" />
                 )}
                 <select
                   name="mode"
@@ -292,8 +292,8 @@ export default function EnrollPage() {
                   className="w-full pl-11 pr-4 py-3 bg-slate-50 dark:bg-zinc-900/50 border border-slate-200 dark:border-white/10 rounded-xl focus:bg-white dark:focus:bg-black focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-900 transition-all text-slate-900 dark:text-white appearance-none"
                 >
                   <option value="" disabled>Select mode</option>
-                  <option value="Online">🖥️ Online</option>
-                  <option value="Offline">📍 Offline</option>
+                  <option value="Recorded Classes">🎬 Recorded Classes</option>
+                  <option value="Live Classes">📡 Live Classes</option>
                 </select>
                 <div className="absolute inset-y-0 right-4 flex items-center pointer-events-none text-slate-400">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
@@ -304,11 +304,11 @@ export default function EnrollPage() {
 
           {/* Mode Info Badge */}
           {formData.mode && (
-            <div className={`flex items-center gap-3 p-3 rounded-xl text-sm ${formData.mode === 'Online' ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300' : 'bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300'}`}>
-              {formData.mode === 'Online' ? (
-                <><Monitor className="w-4 h-4 flex-shrink-0" /><span>Online mode: Live classes via Zoom/Meet with recordings & AI tools access.</span></>
+            <div className={`flex items-center gap-3 p-3 rounded-xl text-sm ${formData.mode === 'Live Classes' ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300' : 'bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300'}`}>
+              {formData.mode === 'Live Classes' ? (
+                <><Radio className="w-4 h-4 flex-shrink-0" /><span>Live Classes: Attend real-time instructor-led sessions with Q&A and live doubt solving.</span></>
               ) : (
-                <><MapPin className="w-4 h-4 flex-shrink-0" /><span>Offline mode: In-person sessions at our Hyderabad center with hands-on labs.</span></>
+                <><Video className="w-4 h-4 flex-shrink-0" /><span>Recorded Classes: Learn at your own pace with lifetime access to high-quality recorded sessions.</span></>
               )}
             </div>
           )}
