@@ -4,6 +4,7 @@ import { Users, DollarSign, CheckSquare, User, LayoutDashboard, Sun, Moon, Menu,
 import { getCurrentUser } from '../../lib/auth';
 import { useTheme } from '../../lib/ThemeContext';
 import { Sidebar } from './Sidebar';
+import { CynexLogo } from '../ui/CynexLogo';
 
 export const MobileNavigation: React.FC = () => {
   const user = getCurrentUser();
@@ -118,10 +119,10 @@ export const MobileNavigation: React.FC = () => {
         >
           {/* Drawer Header */}
           <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 dark:border-white/10 flex-shrink-0">
-            <span className="font-display font-bold text-lg text-slate-800 dark:text-white">Navigation</span>
+            <CynexLogo size="md" badge="Menu" />
             <button 
               onClick={() => setMenuOpen(false)}
-              className="p-2 rounded-full bg-slate-100 dark:bg-zinc-900 text-slate-600 dark:text-white"
+              className="p-2 rounded-full bg-slate-100 dark:bg-zinc-900 text-slate-600 dark:text-white cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>

@@ -11,40 +11,39 @@ export const CynexLogo: React.FC<CynexLogoProps> = ({
   size = 'md', 
   badge, 
   className = '',
-  showText = false
 }) => {
-  let textClass = 'text-xl';
-  if (size === 'sm') textClass = 'text-lg';
-  if (size === 'lg') textClass = 'text-2xl';
-  if (size === 'xl') textClass = 'text-3xl sm:text-4xl';
+  let logoHeight = 'h-7 sm:h-8';
+  let maxW = 'max-w-[140px] sm:max-w-[160px]';
+
+  if (size === 'sm') {
+    logoHeight = 'h-5 sm:h-6';
+    maxW = 'max-w-[120px]';
+  } else if (size === 'lg') {
+    logoHeight = 'h-8 sm:h-9';
+    maxW = 'max-w-[180px]';
+  } else if (size === 'xl') {
+    logoHeight = 'h-10 sm:h-12';
+    maxW = 'max-w-[220px]';
+  }
 
   return (
     <div className={`flex items-center gap-2 ${className}`}>
-      {showText && (
-        <span className={`${textClass} font-black tracking-tight flex items-center select-none`}>
-          {/* Cynex: Black in Light Mode, White in Dark Mode */}
-          <span className="text-slate-900 dark:text-white font-extrabold">Cynex</span>
-          
-          {/* 'A': 1st half White, 2nd half Black */}
-          <span 
-            className="inline-block font-black relative px-[0.5px]"
-            style={{
-              background: 'linear-gradient(90deg, #ffffff 50%, #000000 50%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              filter: 'drop-shadow(0px 1px 2px rgba(0, 0, 0, 0.8)) drop-shadow(0px 0px 1px rgba(255, 255, 255, 0.6))',
-            }}
-          >
-            A
-          </span>
-          
-          {/* I: Indigo accent */}
-          <span className="text-indigo-600 dark:text-indigo-400 font-extrabold">I</span>
-        </span>
-      )}
+      {/* Light Mode Image Logo (Black text/icon for light backgrounds) */}
+      <img
+        src="/cynex_logo_light.png"
+        alt="CynexAI"
+        className={`dark:hidden block ${logoHeight} ${maxW} object-contain select-none flex-shrink-0`}
+      />
+
+      {/* Dark Mode Image Logo (White text/icon for dark backgrounds) */}
+      <img
+        src="/cynex_logo_dark.png"
+        alt="CynexAI"
+        className={`dark:block hidden ${logoHeight} ${maxW} object-contain select-none flex-shrink-0`}
+      />
 
       {badge && (
-        <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200/60 dark:border-indigo-800/60">
+        <span className="text-[10px] sm:text-[11px] font-extrabold px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/80 text-indigo-600 dark:text-indigo-400 border border-indigo-200/80 dark:border-indigo-800/80 whitespace-nowrap flex-shrink-0 shadow-2xs">
           {badge}
         </span>
       )}

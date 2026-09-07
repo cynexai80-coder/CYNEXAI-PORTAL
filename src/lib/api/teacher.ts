@@ -140,11 +140,10 @@ export async function getActiveLiveClass(instructorId: string): Promise<any> {
 export async function getAllAvailableClasses(): Promise<any[]> {
   try {
     const res = await executeWithRetry(
-      `SELECT DISTINCT c.id, c.title, c.description, c.module_id, m.title as module_title, c.status
+      `SELECT DISTINCT c.id, c.title, c.description, c.module_id, c.order_index, m.title as module_title, c.status
        FROM classes c
        JOIN modules m ON c.module_id = m.id
-       WHERE c.status IS NULL OR c.status != 'completed'
-       ORDER BY c.order_index ASC LIMIT 50`
+       ORDER BY m.title ASC, c.order_index ASC`
     );
     return res.rows;
   } catch (e) {
@@ -283,6 +282,20 @@ export async function getLiveAttendance(classId: string, batchName?: string): Pr
     return res.rows;
   } catch (e) {
     console.error("Failed to get live attendance", e);
+    return [];
+  }
+}
+
+export async function getAllAttendanceLogsMatrix(): Promise<any[]> {
+  await ensureAttendanceSchema();
+  try {
+    const res = await executeWithRetry(
+      `SELECT DISTINCT id, batch_id, class_id, student_id, join_time, duration_minutes, attendance_type, status 
+       FROM attendance_logs`
+    );
+    return res.rows || [];
+  } catch (e) {
+    console.error("Failed to fetch all attendance logs matrix", e);
     return [];
   }
 }

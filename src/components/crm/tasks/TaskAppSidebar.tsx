@@ -3,6 +3,7 @@ import { NavLink } from 'react-router-dom';
 import { Plus, CheckCircle2, Hash, Settings, FolderOpen, Inbox, LayoutDashboard, ChevronDown, ChevronRight, MoreHorizontal, X } from 'lucide-react';
 import { Project } from '../../../lib/api/projects';
 import { getCurrentUser } from '../../../lib/auth';
+import { CynexLogo } from '../../ui/CynexLogo';
 
 interface TaskAppSidebarProps {
   currentView: string;
@@ -23,11 +24,8 @@ export function TaskAppSidebar({ currentView, onViewChange, projects, onNewProje
 
   return (
     <div className="w-64 h-full bg-erp-background border-r-2 border-erp-border flex flex-col flex-shrink-0 animate-in slide-in-from-left duration-200 no-watermark">
-      <div className="p-4">
-        <h2 className="text-xl font-display font-bold text-erp-text flex items-center gap-2">
-          <CheckCircle2 className="w-5 h-5 text-erp-primary" />
-          Task Center
-        </h2>
+      <div className="p-4 border-b border-erp-border">
+        <CynexLogo size="md" badge="Task Center" />
       </div>
 
       <div className="flex-1 overflow-y-auto p-3 space-y-6">
