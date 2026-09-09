@@ -298,7 +298,10 @@ export default function UserManagement() {
   const fetchUsersData = async () => {
     try {
       setLoading(true);
-      const queryFilters = { ...filters, role: { _neq: 'Student' } };
+      const queryFilters = { 
+        ...filters, 
+        role: filters.role ? filters.role : { _neq: 'Student' } 
+      };
       const data = await getUsers(queryFilters, sortBy, sortDir);
       setUsers(data);
     } catch (e) {
@@ -369,16 +372,26 @@ export default function UserManagement() {
   const handleSaveUser = async () => {
     if (!name.trim() || !email.trim()) { alert('Name and email are required.'); return; }
     try {
-      const newUserId = editUser?.id || `usr_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+      const targetId = editUser?.id || `usr_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
       const permissionsStr = JSON.stringify(permissions);
-      await saveUser({ id: newUserId, name, email, phone, password, role, status, salary: Number(salary) || 0, permissions_json: permissionsStr });
+      await saveUser({ 
+        id: targetId, 
+        name: name.trim(), 
+        email: email.trim(), 
+        phone: phone.trim(), 
+        password, 
+        role, 
+        status, 
+        salary: Number(salary) || 0, 
+        permissions_json: permissionsStr 
+      });
       
-      if (currentUser && (currentUser.id === newUserId || currentUser.email.toLowerCase() === email.toLowerCase())) {
+      if (currentUser && (currentUser.id === targetId || currentUser.email.toLowerCase() === email.toLowerCase())) {
         updateCurrentUserSession({ permissions_json: permissionsStr });
       }
 
       if (role === 'Teacher') {
-        await assignModulesToInstructor(newUserId, assignedModules);
+        await assignModulesToInstructor(targetId, assignedModules);
         const updatedMods = await getErpModules();
         setAllModules(updatedMods);
       }
@@ -387,7 +400,7 @@ export default function UserManagement() {
       setIsStaffModalOpen(false);
     } catch (e) {
       console.error('Failed to save user', e);
-      alert('Failed to save user. Check if email is already in use.');
+      alert('Failed to save staff member. Check if email is already in use.');
     }
   };
 
@@ -535,8 +548,9 @@ export default function UserManagement() {
 
   const handleCellEdit = async (row: ERPUser, colKey: string, value: string) => {
     try {
-      setUsers(prev => prev.map(u => u.id === row.id ? { ...u, [colKey]: value } : u));
-      await patchUser(row.id, { [colKey]: value });
+      const val = colKey === 'salary' ? (Number(value) || 0) : value;
+      setUsers(prev => prev.map(u => u.id === row.id ? { ...u, [colKey]: val } : u));
+      await patchUser(row.id, { [colKey]: val });
     } catch (e) {
       console.error('Failed to patch user', e);
       fetchUsersData();
@@ -558,12 +572,46 @@ export default function UserManagement() {
     }
   };
 
+  const getRoleBadgeClass = (role: string) => {
+    switch (role) {
+      case 'CEO':
+        return 'bg-purple-500/15 text-purple-600 dark:text-purple-400 border-purple-500/30';
+      case 'Admin':
+        return 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border-indigo-500/30';
+      case 'Manager':
+        return 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30';
+      case 'Teacher':
+        return 'bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/30';
+      case 'Sales/HR':
+        return 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30';
+      case 'DM':
+        return 'bg-cyan-500/15 text-cyan-600 dark:text-cyan-400 border-cyan-500/30';
+      default:
+        return 'bg-slate-500/15 text-slate-600 dark:text-slate-400 border-slate-500/30';
+    }
+  };
+
   const staffColumns = [
     { key: 'name', header: 'Name', editable: true },
     { key: 'email', header: 'Email', editable: true },
-    { key: 'role', header: 'Role' },
-    { key: 'status', header: 'Status' },
-    { key: 'salary', header: 'Salary', editable: true },
+    { key: 'role', header: 'Role', render: (row: any) => (
+      <span className={`font-bold text-xs px-2.5 py-1 rounded-full border ${getRoleBadgeClass(row.role)}`}>
+        {row.role}
+      </span>
+    )},
+    { key: 'status', header: 'Status', render: (row: any) => {
+      const isAct = (row.status || 'Active') === 'Active';
+      return (
+        <span className={`font-bold text-xs px-2.5 py-0.5 rounded-full border ${isAct ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/30' : 'bg-red-500/10 text-red-600 border-red-500/30'}`}>
+          {row.status || 'Active'}
+        </span>
+      );
+    }},
+    { key: 'salary', header: 'Salary (₹)', editable: true, render: (row: any) => (
+      <span className="font-mono font-semibold text-xs text-erp-text">
+        ₹{Number(row.salary || 0).toLocaleString('en-IN')}
+      </span>
+    )},
     { key: 'actions', header: 'Actions', filterable: false, render: (row: any) => (
       <div className="flex items-center gap-1.5 relative">
         <PermissionsDropdown userRow={row} onPermissionsChange={handlePermissionsChange} />
@@ -586,7 +634,7 @@ export default function UserManagement() {
     return matchesSearch && matchesStatus && matchesCourse;
   });
 
-  const teacherOptions = users.filter(u => u.role === 'Teacher' || u.role === 'CEO' || u.role === 'Manager');
+  const teacherOptions = users.filter(u => u.role === 'Teacher' || u.role === 'CEO' || u.role === 'Manager' || u.role === 'Admin');
 
   // Filtered Students for Assignment Modal
   const availableStudentsForModal = allStudentsList.filter(s => {
@@ -667,6 +715,40 @@ export default function UserManagement() {
                 <input type="text" value={filters.search || ''} placeholder="Search by Name, Email, or ID..."
                   className={`${inputCls} pl-10`} onChange={e => handleFilter('search', e.target.value)} />
               </div>
+              <div className="w-40">
+                <select
+                  value={filters.role || ''}
+                  onChange={e => handleFilter('role', e.target.value)}
+                  className={inputCls}
+                >
+                  <option value="">All Roles</option>
+                  <option value="Manager">Manager</option>
+                  <option value="Teacher">Teacher</option>
+                  <option value="Sales/HR">Sales/HR</option>
+                  <option value="CEO">CEO</option>
+                  <option value="DM">DM</option>
+                  <option value="Admin">Admin</option>
+                </select>
+              </div>
+              <div className="w-36">
+                <select
+                  value={filters.status || ''}
+                  onChange={e => handleFilter('status', e.target.value)}
+                  className={inputCls}
+                >
+                  <option value="">All Status</option>
+                  <option value="Active">Active</option>
+                  <option value="Suspended">Suspended</option>
+                </select>
+              </div>
+              {(filters.search || filters.role || filters.status) && (
+                <button
+                  onClick={() => setFilters({})}
+                  className="text-xs font-bold text-erp-primary hover:underline px-2 py-2"
+                >
+                  Clear Filters
+                </button>
+              )}
             </div>
 
             {/* Table */}
@@ -1061,7 +1143,7 @@ export default function UserManagement() {
                 <div>
                   <label className="block text-xs font-bold text-erp-text/60 mb-1.5">Role</label>
                   <select value={role} onChange={e => setRole(e.target.value)} className={inputCls}>
-                    {['Sales/HR', 'Manager', 'Teacher', 'CEO', 'DM'].map(r => <option key={r} value={r}>{r}</option>)}
+                    {['Sales/HR', 'Manager', 'Teacher', 'CEO', 'DM', 'Admin'].map(r => <option key={r} value={r}>{r}</option>)}
                   </select>
                 </div>
                 {currentUser?.role === 'CEO' && (

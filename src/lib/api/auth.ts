@@ -44,7 +44,10 @@ export const getUserByEmail = async (email: string) => {
       }
     } catch (error: any) {
       console.warn("getUserByEmail: Turso Cloud query failed. Switching to local fallback mode.", error?.message || error);
-      setDbConnectionFailed(true);
+      const msg = String(error?.message || error || '');
+      if (msg.includes('BLOCKED') || msg.includes('forbidden') || msg.includes('403') || msg.includes('401')) {
+        setDbConnectionFailed(true);
+      }
     }
   }
   

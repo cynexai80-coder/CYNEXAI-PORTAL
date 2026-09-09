@@ -75,6 +75,9 @@ export async function getUsers(filters?: Record<string, any>, sortBy?: string, s
           } else if (key === 'endDate') {
             conditions.push(`s.joining_date <= ?`);
             args.push(val);
+          } else if (key === 'status') {
+            conditions.push(`u.status = ?`);
+            args.push(val);
           } else if (key === 'role') {
             if (typeof val === 'object' && val !== null && val._neq !== undefined) {
               conditions.push(`u.role != ?`);
@@ -180,19 +183,44 @@ export async function saveUser(user: any): Promise<void> {
     const encPw = user.password ? encryptPassword(user.password) : encryptPassword('cynex123');
     const salary = user.salary || 0;
     const status = user.status || 'Active';
+    const permissions = user.permissions_json || '{}';
 
+    let existingUser: any = null;
     if (user.id) {
+      const res = await executeWithRetry("SELECT id FROM users WHERE id = ?", [user.id]);
+      if (res.rows.length > 0) existingUser = res.rows[0];
+    }
+    if (!existingUser && user.email) {
+      const res = await executeWithRetry("SELECT id FROM users WHERE LOWER(TRIM(email)) = LOWER(TRIM(?))", [user.email]);
+      if (res.rows.length > 0) existingUser = res.rows[0];
+    }
+
+    if (existingUser) {
       await executeWithRetry(
         "UPDATE users SET name=?, email=?, phone=?, role=?, salary=?, status=?, password_hash=?, password_encrypted=?, permissions_json=? WHERE id=?",
-        [user.name, user.email, user.phone || '', user.role, salary, status, encPw, encPw, user.permissions_json, user.id]
+        [user.name, user.email, user.phone || '', user.role, salary, status, encPw, encPw, permissions, existingUser.id]
       );
     } else {
-      const newId = `usr_${Date.now()}`;
+      const newId = user.id || `usr_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
       await executeWithRetry(
         "INSERT INTO users (id, name, email, phone, role, salary, status, password_hash, password_encrypted, permissions_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        [newId, user.name, user.email, user.phone || '', user.role, salary, status, encPw, encPw, user.permissions_json]
+        [newId, user.name, user.email, user.phone || '', user.role, salary, status, encPw, encPw, permissions]
       );
     }
+
+    // Keep erp_users table synchronized
+    try {
+      const erpRes = await executeWithRetry("SELECT id FROM erp_users WHERE LOWER(TRIM(email)) = LOWER(TRIM(?))", [user.email]);
+      if (erpRes.rows.length > 0) {
+        await executeWithRetry("UPDATE erp_users SET name = ?, role = ? WHERE LOWER(TRIM(email)) = LOWER(TRIM(?))", [user.name, user.role, user.email]);
+      } else {
+        const erpId = user.id || `usr_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+        await executeWithRetry("INSERT INTO erp_users (id, name, email, password_hash, role) VALUES (?, ?, ?, ?, ?)", [erpId, user.name, user.email, encPw, user.role]);
+      }
+    } catch (erpErr) {
+      console.warn("erp_users sync notice:", erpErr);
+    }
+
     invalidateQueryCache('users');
     invalidateQueryCache('filter_options');
   } catch (error) {
@@ -274,7 +302,10 @@ export async function deleteUser(id: string, email: string): Promise<void> {
     await executeWithRetry("DELETE FROM users WHERE id = ?", [id]);
     if (email) {
       await executeWithRetry("DELETE FROM students WHERE portal_login_email = ?", [email]);
+      await executeWithRetry("DELETE FROM erp_users WHERE email = ?", [email]);
     }
+    invalidateQueryCache('users');
+    invalidateQueryCache('filter_options');
   } catch (error) {
     console.error('Failed to delete user', error);
     throw error;

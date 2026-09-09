@@ -1431,7 +1431,6 @@ export const initTursoDB = async (): Promise<boolean> => {
 
       isDbInitialized = true;
       console.log("Turso Cloud Database Connected and Initialized");
-      isTursoDBInitialized = true;
       if (typeof window !== 'undefined') {
         sessionStorage.setItem('turso_db_initialized', 'true');
       }

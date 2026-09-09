@@ -225,13 +225,22 @@ export async function getAllBatches(): Promise<BatchItem[]> {
       const countMap = new Map<string, number>();
       studentCountRes.rows.forEach((r: any) => {
         if (r.batch_number) {
-          countMap.set(String(r.batch_number).trim().toLowerCase(), Number(r.cnt));
+          const raw = String(r.batch_number).trim().toLowerCase();
+          const clean = raw.replace(/^batch\s*/i, '');
+          const count = Number(r.cnt);
+          countMap.set(raw, count);
+          countMap.set(clean, count);
+          countMap.set(`batch ${clean}`, count);
         }
       });
 
       return res.rows.map((row: any) => {
         const batchName = String(row.name || '').trim();
-        const liveEnrolled = countMap.get(batchName.toLowerCase()) ?? (Number(row.current_enrolled) || 0);
+        const cleanBatch = batchName.toLowerCase().replace(/^batch\s*/i, '');
+        const liveEnrolled = countMap.get(batchName.toLowerCase()) 
+          ?? countMap.get(cleanBatch) 
+          ?? countMap.get(`batch ${cleanBatch}`) 
+          ?? (Number(row.current_enrolled) || 0);
 
         return {
           id: String(row.id),
@@ -373,6 +382,9 @@ export async function getStudentsInBatch(batchName: string): Promise<StudentAssi
   if (!isTursoConfigured || !client || !batchName) return [];
 
   try {
+    const raw = batchName.trim();
+    const cleanNum = raw.replace(/^batch\s*/i, '').trim();
+
     const res = await executeWithRetry(`
       SELECT 
         s.id,
@@ -385,8 +397,10 @@ export async function getStudentsInBatch(batchName: string): Promise<StudentAssi
       FROM students s
       LEFT JOIN users u ON LOWER(TRIM(s.portal_login_email)) = LOWER(TRIM(u.email))
       WHERE LOWER(TRIM(s.batch_number)) = LOWER(TRIM(?))
+         OR LOWER(TRIM(s.batch_number)) = LOWER(TRIM(?))
+         OR LOWER(TRIM(s.batch_number)) = LOWER(TRIM(?))
       ORDER BY name ASC
-    `, [batchName.trim()]);
+    `, [raw, cleanNum, `Batch ${cleanNum}`]);
 
     return res.rows.map((r: any) => ({
       id: String(r.id),
@@ -463,6 +477,8 @@ export async function assignStudentsToBatch(batchName: string, batchId: string, 
 
   try {
     const cleanBatchName = batchName.trim();
+    const cleanNum = cleanBatchName.replace(/^batch\s*/i, '').trim();
+
     for (const identifier of studentIdentifiers) {
       const cleanId = identifier.trim();
 
@@ -475,7 +491,7 @@ export async function assignStudentsToBatch(batchName: string, batchId: string, 
         await executeWithRetry(`
           UPDATE students SET batch_number = ? 
           WHERE id = ? OR LOWER(TRIM(portal_login_email)) = LOWER(?)
-        `, [cleanBatchName, cleanId, cleanId]);
+        `, [cleanNum || cleanBatchName, cleanId, cleanId]);
       } else {
         const userRes = await executeWithRetry(`
           SELECT id, name, email FROM users 
@@ -488,21 +504,25 @@ export async function assignStudentsToBatch(batchName: string, batchId: string, 
           await executeWithRetry(`
             INSERT INTO students (id, name, portal_login_email, batch_number, status)
             VALUES (?, ?, ?, ?, 'Active')
-          `, [stdId, String(u.name), String(u.email), cleanBatchName]);
+          `, [stdId, String(u.name), String(u.email), cleanNum || cleanBatchName]);
         }
       }
     }
 
     // Update live enrolled count in batches table
     const countRes = await executeWithRetry(`
-      SELECT COUNT(*) as cnt FROM students WHERE LOWER(TRIM(batch_number)) = LOWER(?)
-    `, [cleanBatchName]);
+      SELECT COUNT(*) as cnt FROM students 
+      WHERE LOWER(TRIM(batch_number)) = LOWER(?)
+         OR LOWER(TRIM(batch_number)) = LOWER(?)
+         OR LOWER(TRIM(batch_number)) = LOWER(?)
+    `, [cleanBatchName, cleanNum, `Batch ${cleanNum}`]);
 
     const liveCnt = Number(countRes.rows[0]?.cnt || 0);
     await executeWithRetry(`
       UPDATE batches SET current_enrolled = ? WHERE id = ? OR LOWER(TRIM(name)) = LOWER(?)
     `, [liveCnt, batchId, cleanBatchName]);
 
+    invalidateQueryCache('batches_all');
     return true;
   } catch (e) {
     console.error("Error assigning students to batch:", e);
@@ -518,23 +538,28 @@ export async function removeStudentFromBatch(studentIdentifier: string, batchNam
 
   try {
     const cleanBatchName = batchName.trim();
+    const cleanNum = cleanBatchName.replace(/^batch\s*/i, '').trim();
     const cleanId = studentIdentifier.trim();
 
     await executeWithRetry(`
       UPDATE students SET batch_number = NULL 
-      WHERE (id = ? OR LOWER(TRIM(portal_login_email)) = LOWER(?)) AND LOWER(TRIM(batch_number)) = LOWER(?)
-    `, [cleanId, cleanId, cleanBatchName]);
+      WHERE id = ? OR LOWER(TRIM(portal_login_email)) = LOWER(?)
+    `, [cleanId, cleanId]);
 
     // Recalculate live enrolled count
     const countRes = await executeWithRetry(`
-      SELECT COUNT(*) as cnt FROM students WHERE LOWER(TRIM(batch_number)) = LOWER(?)
-    `, [cleanBatchName]);
+      SELECT COUNT(*) as cnt FROM students 
+      WHERE LOWER(TRIM(batch_number)) = LOWER(?)
+         OR LOWER(TRIM(batch_number)) = LOWER(?)
+         OR LOWER(TRIM(batch_number)) = LOWER(?)
+    `, [cleanBatchName, cleanNum, `Batch ${cleanNum}`]);
 
     const liveCnt = Number(countRes.rows[0]?.cnt || 0);
     await executeWithRetry(`
       UPDATE batches SET current_enrolled = ? WHERE LOWER(TRIM(name)) = LOWER(?) ${batchId ? 'OR id = ?' : ''}
     `, batchId ? [liveCnt, cleanBatchName, batchId] : [liveCnt, cleanBatchName]);
 
+    invalidateQueryCache('batches_all');
     return true;
   } catch (e) {
     console.error("Error removing student from batch:", e);
