@@ -119,14 +119,21 @@ export default function StudentsPage() {
       const rows = await getManagerStudents(search, courseFilter, batchFilter, statusFilter);
       if (rows && rows.length > 0) {
         data = rows.map((r: any) => ({
-          id: r.id, name: r.name || 'Unknown', email: r.email, phone: r.phone,
-          course: r.course, batch_number: r.batch_number, status: r.status,
-          joining_date: r.joining_date, portal_login_email: r.portal_login_email,
+          id: r.id, 
+          name: r.name || 'Unknown', 
+          email: r.email, 
+          phone: r.phone,
+          course: r.course, 
+          batch_number: r.batch_number ? (String(r.batch_number).toLowerCase().startsWith('batch') ? String(r.batch_number) : `Batch ${r.batch_number}`) : '', 
+          status: r.status || 'Active',
+          joining_date: r.joining_date, 
+          portal_login_email: r.portal_login_email,
           streak: Number(r.streak) || 0,
           coins: Number(r.coins) || 0,
           badges: Number(r.badges) || 0,
           completedClasses: Number(r.completedClasses) || 0,
-          totalModules: 0, attendancePct: 0,
+          totalModules: 0, 
+          attendancePct: 0,
           level: Math.floor((Number(r.completedClasses) || 0) / 10) + 1,
         }));
       }
@@ -134,7 +141,8 @@ export default function StudentsPage() {
       console.error("loadStudents DB fetch error:", e);
     }
 
-    if (data.length === 0) {
+    const hasActiveFilters = Boolean(search || courseFilter || batchFilter || statusFilter);
+    if (data.length === 0 && !hasActiveFilters) {
       let localExtra: any[] = [];
       try {
         const cached = localStorage.getItem('cynex_local_students');
@@ -169,19 +177,29 @@ export default function StudentsPage() {
             level: Math.floor(((idx * 2 % 15) + 3) / 5) + 1,
           };
         });
+    }
 
+    if (data.length > 0 && hasActiveFilters && data.some(s => s.id.startsWith('stu_seed_'))) {
       if (search) {
-        const q = search.toLowerCase();
-        data = data.filter(s => s.name.toLowerCase().includes(q) || s.email.toLowerCase().includes(q) || (s.phone && s.phone.includes(q)));
+        const q = search.toLowerCase().trim();
+        data = data.filter(s => (s.name && s.name.toLowerCase().includes(q)) || (s.email && s.email.toLowerCase().includes(q)) || (s.phone && s.phone.includes(q)));
       }
       if (courseFilter) {
-        data = data.filter(s => s.course === courseFilter);
+        data = data.filter(s => s.course && s.course.toLowerCase().trim() === courseFilter.toLowerCase().trim());
       }
       if (batchFilter) {
-        data = data.filter(s => s.batch_number === batchFilter);
+        const cleanB = batchFilter.replace(/batch[_\s]*/i, '').trim().toLowerCase();
+        data = data.filter(s => {
+          const sB = String(s.batch_number || '').replace(/batch[_\s]*/i, '').trim().toLowerCase();
+          return sB === cleanB || String(s.batch_number).toLowerCase() === batchFilter.toLowerCase();
+        });
       }
       if (statusFilter) {
-        data = data.filter(s => s.status === statusFilter);
+        if (statusFilter.toLowerCase() === 'active') {
+          data = data.filter(s => s.status === 'Active' || s.status === 'Onboarded' || !s.status);
+        } else {
+          data = data.filter(s => s.status && s.status.toLowerCase() === statusFilter.toLowerCase());
+        }
       }
     }
 
@@ -193,39 +211,65 @@ export default function StudentsPage() {
         return (cRes?.rows || []).map((r: any) => r.title).filter(Boolean);
       }, 5 * 60 * 1000) || [];
 
-      const batchesList = await cachedQuery('batches_full_list', async () => {
-        const bRes = await client?.execute({ sql: `SELECT id, name, course_id, module_progress_json FROM batches ORDER BY name`, args: [] }).catch(() => ({ rows: [] }));
-        return (bRes?.rows || []).map((r: any) => ({
-          id: String(r.id),
-          name: String(r.name || 'Unnamed Batch'),
-          course_id: r.course_id ? String(r.course_id) : '',
-          module_progress_json: r.module_progress_json ? String(r.module_progress_json) : '{}'
-        }));
-      }, 5 * 60 * 1000) || [];
-
       const statsRes = await client?.execute({ sql: `SELECT course, batch_number, COUNT(*) as cnt FROM students WHERE (approval_status = 'Approved' OR approval_status IS NULL) GROUP BY course, batch_number`, args: [] }).catch(() => ({ rows: [] }));
       
-      setStudentStats(statsRes?.rows || []);
+      let finalStats: any[] = statsRes?.rows || [];
+      if (!finalStats || finalStats.length === 0) {
+        const countsMap = new Map<string, number>();
+        data.forEach(s => {
+          const cName = s.course || 'Unknown';
+          const bNum = String(s.batch_number || '1').trim();
+          const key = `${cName}__${bNum}`;
+          countsMap.set(key, (countsMap.get(key) || 0) + 1);
+        });
+        finalStats = Array.from(countsMap.entries()).map(([k, cnt]) => {
+          const [course, batch_number] = k.split('__');
+          return { course, batch_number, cnt };
+        });
+      }
+      setStudentStats(finalStats);
 
-      if (coursesList.length > 0) {
-        setCourses(coursesList);
-      } else {
-        const uniqueCourses = Array.from(new Set(data.map(s => s.course).filter(Boolean))) as string[];
-        setCourses(uniqueCourses.length > 0 ? uniqueCourses : ['Data Science with AI', 'AI & Generative AI', 'Full stack python', 'SAP Fico', 'Digital marketing']);
+      const allCourseNames = new Set<string>();
+      coursesList.forEach((c: string) => allCourseNames.add(c));
+      finalStats.forEach(st => { if (st.course) allCourseNames.add(st.course); });
+      data.forEach(s => { if (s.course) allCourseNames.add(s.course); });
+
+      if (allCourseNames.size === 0) {
+        ['Data Science with AI', 'AI & Genrative AI', 'Full stack python', 'SAP Fico', 'Digital marketing'].forEach(c => allCourseNames.add(c));
+      }
+      setCourses(Array.from(allCourseNames));
+
+      const allBatchNames = new Set<string>();
+      finalStats.forEach(st => {
+        if (st.batch_number) {
+          const norm = String(st.batch_number).toLowerCase().startsWith('batch') 
+            ? String(st.batch_number) 
+            : `Batch ${st.batch_number}`;
+          allBatchNames.add(norm);
+        }
+      });
+      data.forEach(st => {
+        if (st.batch_number) {
+          const norm = String(st.batch_number).toLowerCase().startsWith('batch') 
+            ? String(st.batch_number) 
+            : `Batch ${st.batch_number}`;
+          allBatchNames.add(norm);
+        }
+      });
+      if (allBatchNames.size === 0) {
+        ['Batch 1', 'Batch 2', 'Batch 3', 'Batch 4', 'Batch 5'].forEach(b => allBatchNames.add(b));
       }
 
-      if (batchesList.length > 0) {
-        setBatches(batchesList);
-      } else {
-        const uniqueBatches = Array.from(new Set(data.map(s => s.batch_number).filter(Boolean))) as string[];
-        const fallback = (uniqueBatches.length > 0 ? uniqueBatches : ['Batch 1', 'Batch 2', 'Batch 3', 'Batch 4', 'Batch 5']).map((b, idx) => ({
-          id: `batch_${idx + 1}`,
-          name: b,
-          course_id: '',
-          module_progress_json: '{}'
-        }));
-        setBatches(fallback);
-      }
+      const sortedBatchList = Array.from(allBatchNames).sort((a, b) => 
+        a.localeCompare(b, undefined, { numeric: true })
+      ).map((bName, idx) => ({
+        id: `batch_${idx + 1}`,
+        name: bName,
+        course_id: '',
+        module_progress_json: '{}'
+      }));
+
+      setBatches(sortedBatchList);
     } catch (e) {
       console.error(e);
     }
@@ -424,7 +468,7 @@ export default function StudentsPage() {
     window.URL.revokeObjectURL(url);
   };
 
-  const statusColor: Record<string, string> = { Active: '#10b981', Suspended: '#ef4444', Alumni: '#8b5cf6', Pending: '#f59e0b' };
+  const statusColor: Record<string, string> = { Active: '#10b981', Onboarded: '#3b82f6', Suspended: '#ef4444', Alumni: '#8b5cf6', Pending: '#f59e0b' };
   const inputCls = "w-full bg-erp-background border border-erp-border rounded-xl px-3 py-2 text-sm text-erp-text focus:outline-none focus:border-indigo-500";
 
   return (
@@ -494,32 +538,63 @@ export default function StudentsPage() {
                 className={`snap-start flex-shrink-0 cursor-pointer min-w-[150px] p-4 rounded-2xl border ${!courseFilter && !batchFilter ? 'border-indigo-500 bg-indigo-500/10' : 'border-erp-border bg-erp-surface hover:border-indigo-500/50'}`}
               >
                 <div className="text-xs font-bold text-erp-text/50 uppercase">All Students</div>
-                <div className="text-2xl font-black mt-1">{studentStats.reduce((s, r) => s + Number(r.cnt), 0)}</div>
+                <div className="text-2xl font-black mt-1">
+                  {studentStats.length > 0 ? studentStats.reduce((s, r) => s + Number(r.cnt), 0) : students.length}
+                </div>
               </div>
               {courses.map(c => {
-                const cCount = studentStats.filter(s => s.course === c).reduce((s, r) => s + Number(r.cnt), 0);
-                const cBatches = batches.filter(b => b.course_id === c || b.name.includes(c));
+                const cNorm = c.toLowerCase().trim();
+                const cCount = studentStats.length > 0
+                  ? studentStats.filter(s => s.course && s.course.toLowerCase().trim() === cNorm).reduce((s, r) => s + Number(r.cnt), 0)
+                  : students.filter(s => s.course && s.course.toLowerCase().trim() === cNorm).length;
+
+                const cBatches = Array.from(
+                  new Set(
+                    (studentStats.length > 0 ? studentStats : students)
+                      .filter(s => s.course && s.course.toLowerCase().trim() === cNorm)
+                      .map(s => {
+                        const raw = String(s.batch_number || '').trim();
+                        return raw.toLowerCase().startsWith('batch') ? raw : `Batch ${raw}`;
+                      })
+                      .filter(bName => bName && bName !== 'Batch' && bName !== 'Batch null')
+                  )
+                ).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+
+                const isCourseSelected = courseFilter.toLowerCase().trim() === cNorm;
+
                 return (
                   <div key={c} className="snap-start flex-shrink-0 flex gap-2">
                     <div 
                       onClick={() => { setCourseFilter(c); setBatchFilter(''); }}
-                      className={`cursor-pointer min-w-[180px] p-4 rounded-2xl border ${courseFilter === c && !batchFilter ? 'border-indigo-500 bg-indigo-500/10' : 'border-erp-border bg-erp-surface hover:border-indigo-500/50'}`}
+                      className={`cursor-pointer min-w-[180px] p-4 rounded-2xl border ${isCourseSelected && !batchFilter ? 'border-indigo-500 bg-indigo-500/10' : 'border-erp-border bg-erp-surface hover:border-indigo-500/50'}`}
                     >
                       <div className="text-xs font-bold text-erp-text/50 uppercase truncate" title={c}>{c}</div>
                       <div className="text-2xl font-black mt-1">{cCount} <span className="text-sm font-normal text-erp-text/50">students</span></div>
                     </div>
-                    {courseFilter === c && cBatches.map(b => {
-                      const bCount = studentStats.filter(s => s.course === c && String(s.batch_number) === String(b.id)).reduce((s, r) => s + Number(r.cnt), 0);
+                    {isCourseSelected && cBatches.map(bName => {
+                      const cleanB = bName.replace(/batch\s*/i, '').trim().toLowerCase();
+                      const bCount = studentStats.length > 0
+                        ? studentStats.filter(s => 
+                            s.course && s.course.toLowerCase().trim() === cNorm &&
+                            String(s.batch_number || '').replace(/batch\s*/i, '').trim().toLowerCase() === cleanB
+                          ).reduce((s, r) => s + Number(r.cnt), 0)
+                        : students.filter(s => 
+                            s.course && s.course.toLowerCase().trim() === cNorm &&
+                            String(s.batch_number || '').replace(/batch\s*/i, '').trim().toLowerCase() === cleanB
+                          ).length;
+
+                      const isBatchSelected = batchFilter && batchFilter.replace(/batch[_\s]*/i, '').trim().toLowerCase() === cleanB;
+
                       return (
                         <div 
-                          key={b.id}
-                          onClick={() => { setCourseFilter(c); setBatchFilter(b.id); }}
-                          className={`cursor-pointer min-w-[150px] p-4 rounded-2xl border ${batchFilter === b.id ? 'border-emerald-500 bg-emerald-500/10' : 'border-erp-border bg-erp-surface hover:border-emerald-500/50'}`}
+                          key={bName}
+                          onClick={() => { setCourseFilter(c); setBatchFilter(bName); }}
+                          className={`cursor-pointer min-w-[150px] p-4 rounded-2xl border ${isBatchSelected ? 'border-emerald-500 bg-emerald-500/10' : 'border-erp-border bg-erp-surface hover:border-emerald-500/50'}`}
                         >
-                          <div className="text-xs font-bold text-erp-text/50 uppercase truncate" title={b.name}>{b.name}</div>
+                          <div className="text-xs font-bold text-erp-text/50 uppercase truncate" title={bName}>{bName}</div>
                           <div className="text-2xl font-black mt-1">{bCount} <span className="text-sm font-normal text-erp-text/50">students</span></div>
                         </div>
-                      )
+                      );
                     })}
                   </div>
                 );
@@ -538,11 +613,11 @@ export default function StudentsPage() {
               </select>
               <select value={batchFilter} onChange={e => setBatchFilter(e.target.value)} className={`w-36 ${inputCls}`}>
                 <option value="">All Batches</option>
-                {batches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                {batches.map(b => <option key={b.name} value={b.name}>{b.name}</option>)}
               </select>
               <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className={`w-32 ${inputCls}`}>
                 <option value="">All Status</option>
-                {['Active', 'Suspended', 'Alumni', 'Pending'].map(s => <option key={s} value={s}>{s}</option>)}
+                {['Active', 'Onboarded', 'Suspended', 'Alumni', 'Pending'].map(s => <option key={s} value={s}>{s}</option>)}
               </select>
             </div>
 
@@ -562,7 +637,7 @@ export default function StudentsPage() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2"><p className="font-bold text-erp-text text-sm truncate">{stu.name}</p><Badge color={statusColor[stu.status || 'Active'] || '#64748b'}>{stu.status || 'Active'}</Badge></div>
-                        <div className="flex items-center gap-3 text-xs text-erp-text/50 mt-0.5">{stu.course && <span className="truncate max-w-[160px]">{stu.course}</span>}{stu.batch_number && <span>Batch {stu.batch_number}</span>}</div>
+                        <div className="flex items-center gap-3 text-xs text-erp-text/50 mt-0.5">{stu.course && <span className="truncate max-w-[160px]">{stu.course}</span>}{stu.batch_number && <span>{String(stu.batch_number).toLowerCase().startsWith('batch') ? stu.batch_number : `Batch ${stu.batch_number}`}</span>}</div>
                       </div>
                       <div className="hidden sm:flex items-center gap-2">
                         <span className="flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-lg" style={{ background: 'rgba(249,115,22,0.1)', color: '#f97316' }}><Flame className="w-3 h-3" />{stu.streak}</span>
@@ -622,7 +697,7 @@ export default function StudentsPage() {
               <div>
                 <p className="font-black text-erp-text text-lg">{selectedStudent.name}</p>
                 <Badge color={statusColor[selectedStudent.status || 'Active'] || '#64748b'}>{selectedStudent.status || 'Active'}</Badge>
-                <p className="text-erp-text/50 text-xs mt-1">{selectedStudent.course || 'No course'} · Batch {selectedStudent.batch_number || '—'}</p>
+                <p className="text-erp-text/50 text-xs mt-1">{selectedStudent.course || 'No course'} · {selectedStudent.batch_number ? (String(selectedStudent.batch_number).toLowerCase().startsWith('batch') ? selectedStudent.batch_number : `Batch ${selectedStudent.batch_number}`) : '—'}</p>
               </div>
             </div>
             {/* Gamification Stats */}

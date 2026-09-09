@@ -1287,14 +1287,33 @@ export async function getManagerStudents(
       WHERE (s.approval_status = 'Approved' OR s.approval_status IS NULL)
     `;
     const args: any[] = [];
-    if (search) {
-      sql += ` AND (s.name LIKE ? OR s.portal_login_email LIKE ? OR s.phone LIKE ?)`;
-      const q = `%${search}%`;
-      args.push(q, q, q);
+    if (search && search.trim()) {
+      sql += ` AND (s.name LIKE ? OR s.portal_login_email LIKE ? OR s.phone LIKE ? OR (SELECT name FROM users u WHERE u.email = s.portal_login_email) LIKE ?)`;
+      const q = `%${search.trim()}%`;
+      args.push(q, q, q, q);
     }
-    if (courseFilter) { sql += ` AND s.course = ?`; args.push(courseFilter); }
-    if (batchFilter) { sql += ` AND s.batch_number = ?`; args.push(batchFilter); }
-    if (statusFilter) { sql += ` AND s.status = ?`; args.push(statusFilter); }
+    if (courseFilter && courseFilter.trim()) {
+      sql += ` AND LOWER(TRIM(s.course)) = LOWER(TRIM(?))`;
+      args.push(courseFilter.trim());
+    }
+    if (batchFilter && batchFilter.trim()) {
+      const rawNum = batchFilter.replace(/batch[_\s]*/i, '').trim();
+      sql += ` AND (
+        s.batch_number = ? 
+        OR s.batch_number = ? 
+        OR s.batch_number = ? 
+        OR REPLACE(LOWER(s.batch_number), 'batch', '') = ?
+      )`;
+      args.push(batchFilter.trim(), `Batch ${rawNum}`, rawNum, rawNum);
+    }
+    if (statusFilter && statusFilter.trim()) {
+      if (statusFilter.toLowerCase() === 'active') {
+        sql += ` AND (s.status = 'Active' OR s.status = 'Onboarded' OR s.status IS NULL OR s.status = '')`;
+      } else {
+        sql += ` AND LOWER(s.status) = LOWER(?)`;
+        args.push(statusFilter.trim());
+      }
+    }
     sql += ` ORDER BY s.name ASC LIMIT 200`;
 
     const res = await executeWithRetry(sql, args);
