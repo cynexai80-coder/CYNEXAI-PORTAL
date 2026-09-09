@@ -1,7 +1,7 @@
 import React from 'react';
 import { Card } from '../../../components/ui/erp/Card';
 import { Button } from '../../../components/ui/erp/Button';
-import { TrendingUp, Users, DollarSign, Target, Settings, Building2, BrainCircuit, Gift, BookOpen } from 'lucide-react';
+import { Settings, BrainCircuit, Gift, BookOpen } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 import { getManagerAnalytics } from '../../../lib/api/manager';
@@ -67,7 +67,7 @@ export default function CEODashboard() {
             </div>
           </Card>
 
-          <Card className="flex flex-col border-t-erp-border border-r-erp-border border-b-erp-border border-l-4 border-l-indigo-500 dark:border-l-indigo-400">
+          <Card className="flex flex-col border-t-erp-border border-r-erp-border border-b-erp-border border-l-4 border-l-blue-500 dark:border-l-blue-400">
             <h3 className="text-sm font-bold text-erp-text/50 uppercase">Conversion Rate</h3>
             <div className="flex items-end gap-2 mt-2">
               <span className="text-3xl font-display font-bold text-erp-text">{conversionRate}%</span>
@@ -76,8 +76,8 @@ export default function CEODashboard() {
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          <Card className="flex flex-col items-center justify-center p-6 cursor-pointer hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors border-indigo-200 dark:border-indigo-800/30 card-hover" onClick={() => navigate('/ceo/courses')}>
-            <BookOpen className="w-8 h-8 text-indigo-600 dark:text-indigo-400 mb-2" />
+          <Card className="flex flex-col items-center justify-center p-6 cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors border-blue-200 dark:border-blue-800/30 card-hover" onClick={() => navigate('/ceo/courses')}>
+            <BookOpen className="w-8 h-8 text-blue-600 dark:text-blue-400 mb-2" />
             <span className="font-bold text-erp-text text-sm text-center">Course Management</span>
           </Card>
           
@@ -110,8 +110,8 @@ export default function CEODashboard() {
               <BrainCircuit className="w-5 h-5 text-blue-400" /> AI Strategic Advisory
             </h2>
             <div className="space-y-4">
-              <div className="bg-white dark:bg-black/10 p-3 rounded-xl border border-white/20">
-                <p className="text-sm text-blue-100 italic leading-relaxed">
+              <div className="bg-white/10 dark:bg-black/30 backdrop-blur-sm p-4 rounded-xl border border-white/10">
+                <p className="text-sm text-blue-100 italic leading-relaxed font-medium">
                   "Based on last week's data, conversion rate is currently {conversionRate}%. I recommend assigning more tasks to follow up with Demo Leads to increase conversions, as there is a backlog in the 'Demo Scheduled' bucket."
                 </p>
               </div>

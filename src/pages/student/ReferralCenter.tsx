@@ -53,13 +53,13 @@ function MaterialCard({ mat }: { mat: any }) {
     <div
       className="candy-panel p-4 flex items-start gap-3 transition-all hover:scale-[1.02] bg-white/70 dark:bg-black/50 !border-2 material-card"
     >
-      <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: '#6366f115', border: '1px solid #6366f130' }}>
-        <FileText className="w-5 h-5 text-indigo-500" />
+      <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: '#2563eb15', border: '1px solid #2563eb30' }}>
+        <FileText className="w-5 h-5 text-blue-500" />
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-slate-900 dark:text-white font-black text-sm truncate">{mat.title}</p>
         {mat.description && <p className="text-slate-600 dark:text-white/60 font-bold text-xs mt-0.5 line-clamp-1">{mat.description}</p>}
-        <span className="inline-block mt-1 text-[10px] font-black uppercase tracking-wider text-indigo-500/80">{mat.material_type || 'Document'}</span>
+        <span className="inline-block mt-1 text-[10px] font-black uppercase tracking-wider text-blue-500/80">{mat.material_type || 'Document'}</span>
       </div>
       <div className="flex gap-2 flex-shrink-0">
         {mat.file_url && (
@@ -116,7 +116,7 @@ export default function ReferralCenter() {
     return (
       <div className="flex min-h-screen candy-map-bg items-center justify-center">
         <div className="flex flex-col items-center gap-3 candy-panel p-8 !border-2">
-          <div className="w-10 h-10 rounded-full border-4 border-indigo-500/30 border-t-indigo-500 animate-spin" />
+          <div className="w-10 h-10 rounded-full border-4 border-blue-500/30 border-t-blue-500 animate-spin" />
           <p className="text-white/40 text-sm font-medium">Loading…</p>
         </div>
       </div>

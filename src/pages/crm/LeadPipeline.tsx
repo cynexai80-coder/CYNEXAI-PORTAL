@@ -11,8 +11,7 @@ import { LeadDetailPanel } from '../../components/crm/LeadDetailPanel';
 import {
   Plus, Phone, MessageCircle, Search, Filter, User,
   Calendar, CheckCircle2, AlertTriangle, XCircle,
-  PhoneOff, PhoneCall, UserX, RefreshCw, X, Upload, Download,
-  ChevronDown, ChevronRight as ChevronRightIcon
+  PhoneOff, PhoneCall, UserX, RefreshCw, X, Upload, Download
 } from 'lucide-react';
 
 const PIPELINE_STAGES: { id: LeadStatus; label: string; color: string; bg: string; darkBg: string; icon: React.ReactNode }[] = [
@@ -96,7 +95,7 @@ export default function LeadPipeline() {
   const [hiddenStages, setHiddenStages] = useState<Set<string>>(new Set(HIDDEN_BY_DEFAULT));
   const [showAllStages, setShowAllStages] = useState(false);
   const [moveError, setMoveError] = useState<string | null>(null);
-  const [isDragging, setIsDragging] = useState(false);
+  const [, setIsDragging] = useState(false);
   const [viewMode, setViewMode] = useState<'All' | 'Mine'>('All');
   const [filterYear, setFilterYear] = useState('');
   const [filterQual, setFilterQual] = useState('');
@@ -104,7 +103,6 @@ export default function LeadPipeline() {
   const [filterIt, setFilterIt] = useState('');
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
-  const [pendingActivity, setPendingActivity] = useState<{leadId: string, toStatus: LeadStatus} | null>(null);
   const [isUploadingCsv, setIsUploadingCsv] = useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [onboardingLead, setOnboardingLead] = useState<Lead | null>(null);
@@ -122,8 +120,8 @@ export default function LeadPipeline() {
   const user = getCurrentUser();
 
   const loadData = useCallback(() => { 
-    getLeads().then(setLeads); 
-    getCoursesForPitch().then(res => setCourses(res.map(c => c.title)));
+    getLeads().then(res => setLeads(res || [])); 
+    getCoursesForPitch().then(res => setCourses(res ? res.map(c => String(c.title)) : []));
   }, []);
   useEffect(() => { loadData(); }, []);
 

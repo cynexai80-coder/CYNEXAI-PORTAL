@@ -19,13 +19,19 @@ async function checkDB() {
     modSchema.rows.forEach(r => console.log(`  ${r.name} (${r.type})`));
 
     // Check modules
-    const modules = await client.execute("SELECT id, title FROM modules LIMIT 20");
+    const modules = await client.execute("SELECT id, title, instructor_id FROM modules");
     console.log("\n=== MODULES ===");
-    modules.rows.forEach(r => console.log(`  ${r.id}: ${r.title}`));
+    modules.rows.forEach(r => console.log(`  ${r.id}: ${r.title} (instructor_id: ${r.instructor_id})`));
 
-    // Check classes count
-    const classes = await client.execute("SELECT COUNT(*) as count FROM classes");
-    console.log("\n=== CLASSES COUNT ===", classes.rows[0].count);
+    // Check teacher users
+    const teachers = await client.execute("SELECT id, name, email, role FROM users WHERE role = 'Teacher' OR role = 'Faculty' OR email LIKE '%teacher%' OR name LIKE '%venkat%'");
+    console.log("\n=== TEACHERS IN DB ===");
+    teachers.rows.forEach(r => console.log(`  ${r.id}: ${r.name} (${r.email}, role: ${r.role})`));
+
+    // Check timetable slots
+    const tt = await client.execute("SELECT id, teacher_id, course_name FROM timetable_slots LIMIT 10");
+    console.log("\n=== TIMETABLE SLOTS ===");
+    tt.rows.forEach(r => console.log(`  ${r.id}: teacher_id=${r.teacher_id}, course_name=${r.course_name}`));
 
     // Check first few classes
     const cls = await client.execute("SELECT id, title, module_id, status FROM classes LIMIT 10");

@@ -5,17 +5,23 @@ import { ConfirmModal } from '../../components/ui/erp/ConfirmModal';
 import { BookOpen, FolderOpen, Users, BarChart, FileVideo, Plus, ArrowRight, X, Trash2 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { getCurrentUser } from '../../lib/auth';
-import { client, isTursoConfigured } from '../../lib/turso';
-import { getCoursesFull, createCourse, createModule, updateCoursePitch, getAllModules, mapExistingModuleToCourse, deleteCourse, removeModuleFromCourse } from '../../lib/api/cms';
+import { client } from '../../lib/turso';
+import { getCoursesFull, createCourse, createModule, updateCoursePitch, getAllModules, mapExistingModuleToCourse, deleteCourse, removeModuleFromCourse, updateModuleInstructor, getTeachersList } from '../../lib/api/cms';
+import { getAllBatches } from '../../lib/api/batches';
 
 export default function CourseManagement() {
   const navigate = useNavigate();
   const location = useLocation();
   const user = getCurrentUser();
-  const basePath = location.pathname.startsWith('/ceo') ? '/ceo' : '/manager';
+  let basePath = '/ceo';
+  if (location.pathname.startsWith('/manager')) basePath = '/manager';
+  else if (location.pathname.startsWith('/teacher')) basePath = '/teacher';
+  else if (location.pathname.startsWith('/sales')) basePath = '/sales';
+  else if (location.pathname.startsWith('/dm')) basePath = '/dm';
 
   const [expandedCourse, setExpandedCourse] = useState<string | null>(null);
   const [courses, setCourses] = useState<any[]>([]);
+  const [teachers, setTeachers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   // New Course Modal State
@@ -49,7 +55,17 @@ export default function CourseManagement() {
   useEffect(() => {
     fetchCourses();
     fetchAllModulesList();
+    fetchTeachers();
   }, []);
+
+  const fetchTeachers = async () => {
+    try {
+      const tList = await getTeachersList();
+      setTeachers(tList);
+    } catch (e) {
+      console.error("fetchTeachers error:", e);
+    }
+  };
 
   const fetchAllModulesList = async () => {
     if (!client) return;
@@ -68,20 +84,33 @@ export default function CourseManagement() {
       return;
     }
     try {
-      const { courses: cRows, modules: mRows, classes: clsRows } = await getCoursesFull();
+      const [{ courses: cRows, modules: mRows, classes: clsRows }, allBatchesList] = await Promise.all([
+        getCoursesFull(),
+        getAllBatches().catch(() => [])
+      ]);
 
       const courseMap = new Map();
       
       cRows.forEach((c: any) => {
+        const matchingBatches = allBatchesList.filter(b => 
+          b.course_id === c.id || 
+          (b.course_name && b.course_name.toLowerCase() === (c.title || '').toLowerCase())
+        );
+        const totalEnrolledInCourse = matchingBatches.reduce((acc, b) => acc + (b.current_enrolled || 0), 0);
+
         courseMap.set(c.id, {
           id: c.id,
           name: c.title,
           description: c.description,
           sales_pitch_summary: c.sales_pitch_summary || '',
           sales_pitch_script: c.sales_pitch_script || '',
-          studentsEnrolled: 0,
+          studentsEnrolled: totalEnrolledInCourse,
           modules: [],
-          batches: [] // Keep empty for now as requested
+          batches: matchingBatches.map(b => ({
+            name: b.name,
+            students: b.current_enrolled || 0,
+            progress: b.status === 'Completed' ? 100 : b.status === 'Active' ? 50 : 0
+          }))
         });
       });
 
@@ -102,6 +131,7 @@ export default function CourseManagement() {
           id: m.id,
           course_id: m.course_id,
           name: m.title,
+          instructor_id: m.instructor_id,
           classes: classesByModuleId.get(m.id) || [],
           completedBy: 0
         };
@@ -238,7 +268,7 @@ export default function CourseManagement() {
   }
 
   return (
-    <div className="flex-1 flex flex-col min-w-0 overflow-y-auto pb-32 p-4 md:p-8 bg-erp-background relative">
+    <div className="flex-1 flex flex-col min-w-0 overflow-y-auto pb-16 sm:pb-24 p-4 md:p-8 bg-erp-background relative">
       <div className="flex justify-between items-center mb-8">
         <div>
           <h1 className="text-3xl font-display font-bold text-erp-text flex items-center gap-3">
@@ -299,20 +329,43 @@ export default function CourseManagement() {
                       </h4>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {course.modules.map((mod: any) => (
-                          <div key={mod.id} className="bg-erp-surface border border-erp-border rounded-lg p-4 flex flex-col justify-between hover:border-indigo-400 transition-colors cursor-pointer" onClick={() => navigate(`${basePath}/courses/${course.id}/modules/${mod.id}`)}>
+                          <div 
+                            key={mod.id} 
+                            className="bg-erp-surface border border-erp-border rounded-xl p-4 flex flex-col justify-between hover:border-indigo-500/50 hover:shadow-lg hover:shadow-indigo-500/5 transition-all cursor-pointer group" 
+                            onClick={() => navigate(`${basePath}/courses/${course.id}/modules/${mod.id}`)}
+                          >
                             <div className="mb-4">
-                              <h5 className="font-bold text-erp-text truncate">{mod.name}</h5>
-                              <p className="text-xs text-erp-text/60 mt-1">{mod.classes.length} Classes</p>
+                              <div className="flex justify-between items-start gap-2 mb-1">
+                                <h5 className="font-bold text-erp-text text-base group-hover:text-indigo-400 transition-colors truncate flex-1">{mod.name}</h5>
+                              </div>
+                              <div className="flex items-center justify-between gap-2 mt-2">
+                                <p className="text-xs text-erp-text/60 font-medium flex items-center gap-1.5">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 inline-block"></span>
+                                  {mod.classes.length} {mod.classes.length === 1 ? 'Class' : 'Classes'}
+                                </p>
+                              </div>
                             </div>
-                            <div className="flex justify-between items-center">
-                              <div className="text-xs font-bold text-green-400">{mod.completedBy}% Completion</div>
-                              <div className="flex items-center gap-2">
-                                <Button variant="ghost" onClick={(e) => handleRemoveModule(course.id, mod.id, e)} className="h-6 px-2 text-xs text-red-500 hover:bg-red-500/10 border border-erp-border">
-                                  <Trash2 className="w-3 h-3" />
-                                </Button>
-                                <Button variant="ghost" className="h-6 px-2 text-xs flex items-center gap-1 border border-erp-border">
-                                  Edit Classes <ArrowRight className="w-3 h-3" />
-                                </Button>
+                            <div className="flex justify-between items-center pt-3 border-t border-erp-border/50">
+                              <div className="text-xs font-bold text-emerald-400">{mod.completedBy}% Completion</div>
+                              <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                                <button 
+                                  type="button"
+                                  onClick={(e) => handleRemoveModule(course.id, mod.id, e)} 
+                                  className="h-8 w-8 rounded-lg flex items-center justify-center text-red-400 hover:text-red-300 hover:bg-red-500/10 border border-red-500/20 transition-all cursor-pointer"
+                                  title="Remove Module from Course"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                                <button 
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    navigate(`${basePath}/courses/${course.id}/modules/${mod.id}`);
+                                  }}
+                                  className="h-8 px-3 rounded-lg text-xs font-semibold whitespace-nowrap flex items-center gap-1.5 bg-indigo-500/10 text-indigo-400 hover:bg-indigo-600 hover:text-white border border-indigo-500/30 transition-all cursor-pointer shadow-sm"
+                                >
+                                  Edit Classes <ArrowRight className="w-3.5 h-3.5" />
+                                </button>
                               </div>
                             </div>
                           </div>

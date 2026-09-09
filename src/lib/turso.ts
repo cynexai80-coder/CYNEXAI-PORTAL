@@ -33,7 +33,39 @@ export const client = isTursoConfigured
   : null;
 
 // Circuit Breaker: If connection fails, stop trying to use Turso for this session
-let dbConnectionFailed = false;
+export let dbConnectionFailed = false;
+export const setDbConnectionFailed = (failed: boolean) => {
+  dbConnectionFailed = failed;
+};
+export const isDbFailed = () => dbConnectionFailed;
+
+if (client) {
+  const origExecute = client.execute.bind(client);
+  client.execute = (async (...args: any[]) => {
+    if (dbConnectionFailed) {
+      return { rows: [], columns: [] } as any;
+    }
+    try {
+      return await (origExecute as any)(...args);
+    } catch (error: any) {
+      const msg = String(error?.message || error || '');
+      if (
+        msg.includes('BLOCKED') ||
+        msg.includes('forbidden') ||
+        msg.includes('Operation was blocked') ||
+        msg.includes('403') ||
+        msg.includes('401')
+      ) {
+        console.warn("Turso Cloud DB is BLOCKED. Intercepted error and switched to local fallback mode.");
+        dbConnectionFailed = true;
+        return { rows: [], columns: [] } as any;
+      }
+      throw error;
+    }
+  }) as any;
+}
+
+
 
 
 export interface User {
@@ -449,16 +481,27 @@ export const syncSamplePosts = async () => {
   return { success: 0, failed: 0 };
 };
 
-let isTursoDBInitialized = false;
+let dbInitPromise: Promise<boolean> | null = null;
+let isDbInitialized = false;
 
-export const initTursoDB = async () => {
-  if (isTursoDBInitialized) return true;
+export const initTursoDB = async (): Promise<boolean> => {
+  if (isDbInitialized) return true;
   if (typeof window !== 'undefined' && sessionStorage.getItem('turso_db_initialized')) {
-    isTursoDBInitialized = true;
+    isDbInitialized = true;
     return true;
   }
+  if (dbInitPromise) return dbInitPromise;
 
-  if (isTursoConfigured && client && !dbConnectionFailed) {
+  dbInitPromise = (async () => {
+    if (!isTursoConfigured || !client || dbConnectionFailed) return false;
+    try {
+      // Health check to verify read capability
+      await client.execute('SELECT 1');
+    } catch (healthErr: any) {
+      console.warn("Turso Cloud DB health check failed (BLOCKED/Offline). Switching to Local Fallback mode.");
+      dbConnectionFailed = true;
+      return false;
+    }
     try {
       // Create tables if they don't exist
       await client.execute(`
@@ -836,11 +879,13 @@ export const initTursoDB = async () => {
           name TEXT,
           module_id TEXT,
           min_students INTEGER,
-          max_students INTEGER,
+          max_students INTEGER DEFAULT 30,
           target_capacity INTEGER,
-          current_enrolled INTEGER,
+          current_enrolled INTEGER DEFAULT 0,
           start_date TEXT,
-          status TEXT,
+          timing TEXT,
+          schedule_pattern TEXT,
+          status TEXT DEFAULT 'Active',
           course_id TEXT,
           primary_teacher_id TEXT,
           created_at TEXT,
@@ -1360,7 +1405,7 @@ export const initTursoDB = async () => {
         ['show_leaderboard', '1'],
         ['show_mock_interview', '1'],
         ['show_attendance', '1'],
-        ['show_gamification', '1'],
+        ['show_gamification', '0'],
       ];
       for (const [key, value] of defaultPortalSettings) {
         await client.execute({
@@ -1382,25 +1427,26 @@ export const initTursoDB = async () => {
         )
       `);
 
-      // Sync sample posts securely and robustly
-      await syncSamplePosts();
+      // Sync sample posts securely and robustly      await syncSamplePosts();
 
+      isDbInitialized = true;
       console.log("Turso Cloud Database Connected and Initialized");
       isTursoDBInitialized = true;
       if (typeof window !== 'undefined') {
         sessionStorage.setItem('turso_db_initialized', 'true');
       }
+      isDbInitialized = true;
       return true;
     } catch (e) {
       console.error("Turso Cloud Initialization Failed (Using Local Fallback):", e);
       dbConnectionFailed = true;
       return false;
+    } finally {
+      dbInitPromise = null;
     }
-  } else {
-    console.log("Using LocalStorage fallback for blog posts and mock tests");
-    isTursoDBInitialized = true;
-    return true;
-  }
+  })();
+
+  return dbInitPromise;
 };
 
 let isCrmDataSeeded = false;
@@ -1448,7 +1494,10 @@ export const seedCRMData = async () => {
 
         console.log('CRM Demo Data seeded.');
       }
-    } catch(e) { console.error('Seed failed', e); }
+    } catch(e) { 
+      console.error('Seed failed (switching to fallback):', e); 
+      dbConnectionFailed = true;
+    }
   }
 };
 

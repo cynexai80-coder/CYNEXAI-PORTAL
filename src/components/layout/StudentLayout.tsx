@@ -3,11 +3,12 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { getCurrentUser } from '../../lib/auth';
 import { client } from '../../lib/turso';
 import {
-  Home, ClipboardCheck, Trophy, Mic2, Gift, Briefcase,
-  Flame, Coins, Shield, GraduationCap, LogOut, Moon, Sun,
-  Menu, X, ChevronRight, Bell,
+  Home, BookOpen, ClipboardCheck, Mic2, Briefcase,
+  GraduationCap, LogOut, Moon, Sun,
+  Menu, X, ChevronRight, CheckCircle2,
 } from 'lucide-react';
 import { useTheme } from '../../lib/ThemeContext';
+import { CynexLogo } from '../ui/CynexLogo';
 
 interface GamificationData {
   streak: number;
@@ -28,15 +29,15 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { to: '/student',             icon: Home,           label: 'Dashboard',    short: 'Home'      },
-  { to: '/student/attendance',  icon: ClipboardCheck, label: 'Attendance',   short: 'Attend'    },
-  { to: '/student/leaderboard', icon: Trophy,         label: 'Leaderboard',  short: 'Rank', comingSoon: true },
-  { to: '/student/interview',   icon: Mic2,           label: 'AI Interview', short: 'Interview', comingSoon: true },
-  { to: '/student/referrals',   icon: Gift,           label: 'Rewards',      short: 'Rewards', comingSoon: true },
-  { to: '/student/career',      icon: Briefcase,      label: 'Career',       short: 'Career', comingSoon: true },
+  { to: '/student',             icon: Home,           label: 'Dashboard',      short: 'Home'      },
+  { to: '/student/classes',     icon: BookOpen,        label: 'Class',          short: 'Class'     },
+  { to: '/student/quizzes',     icon: GraduationCap,  label: 'Quizzes & Code', short: 'Quizzes'   },
+  { to: '/student/attendance',  icon: ClipboardCheck, label: 'Attendance',     short: 'Attend'    },
+  { to: '/student/interview',   icon: Mic2,           label: 'AI Interview',   short: 'Interview' },
+  { to: '/student/career',      icon: Briefcase,      label: 'Career',         short: 'Career'    },
 ];
 
-const BOTTOM_NAV = NAV_ITEMS.slice(0, 5);
+const BOTTOM_NAV = NAV_ITEMS;
 
 export default function StudentLayout({ children }: { children: React.ReactNode }) {
   const navigate  = useNavigate();
@@ -85,37 +86,37 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
   // ── Theme-aware palette ────────────────────────────────────────────────────
   const T = isDark ? {
     pageBg:      '#000000',
-    sidebarBg:   '#0a0a0a',
-    border:      'rgba(255,255,255,0.05)',
-    tabBarBg:    'rgba(10,10,10,0.97)',
-    profileCard: 'rgba(255,255,255,0.02)',
-    profileBorder: 'rgba(255,255,255,0.05)',
-    navSectionLabel: 'rgba(255,255,255,0.2)',
-    navMuted:    'rgba(255,255,255,0.35)',
-    navActive:   '#06b6d4',
-    navActiveBg: 'rgba(6,182,212,0.12)',
-    text:        '#ffffff',
-    textMuted:   'rgba(255,255,255,0.4)',
-    avatarBorder: '#0a0a0a',
+    sidebarBg:   '#000000',
+    border:      '#27272a',
+    tabBarBg:    '#09090b',
+    profileCard: 'rgba(255,255,255,0.04)',
+    profileBorder: '#27272a',
+    navSectionLabel: '#a1a1aa',
+    navMuted:    '#cbd5e1',
+    navActive:   '#60a5fa',
+    navActiveBg: 'rgba(37,99,235,0.15)',
+    text:        '#fafafa',
+    textMuted:   '#a1a1aa',
+    avatarBorder: '#000000',
     xpTrack:     'rgba(255,255,255,0.08)',
-    closeBtn:    'rgba(255,255,255,0.07)',
-    closeBtnTxt: 'rgba(255,255,255,0.6)',
-    inactiveTab: 'rgba(255,255,255,0.3)',
+    closeBtn:    'rgba(255,255,255,0.1)',
+    closeBtnTxt: '#fafafa',
+    inactiveTab: 'rgba(255,255,255,0.6)',
   } : {
-    pageBg:      '#f1f5f9',
+    pageBg:      '#f8fafc',
     sidebarBg:   '#ffffff',
-    border:      'rgba(0,0,0,0.07)',
+    border:      '#e2e8f0',
     tabBarBg:    'rgba(255,255,255,0.97)',
-    profileCard: 'rgba(6,182,212,0.05)',
-    profileBorder: 'rgba(6,182,212,0.15)',
+    profileCard: 'rgba(37,99,235,0.04)',
+    profileBorder: 'rgba(37,99,235,0.12)',
     navSectionLabel: '#94a3b8',
-    navMuted:    '#64748b',
-    navActive:   '#0891b2',
-    navActiveBg: 'rgba(8,145,178,0.08)',
+    navMuted:    '#475569',
+    navActive:   '#2563eb',
+    navActiveBg: 'rgba(37,99,235,0.08)',
     text:        '#0f172a',
     textMuted:   '#64748b',
     avatarBorder: '#ffffff',
-    xpTrack:     'rgba(0,0,0,0.08)',
+    xpTrack:     '#e2e8f0',
     closeBtn:    'rgba(0,0,0,0.05)',
     closeBtnTxt: '#475569',
     inactiveTab: '#94a3b8',
@@ -123,137 +124,86 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
 
   // ── Sidebar content (shared between desktop + mobile overlay) ─────────────
   const SidebarContent = () => (
-    <div className="flex flex-col h-full overflow-y-auto">
+    <div className="flex flex-col h-full min-h-0 bg-white dark:bg-black border-r border-slate-200/80 dark:border-zinc-800">
 
-      {/* Logo */}
-      <div className="px-5 pt-6 pb-5 flex items-center gap-3 flex-shrink-0"
-        style={{ borderBottom: `1px solid ${T.border}` }}>
-        <div className="w-9 h-9 rounded-xl flex items-center justify-center"
-          style={{ background: 'linear-gradient(135deg, #06b6d4, #0891b2)', boxShadow: '0 4px 16px rgba(6,182,212,0.35)' }}>
-          <GraduationCap className="w-5 h-5 text-white" />
-        </div>
-        <div>
-          <p className="font-black text-base leading-tight" style={{ color: '#06b6d4' }}>CynexAI</p>
-          <p className="text-[10px] font-bold" style={{ color: T.textMuted }}>Student Portal</p>
-        </div>
+      {/* Brand Header */}
+      <div className="p-4 border-b border-slate-200/80 dark:border-zinc-800 flex items-center justify-between flex-shrink-0">
+        <CynexLogo size="md" badge="Student Portal" />
       </div>
 
-      {/* Profile card */}
-      <div className="mx-3 mt-4 p-4 rounded-2xl"
-        style={{ background: T.profileCard, border: `1px solid ${T.profileBorder}` }}>
-        <div className="flex items-center gap-3 mb-3">
-          <div className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-black flex-shrink-0 relative"
-            style={{ background: 'linear-gradient(135deg, #06b6d4, #8b5cf6)', boxShadow: '0 0 16px rgba(6,182,212,0.4)' }}>
+      {/* Navigation Links */}
+      <div className="flex-1 overflow-y-auto scrollbar-none px-3 py-4 space-y-4 min-h-0">
+        <nav className="space-y-1">
+          <p className="text-[10px] font-bold uppercase tracking-widest px-3 mb-2 text-slate-400">Navigation</p>
+          {NAV_ITEMS.map(({ to, icon: Icon, label, comingSoon }) => {
+            const active = isActive(to);
+            return (
+              <button key={to}
+                onClick={() => { navigate(to); setMobileMenuOpen(false); }}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all duration-200 ${
+                  active 
+                    ? 'bg-blue-50/90 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 font-bold border-l-4 border-blue-600 dark:border-blue-400 shadow-sm' 
+                    : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100/80 dark:hover:bg-slate-800/60 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                <Icon className={`w-4 h-4 flex-shrink-0 ${active ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400'}`} strokeWidth={active ? 2.5 : 2} />
+                <span className="flex-1 text-left flex items-center justify-between">
+                  <span>{label}</span>
+                  {comingSoon && (
+                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-800 font-bold uppercase tracking-wider text-slate-500">Soon</span>
+                  )}
+                </span>
+                {active && !comingSoon && <ChevronRight className="w-3.5 h-3.5 opacity-60 text-blue-600 dark:text-blue-400" />}
+              </button>
+            );
+          })}
+        </nav>
+      </div>
+
+      {/* Movin-style Pinned User Profile (Bottom Left) */}
+      <div className="p-3 border-t border-slate-200/80 dark:border-zinc-800 bg-slate-50/60 dark:bg-zinc-950 flex-shrink-0 space-y-2">
+        <div className="flex items-center gap-3 p-2 rounded-xl bg-white dark:bg-slate-800/80 border border-slate-200/70 dark:border-slate-700/60 shadow-sm">
+          <div className="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-black flex-shrink-0 relative shadow-sm"
+            style={{ background: 'linear-gradient(135deg, #2563eb, #0284c7)' }}>
             {initials}
-            <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-400 border-2"
-              style={{ borderColor: T.avatarBorder }} />
+            <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="font-bold text-sm truncate" style={{ color: T.text }}>{user?.name ?? 'Student'}</p>
-            <span className="text-[10px] font-black px-1.5 py-0.5 rounded-md text-white inline-block mt-0.5"
-              style={{ background: 'linear-gradient(90deg, #06b6d4, #8b5cf6)' }}>
-              LVL {data.level}
-            </span>
-          </div>
-          {data.notifications > 0 && (
-            <div className="relative flex-shrink-0">
-              <Bell className="w-4 h-4" style={{ color: T.navMuted }} />
-              <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white text-[9px] font-black flex items-center justify-center">
-                {data.notifications}
-              </span>
-            </div>
-          )}
-        </div>
-        <div className="space-y-1">
-          <div className="flex justify-between text-[10px] font-bold" style={{ color: T.textMuted }}>
-            <span>Level Progress</span>
-            <span>{data.completedClasses % 10}/10 classes</span>
-          </div>
-          <div className="h-1.5 rounded-full overflow-hidden" style={{ background: T.xpTrack }}>
-            <div className="h-full rounded-full transition-all duration-700"
-              style={{ width: `${data.xpPct}%`, background: 'linear-gradient(90deg, #06b6d4, #8b5cf6)' }} />
+            <p className="font-bold text-xs truncate text-slate-900 dark:text-white leading-tight">{user?.name ?? 'Student'}</p>
+            <p className="text-[10px] text-slate-400 truncate mt-0.5">{user?.email ?? 'student@cynexai.com'}</p>
           </div>
         </div>
-      </div>
 
-      {/* Stat chips */}
-      <div className="mx-3 mt-3 grid grid-cols-3 gap-2">
-        {[
-          { icon: Flame,  value: data.streak,     label: 'Streak', color: '#f97316' },
-          { icon: Coins,  value: data.coins,       label: 'Coins',  color: '#f59e0b' },
-          { icon: Shield, value: data.badgeCount,  label: 'Badges', color: '#8b5cf6' },
-        ].map(({ icon: Icon, value, label, color }) => (
-          <div key={label} className="rounded-xl py-2.5 text-center"
-            style={{ background: `${color}12`, border: `1px solid ${color}28` }}>
-            <Icon className="w-4 h-4 mx-auto mb-0.5" style={{ color }} />
-            <div className="text-sm font-black leading-none" style={{ color }}>{value}</div>
-            <div className="text-[9px] font-bold uppercase tracking-wider mt-0.5" style={{ color: T.textMuted }}>{label}</div>
-          </div>
-        ))}
-      </div>
-
-      {/* Navigation */}
-      <nav className="flex-1 px-3 mt-4 space-y-2 min-h-0">
-        <p className="text-[10px] font-black uppercase tracking-widest px-3 mb-3 text-slate-400 dark:text-slate-500">Navigation</p>
-        {NAV_ITEMS.map(({ to, icon: Icon, label, comingSoon }) => {
-          const active = isActive(to);
-          return (
-            <button key={to}
-              onClick={() => { if (!comingSoon) { navigate(to); setMobileMenuOpen(false); } }}
-              disabled={comingSoon}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-black transition-all duration-150 min-h-[44px] ${
-                comingSoon
-                  ? 'opacity-60 cursor-not-allowed text-slate-400 dark:text-white/30 hover:bg-transparent'
-                  : active 
-                    ? 'candy-btn-blue shadow-md text-white' 
-                    : 'text-slate-500 hover:text-slate-800 dark:text-white/50 dark:hover:text-white hover:bg-black/5 active:scale-95'
-              }`}
-            >
-              <Icon className="w-5 h-5 flex-shrink-0" strokeWidth={active ? 3 : 2} />
-              <span className="flex-1 text-left flex items-center gap-2">
-                {label}
-                {comingSoon && (
-                  <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-slate-200 dark:bg-white dark:bg-black/10 font-bold uppercase tracking-wider text-slate-500 dark:text-white/60">Soon</span>
-                )}
-              </span>
-              {active && !comingSoon && <ChevronRight className="w-4 h-4 opacity-60" />}
-            </button>
-          );
-        })}
-      </nav>
-
-      {/* Bottom actions */}
-      <div className="p-3 space-y-1 flex-shrink-0" style={{ borderTop: `1px solid ${T.border}` }}>
-        <button onClick={toggleTheme}
-          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm font-medium"
-          style={{ color: T.navMuted }}>
-          {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-          {isDark ? 'Light Mode' : 'Dark Mode'}
-        </button>
-        <button
-          onClick={() => { localStorage.removeItem('cynexai_user'); navigate('/login'); }}
-          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm font-medium hover:text-red-400 transition-colors"
-          style={{ color: T.navMuted }}>
-          <LogOut className="w-4 h-4" />
-          Sign Out
-        </button>
+        <div className="flex items-center gap-1">
+          <button onClick={toggleTheme}
+            className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[11px] font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-200/60 dark:hover:bg-slate-800 transition-colors">
+            {isDark ? <Sun className="w-3.5 h-3.5 text-amber-400" /> : <Moon className="w-3.5 h-3.5 text-blue-600" />}
+            {isDark ? 'Light' : 'Dark'}
+          </button>
+          <button
+            onClick={() => { localStorage.removeItem('cynexai_user'); navigate('/login'); }}
+            className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[11px] font-semibold text-red-500 hover:bg-red-500/10 transition-colors">
+            <LogOut className="w-3.5 h-3.5" />
+            Sign Out
+          </button>
+        </div>
       </div>
     </div>
   );
 
   return (
-    <div className="flex h-screen w-full overflow-hidden" style={{ background: T.pageBg, color: T.text }}>
+    <div className="flex h-[100dvh] w-full overflow-hidden portal-dot-bg" style={{ background: T.pageBg, color: T.text }}>
 
       {/* Desktop Sidebar */}
-      <aside className="hidden md:flex w-64 flex-shrink-0 flex-col candy-panel !rounded-l-none !border-y-0 !border-l-0 bg-white dark:bg-black z-20">
+      <aside className="hidden md:flex w-64 flex-shrink-0 flex-col border-r border-slate-200 dark:border-zinc-800 bg-white dark:bg-black z-20 overflow-hidden">
         <SidebarContent />
       </aside>
 
       {/* Mobile overlay menu */}
       {mobileMenuOpen && (
-        <div className="md:hidden fixed inset-0 z-50 flex">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setMobileMenuOpen(false)} />
-          <aside className="relative w-72 flex flex-col z-10 candy-panel !rounded-l-none !border-y-0 !border-l-0 bg-white dark:bg-black">
+        <div className="md:hidden fixed inset-0 z-[100] flex">
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setMobileMenuOpen(false)} />
+          <aside className="relative w-72 flex flex-col z-10 candy-panel !rounded-l-none !border-y-0 !border-l-0 bg-white dark:bg-black shadow-2xl">
             <button onClick={() => setMobileMenuOpen(false)}
               className="absolute top-4 right-4 candy-btn !min-h-[40px] px-3 py-2 rounded-xl flex items-center justify-center z-50 shadow-md">
               <X className="w-5 h-5 text-white" strokeWidth={3} />
@@ -264,69 +214,70 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
       )}
 
       {/* Main content */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+      <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden relative">
 
-        {/* Mobile top header */}
-        <div className="md:hidden flex items-center justify-between px-4 py-3 flex-shrink-0"
-          style={{ background: T.sidebarBg, borderBottom: `1px solid ${T.border}` }}>
-          <button onClick={() => setMobileMenuOpen(true)} className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl flex items-center justify-center"
-              style={{ background: 'linear-gradient(135deg, #06b6d4, #0891b2)' }}>
-              <GraduationCap className="w-4 h-4 text-white" />
+        {/* Mobile top sticky header */}
+        <div className="md:hidden flex flex-col flex-shrink-0 sticky top-0 z-40 bg-white/95 dark:bg-[#000000]/95 backdrop-blur-xl border-b border-slate-200/80 dark:border-zinc-800 shadow-sm">
+          <div className="flex items-center justify-between px-4 py-3">
+            <button
+              onClick={() => setMobileMenuOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-slate-200 active:scale-95 text-xs font-bold"
+            >
+              <Menu className="w-4 h-4" />
+              <span>Menu</span>
+            </button>
+            <div className="flex items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+                <CheckCircle2 className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                {data.completedClasses} Classes Done
+              </span>
             </div>
-            <span className="font-black text-sm" style={{ color: '#06b6d4' }}>CynexAI</span>
-          </button>
-          <div className="flex items-center gap-2">
-            <span className="flex items-center gap-1 text-sm font-bold px-2.5 py-1 rounded-full"
-              style={{ background: 'rgba(249,115,22,0.12)', color: '#f97316', border: '1px solid rgba(249,115,22,0.25)' }}>
-              <Flame className="w-3.5 h-3.5" />{data.streak}
-            </span>
-            <span className="flex items-center gap-1 text-sm font-bold px-2.5 py-1 rounded-full"
-              style={{ background: 'rgba(245,158,11,0.12)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.25)' }}>
-              <Coins className="w-3.5 h-3.5" />{data.coins}
-            </span>
           </div>
         </div>
 
-        {/* Scrollable content */}
-        <div className="flex-1 overflow-y-auto">
+        {/* Scrollable content container with bottom padding for constant fixed navbar */}
+        <div className="flex-1 overflow-y-auto pb-28 md:pb-8">
           {children}
         </div>
 
-        {/* Mobile bottom tab bar */}
-        <div className="md:hidden flex-shrink-0 flex justify-around items-center px-2 candy-panel !rounded-t-3xl !rounded-b-none !border-b-0 !border-x-0 !shadow-[0_-10px_25px_rgba(0,0,0,0.15)] bg-white dark:bg-black z-30 relative"
+        {/* Mobile Constant Fixed Bottom Navigation Bar */}
+        <nav
+          className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 dark:bg-[#09090b]/95 backdrop-blur-xl border-t border-slate-200/80 dark:border-zinc-800 shadow-[0_-10px_30px_rgba(0,0,0,0.35)] flex items-center justify-around px-1 py-1.5"
           style={{
-            height: '80px',
-            paddingBottom: 'env(safe-area-inset-bottom, 12px)',
-          }}>
-          {BOTTOM_NAV.map(({ to, icon: Icon, short, comingSoon }) => {
+            height: '66px',
+            paddingBottom: 'env(safe-area-inset-bottom, 6px)',
+          }}
+        >
+          {BOTTOM_NAV.map(({ to, icon: Icon, short, label, comingSoon }) => {
             const active = isActive(to);
             return (
-              <button key={to} onClick={() => { if (!comingSoon) navigate(to); }}
+              <button
+                key={to}
+                onClick={() => { if (!comingSoon) navigate(to); }}
                 disabled={comingSoon}
-                className={`flex flex-col items-center justify-center gap-1 flex-1 py-1 rounded-2xl transition-all min-h-[44px] mx-0.5 relative
-                  ${comingSoon ? 'opacity-50 cursor-not-allowed' : active ? 'text-white' : 'text-slate-500 hover:text-slate-800 dark:text-white/50 dark:hover:text-white active:scale-95'}
-                `}
+                aria-label={label}
+                className={`flex flex-col items-center justify-center flex-1 h-full py-1 rounded-xl transition-all relative ${
+                  comingSoon 
+                    ? 'opacity-40 cursor-not-allowed' 
+                    : active 
+                    ? 'text-blue-600 dark:text-blue-400 font-bold' 
+                    : 'text-slate-500 dark:text-zinc-400 hover:text-slate-800 dark:hover:text-white active:scale-90'
+                }`}
               >
-                <div className={`w-12 h-10 flex items-center justify-center rounded-2xl transition-all duration-300 ${active && !comingSoon ? 'candy-btn-blue shadow-lg !min-h-[40px] !border' : ''}`}>
-                  <Icon className="w-6 h-6" strokeWidth={active && !comingSoon ? 3 : 2} />
+                <div className={`w-9 h-7 flex items-center justify-center rounded-xl transition-all duration-200 ${
+                  active && !comingSoon ? 'bg-blue-600/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 shadow-sm border border-blue-500/30' : ''
+                }`}>
+                  <Icon className="w-4 h-4" strokeWidth={active ? 2.5 : 2} />
                 </div>
-                <span className={`text-[10px] font-black leading-none ${active && !comingSoon ? 'text-[#0096ff] dark:text-[#01cdfe]' : ''}`}>{short}</span>
-                {comingSoon && (
-                  <span className="absolute top-0 right-0 text-[8px] bg-slate-200 dark:bg-white dark:bg-black/20 px-1 py-[1px] rounded font-bold uppercase z-10 text-slate-600 dark:text-white/80">Soon</span>
-                )}
+                <span className={`text-[9px] font-bold tracking-tight mt-0.5 ${
+                  active ? 'text-blue-600 dark:text-blue-400 font-black' : 'text-slate-500 dark:text-zinc-400'
+                }`}>
+                  {short}
+                </span>
               </button>
             );
           })}
-          <button onClick={() => setMobileMenuOpen(true)}
-            className="flex flex-col items-center justify-center gap-1 flex-1 py-1 rounded-2xl transition-all active:scale-95 min-h-[44px] mx-0.5 text-slate-500 hover:text-slate-800 dark:text-white/50 dark:hover:text-white"
-          >
-            <div className="w-12 h-10 flex items-center justify-center">
-              <Menu className="w-6 h-6" strokeWidth={2.5} />
-            </div>
-            <span className="text-[10px] font-black leading-none">More</span>
-          </button>
-        </div>
+        </nav>
 
       </div>
     </div>

@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Settings, Bell, Briefcase, FileText, ToggleLeft, ToggleRight,
-  Plus, Trash2, Save, Check, Loader2, Upload, ExternalLink,
+  Plus, Trash2, Check, Loader2, Upload, ExternalLink,
   Eye, EyeOff
 } from 'lucide-react';
 import {
@@ -18,7 +18,6 @@ interface PortalSettings { [key: string]: string }
 const FEATURE_FLAGS = [
   { key: 'show_referrals',      label: 'Rewards & Materials Page', desc: 'Students can see their referral rewards and share materials' },
   { key: 'show_career',         label: 'Career Center',            desc: 'Job listings and placement resources' },
-  { key: 'show_leaderboard',    label: 'Leaderboard',              desc: 'Student ranking by coins and referrals' },
   { key: 'show_mock_interview', label: 'AI Mock Interview',        desc: 'AI-powered voice mock interview feature' },
   { key: 'show_attendance',     label: 'Attendance Page',          desc: 'Students can see their attendance history' },
   { key: 'show_gamification',   label: 'Gamification (Level/Coins)',  desc: 'Streak, coins, level system visibility' },

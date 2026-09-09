@@ -23,40 +23,64 @@ const getDurationHours = (start: string, end: string) => {
 
 const renderClassTags = (classItem: GlobalTimetableSlot, batches: any[], isOnline: boolean) => {
   try {
-    const cList = JSON.parse(classItem.course_name || '[]');
-    const bMap = JSON.parse(classItem.batch_id || '{}');
-    if (Array.isArray(cList) && cList.length > 0) {
+    let cList: string[] = [];
+    try { cList = JSON.parse(classItem.course_name || '[]'); } catch { cList = [classItem.course_name || '']; }
+    if (!Array.isArray(cList)) cList = [cList];
+    cList = cList.filter(Boolean);
+
+    let bMap: Record<string, string[]> = {};
+    try { bMap = JSON.parse(classItem.batch_id || '{}'); } catch { bMap = {}; }
+
+    const resolveBatchName = (bid: string) => {
+      const norm = String(bid).trim().toLowerCase();
+      const bMatch = batches.find((b: any) => 
+        String(b.id).toLowerCase() === norm ||
+        String(b.name).toLowerCase() === norm ||
+        String(b.id).toLowerCase() === 'batch_' + norm ||
+        String(b.name).toLowerCase() === 'batch ' + norm ||
+        ('batch_' + String(b.id).toLowerCase()) === norm
+      );
+      if (bMatch) return bMatch.name;
+      if (bid.startsWith('batch_')) return 'Batch ' + bid.replace('batch_', '');
+      return bid;
+    };
+
+    if (cList.length > 0) {
+      const allAssignedIds = Array.from(new Set(Object.values(bMap).flat()));
+
       return (
         <div className="flex flex-col gap-1.5">
           {cList.map((c: string) => {
-            const batchNames = (bMap[c] || []).map((bid: string) => batches.find((b: any) => b.id === bid)?.name || bid).join(', ');
+            const courseBatchIds = bMap[c] && bMap[c].length > 0 ? bMap[c] : allAssignedIds;
+            const batchNames = courseBatchIds.map(resolveBatchName).join(', ');
             return (
               <div key={c} className="leading-tight">
-                <div className={`text-[9px] font-extrabold uppercase truncate ${isOnline ? 'text-emerald-700' : 'text-indigo-700'}`}>{c}</div>
-                <div className="text-[11px] font-bold text-erp-text truncate">{batchNames || 'No Batches'}</div>
+                <div className={`text-[9px] font-extrabold uppercase truncate ${isOnline ? 'text-emerald-700 dark:text-emerald-400' : 'text-blue-700 dark:text-blue-400'}`}>{c}</div>
+                <div className="text-[11px] font-bold text-erp-text truncate">{batchNames || 'All Batches'}</div>
               </div>
             );
           })}
         </div>
       );
     }
-    throw new Error('Fallback');
-  } catch {
-    return (
-      <>
-        <div className="font-bold text-xs text-erp-text truncate leading-tight">{classItem.batch_name || classItem.batch_id}</div>
-        <div className={`text-[10px] font-bold mt-1 truncate ${isOnline ? 'text-emerald-700' : 'text-indigo-700'}`}>
-          {classItem.course_name}
-        </div>
-      </>
-    );
-  }
+  } catch {}
+
+  const fallbackBatch = classItem.batch_name || classItem.batch_id || 'All Batches';
+  const cleanFallback = String(fallbackBatch).startsWith('batch_') ? 'Batch ' + String(fallbackBatch).replace('batch_', '') : fallbackBatch;
+  return (
+    <>
+      <div className="font-bold text-xs text-erp-text truncate leading-tight">{cleanFallback}</div>
+      <div className={`text-[10px] font-bold mt-1 truncate ${isOnline ? 'text-emerald-700 dark:text-emerald-400' : 'text-blue-700 dark:text-blue-400'}`}>
+        {classItem.course_name}
+      </div>
+    </>
+  );
 };
 
 export default function TeacherTimetable() {
   const navigate = useNavigate();
   const user = getCurrentUser();
-  const resolvedUserId = user?.id === 'usr_teacher' ? 'usr_venkatesh' : (user?.id || '');
+  const resolvedUserId = user?.id || 'usr_teacher';
 
   const [schedule, setSchedule] = useState<GlobalTimetableSlot[]>([]);
   const [batches, setBatches] = useState<any[]>([]);
@@ -106,7 +130,11 @@ export default function TeacherTimetable() {
     return slots;
   }, [schedule]);
 
-  const getStatusColor = (day: string, startHourStr: string) => {
+  const getStatusColor = (day: string, startHourStr: string, classItem?: GlobalTimetableSlot) => {
+    if (classItem?.status === 'in_progress' || (classItem?.id && localStorage.getItem('cynexai_live_class_id') === classItem.id)) {
+      return 'live';
+    }
+
     const today = currentTime.getDay(); // 0=Sun, 1=Mon
     const classDayIdx = DAYS.indexOf(day); // 0=Mon, 6=Sun
     // Convert current JS day to standard index where Mon=0, Sun=6
@@ -117,16 +145,12 @@ export default function TeacherTimetable() {
 
     if (classDayIdx < normToday) return 'past';
     if (classDayIdx === normToday && startHour < currentHour - 1) return 'past'; // class ended
-    
-    if (classDayIdx === normToday && startHour >= currentHour - 1 && startHour <= currentHour + 1) {
-      return 'live';
-    }
 
     return 'upcoming';
   };
 
   return (
-    <div className="flex h-full w-full overflow-hidden bg-erp-background">
+    <div className="flex h-full w-full overflow-hidden bg-erp-background subtle-watermark">
       <div className="flex-1 flex flex-col p-4 md:p-8 min-w-0 overflow-hidden pb-4">
         
         {/* Header */}
@@ -137,7 +161,7 @@ export default function TeacherTimetable() {
             </Button>
             <div>
               <h1 className="text-3xl font-display font-bold text-erp-text flex items-center gap-3">
-                <Calendar className="w-8 h-8 text-indigo-500" /> My Timetable
+                <Calendar className="w-8 h-8 text-blue-500" /> My Timetable
               </h1>
               <p className="text-erp-text/70 font-medium mt-1">Full weekly view. View classes assigned to you.</p>
             </div>
@@ -196,9 +220,9 @@ export default function TeacherTimetable() {
                   const normToday = today === 0 ? 6 : today - 1;
                   const isCurrentDay = DAYS.indexOf(day) === normToday && currentWeekStart === getMonday(currentTime);
                   return (
-                    <div key={day} className={`p-4 border-r border-erp-border font-bold text-sm text-center last:border-r-0 ${isCurrentDay ? 'text-indigo-600 bg-indigo-50/50' : 'text-erp-text bg-erp-surface'}`}>
+                    <div key={day} className={`p-4 border-r border-erp-border font-bold text-sm text-center last:border-r-0 ${isCurrentDay ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-950/40' : 'text-erp-text bg-erp-surface'}`}>
                       {day}
-                      {isCurrentDay && <div className="text-[10px] uppercase text-indigo-500 mt-0.5">Today</div>}
+                      {isCurrentDay && <div className="text-[10px] uppercase text-blue-500 mt-0.5">Today</div>}
                     </div>
                   );
                 })}
@@ -231,16 +255,16 @@ export default function TeacherTimetable() {
                         {classItems.map(classItem => {
                           const isOnline = classItem.timing?.toLowerCase().includes('online') || classItem.timing?.includes('zoom');
                           const durationHrs = getDurationHours(classItem.start_time, classItem.end_time);
-                          const statusColor = getStatusColor(day, classItem.start_time);
+                          const statusColor = getStatusColor(day, classItem.start_time, classItem);
                           
-                          let bgStyle = 'bg-indigo-50 border-indigo-200';
-                          if (isOnline) bgStyle = 'bg-emerald-50 border-emerald-200';
+                          let bgStyle = 'bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800/60';
+                          if (isOnline) bgStyle = 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800/60';
                           if (statusColor === 'past') bgStyle = 'bg-slate-100 dark:bg-zinc-900/50 border-slate-300 dark:border-white/10 opacity-60 grayscale';
-                          if (statusColor === 'live') bgStyle = 'bg-red-50 border-red-400 animate-pulse ring-2 ring-red-400/50';
+                          if (statusColor === 'live') bgStyle = 'bg-red-50 dark:bg-red-950/40 border-red-400 animate-pulse ring-2 ring-red-400/50';
 
                           return (
                             <div 
-                              key={classItem.id}
+                              key={classItem.id} 
                               className={`w-full rounded-xl p-3 z-10 border-2 flex flex-col justify-between shadow-sm
                                 ${bgStyle}`}
                               style={{ minHeight: `${Math.max(80, durationHrs * 80)}px` }}
@@ -255,11 +279,11 @@ export default function TeacherTimetable() {
                               <div className="mt-3 pt-2 border-t border-black/5 flex flex-col gap-2">
                                 <div className="flex items-center justify-between text-[10px] font-bold text-erp-text/70 truncate">
                                   <div className="flex items-center gap-1">
-                                    <MapPin className="w-3 h-3 text-indigo-500" />
+                                    <MapPin className="w-3 h-3 text-blue-500" />
                                     <span>{classItem.timing}</span>
                                   </div>
                                   <div className="flex items-center gap-1 text-erp-primary">
-                                    {isOnline ? <Video className="w-3 h-3 text-emerald-500"/> : <Users className="w-3 h-3 text-indigo-500"/>}
+                                    {isOnline ? <Video className="w-3 h-3 text-emerald-500"/> : <Users className="w-3 h-3 text-blue-500"/>}
                                   </div>
                                 </div>
                                 {statusColor !== 'past' && (
@@ -267,7 +291,7 @@ export default function TeacherTimetable() {
                                     <Button 
                                       onClick={() => navigate(`/teacher/live?classId=${classItem.id}&type=${classItem.status}`)}
                                       variant="primary"
-                                      className={`w-full py-1.5 text-[10px] h-auto ${statusColor === 'live' ? 'bg-red-600 hover:bg-red-700 border-red-700 shadow-md' : 'bg-indigo-600'}`}
+                                      className={`w-full py-1.5 text-[10px] h-auto ${statusColor === 'live' ? 'bg-red-600 hover:bg-red-700 border-red-700 shadow-md' : 'bg-blue-600 hover:bg-blue-700'}`}
                                     >
                                       <Video className="w-3 h-3 mr-1" /> 
                                       {statusColor === 'live' ? 'JOIN LIVE CLASS' : 'Launch Studio'}

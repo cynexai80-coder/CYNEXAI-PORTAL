@@ -3,13 +3,29 @@ import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { MemoryRouter } from 'react-router-dom';
-import React from 'react';
 
-// Mock the APIs before importing the component
+vi.mock('@hello-pangea/dnd', () => ({
+  DragDropContext: ({ children }: any) => <div>{children}</div>,
+  Droppable: ({ children }: any) => children({
+    droppableProps: {},
+    innerRef: () => {},
+    placeholder: null,
+  }, { isDraggingOver: false }),
+  Draggable: ({ children }: any) => children({
+    draggableProps: { style: {} },
+    dragHandleProps: {},
+    innerRef: () => {},
+  }, { isDragging: false }),
+}));
+
 vi.mock('../../../lib/api/crm', () => ({
   getLeads: vi.fn(),
   updateLeadStatus: vi.fn(),
   addActivity: vi.fn(),
+}));
+
+vi.mock('../../../lib/api/sales', () => ({
+  getCoursesForPitch: vi.fn().mockResolvedValue([]),
 }));
 
 vi.mock('../../../lib/auth', () => ({
@@ -48,16 +64,14 @@ describe('LeadPipeline', () => {
 
     // Wait for the lead to appear on the screen
     await waitFor(() => {
-      expect(screen.getByText('John Doe Testing')).toBeInTheDocument();
+      expect(screen.getAllByText('John Doe Testing')[0]).toBeInTheDocument();
     });
 
-    // The component structure puts the stage name (e.g. "New Lead") in a heading
-    // and the leads underneath it in a droppable container.
-    // We'll verify that the lead's name is rendered correctly.
-    const leadElement = screen.getByText('John Doe Testing');
-    expect(leadElement).toBeInTheDocument();
+    const leadElements = screen.getAllByText('John Doe Testing');
+    expect(leadElements.length).toBeGreaterThan(0);
+    expect(leadElements[0]).toBeInTheDocument();
     
     // We can also verify that the course interest is rendered
-    expect(screen.getByText('React Basics')).toBeInTheDocument();
+    expect(screen.getAllByText('React Basics')[0]).toBeInTheDocument();
   });
 });

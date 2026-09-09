@@ -9,17 +9,18 @@ export default function Profile() {
   const user = getCurrentUser();
   const navigate = useNavigate();
   const [openAiKey, setOpenAiKey] = useState(localStorage.getItem('CYNEX_OPENAI_KEY') || '');
+  const [groqKey, setGroqKey] = useState(import.meta.env.VITE_GROQ_API_KEY || localStorage.getItem('cynex_groq_key') || '');
   const [saved, setSaved] = useState(false);
 
   const handleSaveKeys = () => {
     localStorage.setItem('CYNEX_OPENAI_KEY', openAiKey);
+    localStorage.setItem('cynex_groq_key', groqKey);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };
 
-  const handleLogout = () => {
-    logout();
-    navigate('/login');
+  const handleLogout = async () => {
+    await logout();
   };
 
   if (!user) return null;
@@ -100,6 +101,16 @@ export default function Profile() {
               </p>
 
               <div className="space-y-4 flex-1">
+                <div>
+                  <label className="block text-sm font-bold text-erp-text/70 mb-2">Groq API Key (for LLaMA / Qwen / Voice Mock Interviews)</label>
+                  <input 
+                    type="password"
+                    value={groqKey}
+                    onChange={(e) => setGroqKey(e.target.value)}
+                    placeholder="gsk_..."
+                    className="w-full bg-erp-surface border-2 border-erp-border rounded-xl p-3 font-bold text-erp-text focus:outline-none focus:border-erp-primary"
+                  />
+                </div>
                 <div>
                   <label className="block text-sm font-bold text-erp-text/70 mb-2">OpenAI API Key (for Voice/Sales Pitch)</label>
                   <input 

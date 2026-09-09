@@ -1,4 +1,15 @@
+function cleanText(text) {
+    if (!text) return '';
+    let cleaned = text;
+    cleaned = cleaned.replace(/<think>[\s\S]*?<\/think>/gi, '');
+    cleaned = cleaned.replace(/<think>[\s\S]*/gi, '');
+    cleaned = cleaned.replace(/\*\*.*?\*\*/g, '');
+    return cleaned.trim();
+}
+
 async function generateInitialQuestionVoice(context, voiceId, groqKey, deepgramKey, mocks = null) {
+    if (groqKey === undefined) groqKey = process.env.GROQ_VOICE_API || process.env.GROQ_API_KEY;
+    if (deepgramKey === undefined) deepgramKey = process.env.DEEPGRAM_VOICE_API || process.env.VITE_DEEPGRAM_VOICE_API;
     if (!groqKey || !deepgramKey) throw new Error("Missing API keys");
 
     if (mocks) {
@@ -11,21 +22,38 @@ Context about the student: ${context}
 Start the interview by introducing yourself briefly, acknowledging their background, and asking them to introduce themselves.
 Keep it under 3 sentences. Be welcoming but professional.`;
 
-    const llmRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${groqKey}`,
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            model: 'llama-3.1-8b-instant',
-            messages: [{ role: 'system', content: systemPrompt }]
-        })
-    });
+    let aiText = '';
+    const candidateModels = ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'qwen/qwen3.6-27b', 'groq/compound'];
+    let lastLlmErr = '';
 
-    if (!llmRes.ok) throw new Error(`Groq LLM error: ${await llmRes.text()}`);
-    const llmData = await llmRes.json();
-    const aiText = llmData.choices?.[0]?.message?.content || 'Hello, welcome to your mock interview. Let us begin.';
+    for (const model of candidateModels) {
+        try {
+            const llmRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${groqKey}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    model,
+                    messages: [{ role: 'system', content: systemPrompt }]
+                })
+            });
+
+            if (llmRes.ok) {
+                const llmData = await llmRes.json();
+                let rawText = llmData.choices?.[0]?.message?.content || '';
+                aiText = cleanText(rawText);
+                if (aiText) break;
+            } else {
+                lastLlmErr = await llmRes.text();
+            }
+        } catch (e) {
+            lastLlmErr = e.message || String(e);
+        }
+    }
+
+    if (!aiText) aiText = 'Hello, welcome to your mock interview. Let us begin.';
 
     // 2. Deepgram TTS
     const ttsRes = await fetch(`https://api.deepgram.com/v1/speak?model=${voiceId}`, {
@@ -47,6 +75,8 @@ Keep it under 3 sentences. Be welcoming but professional.`;
 }
 
 async function processVoiceTurn(audioBuffer, chatHistoryText, context, turnCount, voiceId, groqKey, deepgramKey, mocks = null) {
+    if (groqKey === undefined) groqKey = process.env.GROQ_VOICE_API || process.env.GROQ_API_KEY;
+    if (deepgramKey === undefined) deepgramKey = process.env.DEEPGRAM_VOICE_API || process.env.VITE_DEEPGRAM_VOICE_API;
     if (!groqKey || !deepgramKey) {
         throw new Error("Missing API keys for voice processing");
     }
@@ -101,21 +131,37 @@ If this is turn 10 or higher, conclude the interview by thanking the candidate f
                 { role: 'user', content: studentText }
             ];
 
-            const llmRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${groqKey}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    model: 'llama-3.1-8b-instant',
-                    messages: messages
-                })
-            });
+            const candidateModels = ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'qwen/qwen3.6-27b', 'groq/compound'];
+            let lastLlmErr = '';
 
-            if (!llmRes.ok) throw new Error(`Groq LLM error: ${await llmRes.text()}`);
-            const llmData = await llmRes.json();
-            aiText = llmData.choices?.[0]?.message?.content || 'Thank you for your answer.';
+            for (const model of candidateModels) {
+                try {
+                    const llmRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${groqKey}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            model,
+                            messages: messages
+                        })
+                    });
+
+                    if (llmRes.ok) {
+                        const llmData = await llmRes.json();
+                        let rawText = llmData.choices?.[0]?.message?.content || '';
+                        aiText = cleanText(rawText);
+                        if (aiText) break;
+                    } else {
+                        lastLlmErr = await llmRes.text();
+                    }
+                } catch (e) {
+                    lastLlmErr = e.message || String(e);
+                }
+            }
+
+            if (!aiText) aiText = 'Thank you for your answer.';
 
             // 3. Deepgram Aura (TTS)
             const ttsRes = await fetch(`https://api.deepgram.com/v1/speak?model=${voiceId}`, {

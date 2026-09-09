@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Card } from '../../components/ui/erp/Card';
 import { Button } from '../../components/ui/erp/Button';
-import { Video, BookOpen, Users, Calendar, Play, Zap, AlertCircle, Filter, Settings } from 'lucide-react';
+import { Video, BookOpen, Users, Calendar, Play, Zap, AlertCircle, Filter, Settings, TrendingUp } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getCurrentUser } from '../../lib/auth';
 import { AttendanceButton } from '../../components/ui/AttendanceButton';
@@ -78,7 +78,7 @@ export default function TeacherDashboard() {
           const course = await getTeacherFirstCourse(user?.id || '');
           if (!course) {
             // Still show batches from timetable even without a course
-            const uniqueBatches = [...new Set(formattedTimetable.map((t: any) => t.batchId))];
+            const uniqueBatches: string[] = Array.from(new Set(formattedTimetable.map((t: any) => t.batchId as string)));
             setRealBatches(uniqueBatches.map((bId: string) => ({
               id: bId as string,
               name: parseBatchJSON(bId as string) || 'All Batches',
@@ -102,7 +102,7 @@ export default function TeacherDashboard() {
           });
 
           // Build batch list from timetable slots
-          const uniqueBatches = [...new Set(formattedTimetable.map((t: any) => t.batchId))];
+          const uniqueBatches: string[] = Array.from(new Set(formattedTimetable.map((t: any) => t.batchId as string)));
           setRealBatches(uniqueBatches.map((bId: string) => ({
             id: bId as string,
             name: parseBatchJSON(bId as string) || 'All Batches',
@@ -115,7 +115,7 @@ export default function TeacherDashboard() {
       });
     };
     fetchTimetableAndProgress();
-  }, [user]);
+  }, [user?.id]);
 
   // Group timetable by day (1=Mon ... 5=Fri)
   const schedule: Record<number, any[]> = {};
@@ -132,7 +132,7 @@ export default function TeacherDashboard() {
     : (realBatches.length > 0 ? realBatches : []).filter((b: any) => b.id === selectedBatchId);
 
   return (
-    <div className="flex h-full w-full overflow-hidden bg-erp-background">
+    <div className="flex h-full w-full overflow-hidden bg-erp-background subtle-watermark">
       <div className="flex-1 flex flex-col p-4 md:p-8 min-w-0 overflow-y-auto pb-32">
         <AttendanceButton />
         
@@ -145,7 +145,7 @@ export default function TeacherDashboard() {
         </div>
 
         {/* Quick Nav */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
           <Card className="flex flex-col items-center justify-center p-6 cursor-pointer hover:bg-erp-primary/5 transition-colors border-erp-primary" onClick={() => navigate('/teacher/live')}>
             <Video className="w-8 h-8 text-erp-primary mb-2" />
             <span className="font-bold text-erp-text text-sm text-center">Teacher Studio</span>
@@ -157,6 +157,10 @@ export default function TeacherDashboard() {
           <Card className="flex flex-col items-center justify-center p-6 cursor-pointer hover:bg-green-500/5 transition-colors" onClick={() => navigate('/teacher/attendance')}>
             <Users className="w-8 h-8 text-green-400 mb-2" />
             <span className="font-bold text-erp-text text-sm text-center">Attendance</span>
+          </Card>
+          <Card className="flex flex-col items-center justify-center p-6 cursor-pointer hover:bg-amber-500/5 transition-colors border-amber-500/30" onClick={() => navigate('/teacher/student-progress')}>
+            <TrendingUp className="w-8 h-8 text-amber-500 mb-2" />
+            <span className="font-bold text-erp-text text-sm text-center">Student Progress</span>
           </Card>
           <Card className="flex flex-col items-center justify-center p-6 cursor-pointer hover:bg-blue-500/5 transition-colors" onClick={() => navigate('/teacher/timetable')}>
             <Calendar className="w-8 h-8 text-blue-400 mb-2" />
@@ -174,22 +178,22 @@ export default function TeacherDashboard() {
           <div className="lg:col-span-2 space-y-6">
             
             {/* Upcoming Class Banner */}
-            <Card className="bg-gradient-to-br from-indigo-950 via-slate-900 to-slate-900 border-indigo-800/50 p-6 shadow-xl relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none" />
+            <Card className="bg-white dark:bg-slate-900/90 border border-slate-200 dark:border-blue-800/50 p-6 shadow-xl relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none" />
               
               <div className="flex items-center gap-2 mb-4 relative z-10">
-                <Zap className="w-5 h-5 text-yellow-400 animate-pulse" />
-                <h2 className="font-bold text-white text-lg">Next Upcoming Class</h2>
+                <Zap className="w-5 h-5 text-yellow-500 dark:text-yellow-400 animate-pulse" />
+                <h2 className="font-bold text-slate-900 dark:text-white text-lg">Next Upcoming Class</h2>
               </div>
 
               {nextClass ? (
                 <div className="relative z-10">
-                  <div className="bg-white dark:bg-black/5 border border-white/10 rounded-xl p-5 mb-5 backdrop-blur-sm">
+                  <div className="bg-slate-50 dark:bg-black/30 border border-slate-200 dark:border-white/10 rounded-xl p-5 mb-5 backdrop-blur-sm">
                     <div className="flex justify-between items-start mb-2">
-                      <p className="text-xs font-bold text-indigo-300 uppercase tracking-widest">{nextClass.batchName || 'Unassigned Batch'}</p>
-                      <span className="text-xs font-bold text-white bg-indigo-600 px-3 py-1 rounded-full">{nextClass.time}</span>
+                      <p className="text-xs font-bold text-blue-600 dark:text-blue-300 uppercase tracking-widest">{nextClass.batchName || 'Unassigned Batch'}</p>
+                      <span className="text-xs font-bold text-white bg-blue-600 px-3 py-1 rounded-full">{nextClass.time}</span>
                     </div>
-                    <h3 className="text-2xl font-display font-bold text-white mb-2">{nextClass.course || 'Ad-hoc Class'}</h3>
+                    <h3 className="text-2xl font-display font-bold text-slate-900 dark:text-white mb-2">{nextClass.course || 'Ad-hoc Class'}</h3>
                   </div>
                   
                   <div className="flex flex-col sm:flex-row gap-3">
@@ -240,11 +244,11 @@ export default function TeacherDashboard() {
                 )}
                 {displayBatches.map((b: any) => {
                   return (
-                    <div key={b.id} className="bg-erp-background border border-erp-border rounded-xl p-4 transition-all hover:border-indigo-500/30">
+                    <div key={b.id} className="bg-erp-background border border-erp-border rounded-xl p-4 transition-all hover:border-blue-500/30">
                       <div className="flex justify-between items-start mb-2">
                         <div>
                           <h3 className="font-bold text-erp-text text-lg">{b.name}</h3>
-                          <p className="text-xs font-bold text-indigo-600 mt-0.5">{b.course}</p>
+                          <p className="text-xs font-bold text-blue-600 mt-0.5">{b.course}</p>
                         </div>
                       </div>
                       
@@ -255,14 +259,14 @@ export default function TeacherDashboard() {
                             <div key={idx}>
                               <div className="flex justify-between text-xs font-bold text-erp-text/60 mb-1.5">
                                 <span className="flex items-center gap-1.5">
-                                  <span className="w-2 h-2 rounded-full bg-indigo-500" />
+                                  <span className="w-2 h-2 rounded-full bg-blue-500" />
                                   {mod.title} Module
                                 </span>
                                 <span>{percent}% ({mod.completed} / {mod.total} Classes)</span>
                               </div>
                               <div className="h-2 w-full bg-erp-border rounded-full overflow-hidden">
                                 <div 
-                                  className="h-full bg-indigo-500 rounded-full transition-all duration-1000 ease-out" 
+                                  className="h-full bg-blue-500 rounded-full transition-all duration-1000 ease-out" 
                                   style={{ width: `${percent}%` }}
                                 />
                               </div>
@@ -282,7 +286,7 @@ export default function TeacherDashboard() {
             <Card className="sticky top-6 h-[calc(100vh-8rem)] overflow-hidden flex flex-col">
               <div className="p-4 border-b-2 border-erp-border">
                 <h2 className="font-bold text-erp-text flex items-center gap-2">
-                  <Calendar className="w-5 h-5 text-indigo-500" />
+                  <Calendar className="w-5 h-5 text-blue-500" />
                   Weekly Timetable
                 </h2>
               </div>
@@ -294,7 +298,7 @@ export default function TeacherDashboard() {
                     <button
                       key={day}
                       onClick={() => setSelectedDay(idx)}
-                      className={`flex-1 min-w-[3rem] py-2 flex flex-col items-center justify-center rounded-lg transition-colors ${selectedDay === idx ? 'bg-indigo-600 text-white shadow-md' : 'text-erp-text/60 hover:bg-erp-primary/5'}`}
+                      className={`flex-1 min-w-[3rem] py-2 flex flex-col items-center justify-center rounded-lg transition-colors ${selectedDay === idx ? 'bg-blue-600 text-white shadow-md' : 'text-erp-text/60 hover:bg-erp-primary/5'}`}
                     >
                       <span className="text-[10px] uppercase font-bold tracking-wider">{day}</span>
                     </button>

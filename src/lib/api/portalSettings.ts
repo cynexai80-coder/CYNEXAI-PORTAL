@@ -119,7 +119,7 @@ export async function deleteJobListing(id: string): Promise<void> {
 // ─── Course Shared Materials ──────────────────────────────────────────────────
 
 export async function getCourseMaterials(): Promise<any[]> {
-  return cachedQuery('course_materials', async () => {
+  return cachedQuery('course_shared_materials', async () => {
     try {
       const res = await executeWithRetry(
         'SELECT * FROM course_shared_materials ORDER BY created_at DESC'
@@ -144,7 +144,7 @@ export async function createCourseMaterial(data: {
     `INSERT INTO course_shared_materials (id, title, description, file_url, material_type, course_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
     [id, data.title, data.description, data.file_url, data.material_type, data.course_id ?? null, new Date().toISOString()]
   );
-  cacheInvalidate('course_materials');
+  cacheInvalidate('course_shared_materials');
 }
 
 export async function deleteCourseMaterial(id: string): Promise<void> {
@@ -152,5 +152,5 @@ export async function deleteCourseMaterial(id: string): Promise<void> {
     'DELETE FROM course_shared_materials WHERE id = ?',
     [id]
   );
-  cacheInvalidate('course_materials');
+  cacheInvalidate('course_shared_materials');
 }

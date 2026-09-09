@@ -33,7 +33,7 @@ const renderClassTags = (classItem: GlobalTimetableSlot, batches: any[], isOnlin
             const batchNames = (bMap[c] || []).map((bid: string) => batches.find((b: any) => b.id === bid)?.name || bid).join(', ');
             return (
               <div key={c} className="leading-tight">
-                <div className={`text-[9px] font-extrabold uppercase truncate ${isOnline ? 'text-emerald-700' : 'text-indigo-700'}`}>{c}</div>
+                <div className={`text-[9px] font-extrabold uppercase truncate ${isOnline ? 'text-emerald-700 dark:text-emerald-400' : 'text-blue-700 dark:text-blue-400'}`}>{c}</div>
                 <div className="text-[11px] font-bold text-erp-text truncate">{batchNames || 'No Batches'}</div>
               </div>
             );
@@ -46,7 +46,7 @@ const renderClassTags = (classItem: GlobalTimetableSlot, batches: any[], isOnlin
     return (
       <>
         <div className="font-bold text-xs text-erp-text truncate leading-tight">{classItem.batch_name || classItem.batch_id}</div>
-        <div className={`text-[10px] font-bold mt-1 truncate ${isOnline ? 'text-emerald-700' : 'text-indigo-700'}`}>
+        <div className={`text-[10px] font-bold mt-1 truncate ${isOnline ? 'text-emerald-700 dark:text-emerald-400' : 'text-blue-700 dark:text-blue-400'}`}>
           {classItem.course_name}
         </div>
       </>
@@ -133,23 +133,49 @@ export default function TimetableManager() {
     fetchData();
   }, [filterCourse, filterTeacher, filterModule, currentWeekStart]);
 
+  const [saving, setSaving] = useState(false);
+
   const handleSaveSlot = async () => {
-    if (!editingSlot?.teacher_id) {
+    if (!editingSlot) return;
+    if (!editingSlot.teacher_id) {
       alert("Please select a teacher.");
       return;
     }
-    if (editingSlot && editingSlot.day_of_week && editingSlot.start_time && editingSlot.end_time) {
+    if (!editingSlot.day_of_week) {
+      alert("Please select a day of week.");
+      return;
+    }
+    if (!editingSlot.start_time) {
+      alert("Please select a start time.");
+      return;
+    }
+
+    setSaving(true);
+    try {
       const slotToSave = {
         ...editingSlot,
+        start_time: editingSlot.start_time || '09:00',
+        end_time: editingSlot.end_time || '10:00',
         course_name: JSON.stringify(selectedCourses),
-        batch_id: JSON.stringify(selectedBatches)
+        batch_id: JSON.stringify(selectedBatches),
+        timing: editingSlot.timing || 'Offline',
+        status: editingSlot.status || 'one-time',
+        week_start: editingSlot.week_start || currentWeekStart
       };
-      await saveTimetableSlot(slotToSave);
-      setIsSlotModalOpen(false);
-      setEditingSlot(null);
-      fetchData();
-    } else {
-      alert("Please fill in all required fields (Day, Time, Teacher).");
+      
+      const success = await saveTimetableSlot(slotToSave);
+      if (success) {
+        setIsSlotModalOpen(false);
+        setEditingSlot(null);
+        await fetchData();
+      } else {
+        alert("Failed to save class slot. Please check your connection.");
+      }
+    } catch (err: any) {
+      console.error('Failed to save slot:', err);
+      alert('Error saving class: ' + (err?.message || 'Database connection error'));
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -210,7 +236,7 @@ export default function TimetableManager() {
         {/* Top Metrics */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
           <Card className="bg-erp-surface border border-erp-border p-4 flex items-center gap-4">
-            <div className="p-3 bg-indigo-500/10 rounded-xl"><BookOpen className="w-6 h-6 text-indigo-500" /></div>
+            <div className="p-3 bg-blue-500/10 rounded-xl"><BookOpen className="w-6 h-6 text-blue-500" /></div>
             <div>
               <p className="text-sm font-bold text-erp-text/50">Weekly Classes</p>
               <h3 className="text-2xl font-bold text-erp-text">{schedule.length}</h3>
@@ -341,7 +367,7 @@ export default function TimetableManager() {
               {loading && <div className="absolute inset-0 bg-erp-surface/80 backdrop-blur-sm z-50 flex items-center justify-center font-bold text-erp-primary">Loading Schedule...</div>}
               <div className="min-w-[1200px]">
                 {/* Header Row */}
-                <div className="grid grid-cols-8 border-b border-erp-border bg-erp-background/30">
+                <div className="grid grid-cols-8 border-b-2 border-erp-border bg-erp-surface shadow-sm relative z-10">
                   <div className="p-3 border-r border-erp-border font-bold text-xs text-erp-text/50 text-center uppercase">Time</div>
                   {DAYS.map(day => (
                     <div key={day} className="p-3 border-r border-erp-border font-bold text-sm text-erp-text text-center last:border-r-0">
@@ -391,10 +417,10 @@ export default function TimetableManager() {
                                 key={classItem.id}
                                 className={`w-full rounded-xl p-2 z-10 border-2 flex flex-col justify-between shadow-sm cursor-pointer hover:shadow-md transition-shadow
                                   ${alerting 
-                                    ? 'bg-red-50 border-red-500 animate-[pulse_1.5s_ease-in-out_infinite]' 
+                                    ? 'bg-red-50 dark:bg-red-950/40 border-red-500 animate-[pulse_1.5s_ease-in-out_infinite]' 
                                     : isOnline 
-                                      ? 'bg-emerald-50 border-emerald-200' 
-                                      : 'bg-indigo-50 border-indigo-200'
+                                      ? 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800/60' 
+                                      : 'bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800/60'
                                   }`}
                                 style={{ minHeight: `${Math.max(80, durationHrs * 80)}px` }}
                                 onClick={(e) => {
@@ -417,7 +443,7 @@ export default function TimetableManager() {
                                       <span className={alerting ? "text-red-600" : ""}>{alerting ? "ABSENT" : classItem.teacher_name || classItem.teacher_id}</span>
                                     </div>
                                     <div className="flex items-center gap-1 text-erp-primary">
-                                      {isOnline ? <Video className="w-3 h-3 text-emerald-500"/> : <MapPin className="w-3 h-3 text-indigo-500"/>}
+                                      {isOnline ? <Video className="w-3 h-3 text-emerald-500"/> : <MapPin className="w-3 h-3 text-blue-500"/>}
                                     </div>
                                   </div>
                                 </div>
@@ -494,8 +520,8 @@ export default function TimetableManager() {
 
       {/* Slot Editor Modal */}
       {isSlotModalOpen && editingSlot && (
-        <div className="fixed inset-0 bg-erp-text/20 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <Card className="max-w-md w-full border-2 border-erp-border shadow-xl">
+        <div className="fixed inset-0 bg-erp-text/20 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <Card className="max-w-md md:max-w-lg w-full border-2 border-erp-border shadow-2xl max-h-[85vh] overflow-y-auto rounded-3xl my-auto">
             <div className="p-6">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold font-display text-erp-text">{editingSlot.id ? 'Edit Class' : 'Schedule Class'}</h2>
@@ -568,43 +594,135 @@ export default function TimetableManager() {
                   </div>
                 </div>
 
-                {selectedCourses.some(sc => courses.find(c => c.title === sc)) && (
-                  <div className="bg-erp-primary/5 p-4 rounded-xl border border-erp-primary/10 mt-4">
-                    <label className="block text-xs font-bold text-erp-text/50 uppercase tracking-wider mb-3">Select Batches for Course</label>
-                    <div className="space-y-4">
+                {/* Batch Dropdown Selector */}
+                <div className="bg-erp-primary/5 p-4 rounded-xl border border-erp-primary/10 mt-4 space-y-3">
+                  <label className="block text-xs font-bold text-erp-text/50 uppercase tracking-wider">
+                    Select Batches for Class
+                  </label>
+                  
+                  {/* Dropdown Menu */}
+                  <select
+                    className="w-full bg-erp-background border-2 border-erp-border rounded-xl p-3 text-sm font-bold text-erp-text outline-none focus:border-erp-primary transition-colors cursor-pointer"
+                    value=""
+                    onChange={(e) => {
+                      const bId = e.target.value;
+                      if (!bId) return;
+
+                      const bObj = batches.find(b => b.id === bId);
+                      // Determine course name to assign batch under
+                      let activeCourse = selectedCourses.find(c => courses.some(co => co.title === c));
+                      if (!activeCourse) {
+                        const matchingCourse = courses.find(c => c.id === bObj?.course_id || c.title === bObj?.course_id);
+                        activeCourse = matchingCourse ? matchingCourse.title : (courses[0]?.title || 'General');
+                        setSelectedCourses([activeCourse]);
+                      }
+
+                      const currentBatches = selectedBatches[activeCourse] || [];
+                      if (!currentBatches.includes(bId)) {
+                        setSelectedBatches(prev => ({
+                          ...prev,
+                          [activeCourse]: [...currentBatches, bId]
+                        }));
+                      }
+                    }}
+                  >
+                    <option value="">Select a Batch from Dropdown ({batches.length} Available)...</option>
+                    {batches.map(b => {
+                      let courseInfo = '';
+                      if (b.course_id) {
+                        const matchedCourse = courses.find(c => c.id === b.course_id || c.title === b.course_id);
+                        courseInfo = matchedCourse ? matchedCourse.title : b.course_id;
+                      }
+                      return (
+                        <option key={b.id} value={b.id}>
+                          {b.name} {courseInfo ? `(${courseInfo})` : ''}
+                        </option>
+                      );
+                    })}
+                  </select>
+
+                  {/* Selected Batches Badges Display */}
+                  {Object.entries(selectedBatches).some(([_, ids]) => (ids || []).length > 0) ? (
+                    <div className="space-y-2 pt-2 border-t border-erp-primary/10">
+                      <p className="text-[11px] font-extrabold text-erp-primary uppercase tracking-wider">
+                        Selected Batches for Class ({Object.values(selectedBatches).flat().length}):
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {Object.entries(selectedBatches).map(([cName, bIds]) =>
+                          (bIds || []).map(bId => {
+                            const bObj = batches.find(b => b.id === bId);
+                            return (
+                              <span 
+                                key={`${cName}-${bId}`} 
+                                className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-erp-primary text-white text-xs font-bold shadow-sm animate-in fade-in transition-all"
+                              >
+                                <span>{bObj ? bObj.name : bId}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const updated = (selectedBatches[cName] || []).filter(id => id !== bId);
+                                    setSelectedBatches(prev => ({ ...prev, [cName]: updated }));
+                                  }}
+                                  className="hover:bg-white/20 rounded-full p-0.5 transition-colors"
+                                  title="Remove batch"
+                                >
+                                  <X className="w-3.5 h-3.5" />
+                                </button>
+                              </span>
+                            );
+                          })
+                        )}
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {/* Clean Quick Select Buttons */}
+                  {selectedCourses.some(sc => courses.find(c => c.title === sc)) && (
+                    <div className="space-y-2 pt-2 border-t border-erp-primary/10">
                       {selectedCourses.filter(sc => courses.find(c => c.title === sc)).map(courseName => {
-                        const courseBatches = batches.filter(b => b.course_id === courseName);
                         const currentCourseBatches = selectedBatches[courseName] || [];
-                        
+                        const cObj = courses.find(c => c.title === courseName);
+                        const kw = courseName.toLowerCase().split(' ')[0];
+                        const matchingBatches = batches.filter(b => {
+                          if (!b.course_id) return true;
+                          const bCid = String(b.course_id).toLowerCase();
+                          return b.course_id === courseName || b.course_id === cObj?.id || bCid.includes((cObj?.id || '').toLowerCase()) || bCid.includes(kw);
+                        });
+                        const listToRender = matchingBatches.length > 0 ? matchingBatches : batches.slice(0, 5);
+
                         return (
-                          <div key={courseName} className="space-y-2">
-                            {courseBatches.length > 0 ? (
-                              <div className="flex flex-wrap gap-2">
-                                {courseBatches.map(b => {
-                                  const isSelected = currentCourseBatches.includes(b.id);
-                                  return (
-                                    <div 
-                                      key={b.id}
-                                      onClick={() => {
-                                        const newCourseBatches = isSelected ? currentCourseBatches.filter(id => id !== b.id) : [...currentCourseBatches, b.id];
-                                        setSelectedBatches({ ...selectedBatches, [courseName]: newCourseBatches });
-                                      }}
-                                      className={`px-3 py-1 rounded-md text-xs font-bold cursor-pointer transition-colors ${isSelected ? 'bg-erp-secondary text-white' : 'bg-erp-background border border-erp-border text-erp-text hover:border-erp-secondary/50'}`}
-                                    >
-                                      {b.name}
-                                    </div>
-                                  )
-                                })}
-                              </div>
-                            ) : (
-                              <p className="text-xs text-erp-text/50 italic">No batches found for this course.</p>
-                            )}
+                          <div key={courseName} className="space-y-1">
+                            <p className="text-[10px] font-bold text-erp-text/50 uppercase">Quick Pick for {courseName}:</p>
+                            <div className="flex flex-wrap gap-1.5">
+                              {listToRender.map(b => {
+                                const isSelected = currentCourseBatches.includes(b.id);
+                                return (
+                                  <button
+                                    type="button"
+                                    key={b.id}
+                                    onClick={() => {
+                                      const updated = isSelected 
+                                        ? currentCourseBatches.filter(id => id !== b.id) 
+                                        : [...currentCourseBatches, b.id];
+                                      setSelectedBatches(prev => ({ ...prev, [courseName]: updated }));
+                                    }}
+                                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
+                                      isSelected 
+                                        ? 'bg-erp-primary text-white shadow-sm' 
+                                        : 'bg-erp-surface border border-erp-border text-erp-text/70 hover:border-erp-primary/40'
+                                    }`}
+                                  >
+                                    {isSelected ? '✓ ' : '+ '}{b.name}
+                                  </button>
+                                );
+                              })}
+                            </div>
                           </div>
-                        )
+                        );
                       })}
                     </div>
-                  </div>
-                )}
+                  )}
+                </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
@@ -651,8 +769,8 @@ export default function TimetableManager() {
                   <Button variant="ghost" className="text-red-500 hover:text-red-600 hover:bg-red-50" onClick={() => handleDeleteSlot(editingSlot.id!)}>Delete</Button>
                 )}
                 <div className="flex-1"></div>
-                <Button variant="secondary" onClick={() => setIsSlotModalOpen(false)}>Cancel</Button>
-                <Button onClick={handleSaveSlot}>Save Class</Button>
+                <Button variant="secondary" onClick={() => setIsSlotModalOpen(false)} disabled={saving}>Cancel</Button>
+                <Button onClick={handleSaveSlot} disabled={saving}>{saving ? 'Saving...' : 'Save Class'}</Button>
               </div>
             </div>
           </Card>

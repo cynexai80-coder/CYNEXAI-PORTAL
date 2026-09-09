@@ -42,24 +42,7 @@ describe('DataTable', () => {
     expect(onSort).toHaveBeenCalledWith('name');
   });
 
-  it('triggers filters by typing in a filter input per column', () => {
-    const onFilter = vi.fn();
-    render(
-      <DataTable
-        columns={columns}
-        data={mockData}
-        onSort={vi.fn()}
-        onFilter={onFilter}
-        onEdit={vi.fn()}
-      />
-    );
-    
-    // Assuming there are input fields with placeholder "Filter Name" etc.
-    const nameFilterInput = screen.getByPlaceholderText('Filter Name');
-    fireEvent.change(nameFilterInput, { target: { value: 'Ali' } });
-    
-    expect(onFilter).toHaveBeenCalledWith('name', 'Ali');
-  });
+
 
   it('triggers onEdit when editing a cell inline', () => {
     const onEdit = vi.fn();

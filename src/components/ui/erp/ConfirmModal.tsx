@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertTriangle, X } from 'lucide-react';
+import { AlertTriangle } from 'lucide-react';
 import { Button } from './Button';
 
 interface ConfirmModalProps {
@@ -9,7 +9,8 @@ interface ConfirmModalProps {
   confirmText?: string;
   cancelText?: string;
   onConfirm: () => void;
-  onCancel: () => void;
+  onCancel?: () => void;
+  onClose?: () => void;
   variant?: 'danger' | 'warning' | 'info';
 }
 
@@ -21,9 +22,11 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
   cancelText = 'Cancel',
   onConfirm,
   onCancel,
+  onClose,
   variant = 'danger'
 }) => {
   if (!isOpen) return null;
+  const handleCancel = onCancel || onClose || (() => {});
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
@@ -39,7 +42,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
         </div>
 
         <div className="p-4 border-t border-erp-border bg-slate-900/30 flex justify-end gap-3">
-          <Button variant="ghost" onClick={onCancel}>{cancelText}</Button>
+          <Button variant="ghost" onClick={handleCancel}>{cancelText}</Button>
           <Button 
             variant="primary" 
             onClick={onConfirm}

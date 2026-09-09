@@ -32,8 +32,8 @@ export default function TeacherCMS() {
 
   async function fetchModules() {
     try {
-      const isSuper = ['Admin', 'Manager', 'CEO'].includes(user.role);
-      const resolvedUserId = user.id === 'usr_teacher' ? 'usr_venkatesh' : user.id;
+      const isSuper = ['Admin', 'Manager', 'CEO'].includes(user?.role);
+      const resolvedUserId = user?.id || 'usr_teacher';
       
       const mRows = await getTeacherCMSModules(isSuper, resolvedUserId);
 
@@ -103,7 +103,7 @@ export default function TeacherCMS() {
             <select
               value={selectedModuleId}
               onChange={(e) => setSelectedModuleId(e.target.value)}
-              className="bg-erp-surface border border-erp-border text-erp-text rounded-lg px-4 py-2 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="bg-erp-surface border border-erp-border text-erp-text rounded-lg px-4 py-2 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="all">All Modules</option>
               {modules.map(m => (
@@ -160,11 +160,18 @@ export default function TeacherCMS() {
                     mod.classes.map((cls: any) => (
                       <div key={cls.id as string} className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white dark:bg-black p-3 rounded-lg border border-erp-border gap-3">
                         <div className="flex items-center gap-3">
-                          <div className={`p-2 rounded-lg ${cls.type === 'live' ? 'bg-red-100 text-red-500' : 'bg-blue-100 text-blue-500'}`}>
-                            {cls.type === 'live' ? <Radio className="w-4 h-4" /> : <Video className="w-4 h-4" />}
+                          <div className={`p-2 rounded-lg ${cls.status === 'in_progress' ? 'bg-red-100 text-red-500 animate-pulse' : 'bg-blue-100 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400'}`}>
+                            {cls.status === 'in_progress' ? <Radio className="w-4 h-4" /> : <Video className="w-4 h-4" />}
                           </div>
                           <div>
-                            <span className="font-bold text-sm text-slate-800 dark:text-white">{cls.title}</span>
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-sm text-slate-800 dark:text-white">{cls.title}</span>
+                              {cls.status === 'in_progress' && (
+                                <span className="bg-red-500 text-white text-[9px] font-extrabold px-1.5 py-0.5 rounded uppercase tracking-wider animate-pulse">
+                                  Live Now
+                                </span>
+                              )}
+                            </div>
                             <p className="text-xs text-slate-500 truncate max-w-sm">{cls.description}</p>
                           </div>
                         </div>
@@ -190,7 +197,7 @@ export default function TeacherCMS() {
                           ) : (
                             <Button 
                               onClick={() => setShowAiSettings(cls)}
-                              variant="ghost" className="h-9 px-3 text-xs bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200"
+                              variant="ghost" className="h-9 px-3 text-xs bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 hover:bg-blue-100 border border-blue-200 dark:border-blue-800/60"
                               disabled={generatingForClass === cls.id}
                             >
                               {generatingForClass === cls.id ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Sparkles className="w-4 h-4 mr-2" />}
@@ -213,20 +220,20 @@ export default function TeacherCMS() {
             <div className="bg-erp-surface rounded-2xl w-full max-w-md border border-erp-border overflow-hidden shadow-2xl">
               <div className="flex items-center justify-between p-5 border-b border-erp-border bg-white dark:bg-black">
                 <div className="flex items-center gap-2">
-                  <Sparkles className="w-5 h-5 text-indigo-500" />
+                  <Sparkles className="w-5 h-5 text-blue-500" />
                   <h3 className="font-bold text-erp-text">AI Generation Settings</h3>
                 </div>
                 <button onClick={() => setShowAiSettings(null)} className="text-slate-400 hover:text-slate-600 transition-colors">
                   <X className="w-5 h-5" />
                 </button>
               </div>
-              <div className="p-5 space-y-4 bg-slate-50 dark:bg-zinc-900/50/50">
+              <div className="p-5 space-y-4 bg-slate-50 dark:bg-zinc-900/50">
                 <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">PPT Theme Template</label>
                   <select
                     value={selectedTheme}
                     onChange={e => setSelectedTheme(e.target.value)}
-                    className="w-full bg-white dark:bg-black border border-erp-border rounded-lg px-4 py-3 font-medium text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                    className="w-full bg-white dark:bg-black border border-erp-border rounded-lg px-4 py-3 font-medium text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
                   >
                     <option value="modern-dark">Modern Dark (Sleek, tech-focused)</option>
                     <option value="glassmorphism">Glassmorphism (Vibrant, dynamic)</option>
@@ -239,7 +246,7 @@ export default function TeacherCMS() {
                   <select
                     value={selectedContentStyle}
                     onChange={e => setSelectedContentStyle(e.target.value)}
-                    className="w-full bg-white dark:bg-black border border-erp-border rounded-lg px-4 py-3 font-medium text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                    className="w-full bg-white dark:bg-black border border-erp-border rounded-lg px-4 py-3 font-medium text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
                   >
                     <option value="storytelling">Storytelling (Narrative-driven, examples)</option>
                     <option value="technical">Technical (Precise, code-heavy)</option>
@@ -254,7 +261,7 @@ export default function TeacherCMS() {
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer">
                     <input type="checkbox" checked={includeImages} onChange={e => setIncludeImages(e.target.checked)} className="sr-only peer" />
-                    <div className="w-11 h-6 bg-slate-200 dark:bg-zinc-900/50 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white dark:bg-black after:border-gray-300 dark:border-white/10 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                    <div className="w-11 h-6 bg-slate-200 dark:bg-zinc-900/50 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white dark:bg-black after:border-gray-300 dark:border-white/10 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                   </label>
                 </div>
                 <p className="text-xs text-slate-500 font-medium">
@@ -264,7 +271,7 @@ export default function TeacherCMS() {
               </div>
               <div className="p-4 border-t border-erp-border flex justify-end gap-2 bg-white dark:bg-black">
                 <Button variant="ghost" onClick={() => setShowAiSettings(null)}>Cancel</Button>
-                <Button onClick={() => generateAiContent(showAiSettings.id, showAiSettings.title, showAiSettings.description)} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-6">
+                <Button onClick={() => generateAiContent(showAiSettings.id, showAiSettings.title, showAiSettings.description)} className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-6">
                   <Sparkles className="w-4 h-4 mr-2" /> Start Generation
                 </Button>
               </div>

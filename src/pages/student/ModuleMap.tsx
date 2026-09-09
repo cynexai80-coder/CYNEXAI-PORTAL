@@ -21,29 +21,7 @@ interface ClassItem {
   description?: string | null;
 }
 
-interface ModuleData {
-  id: string;
-  title: string;
-  description: string | null;
-}
-
 type NodeState = 'completed' | 'current' | 'locked';
-
-function getNodeState(cls: ClassItem, completedSet: Set<string>, currentId: string | null): NodeState {
-  if (completedSet.has(cls.id)) return 'completed';
-  if (cls.id === currentId) return 'current';
-  return 'locked';
-}
-
-// Classify node type for icon and style
-function getNodeKind(cls: ClassItem): 'video' | 'live' | 'quiz' | 'code' | 'lesson' {
-  const t = (cls.type || '').toLowerCase();
-  if (t === 'live') return 'live';
-  if (t === 'quiz' || t === 'qa' || t === 'q&a') return 'quiz';
-  if (t === 'code' || t === 'exercise' || t === 'coding') return 'code';
-  if (cls.youtube_video_id) return 'video';
-  return 'lesson';
-}
 
 function formatDate(date: string | null, startTime: string | null): string | null {
   if (!date) return null;
@@ -184,15 +162,22 @@ function NodePopup({
 
           {/* Status badge */}
           <div className="mb-5">
-            {state === 'completed' && (
-              <span className="inline-flex items-center gap-1.5 text-sm font-bold text-emerald-600 bg-emerald-100 border border-emerald-200 px-3 py-1 rounded-full dark:text-emerald-400 dark:bg-emerald-500/10 dark:border-emerald-500/20">
-                <NodeIcons.check size={14} /> Completed
+            {node.classItem.status === 'in_progress' || node.classItem.status === 'live' ? (
+              <span className="inline-flex items-center gap-1.5 text-sm font-bold text-red-600 bg-red-100 border border-red-200 px-3 py-1 rounded-full dark:text-red-400 dark:bg-red-500/10 dark:border-red-500/20">
+                <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" /> Live Class in Session
               </span>
-            )}
-            {state === 'current' && (
+            ) : state === 'completed' || node.classItem.status === 'completed' ? (
+              <span className="inline-flex items-center gap-1.5 text-sm font-bold text-emerald-600 bg-emerald-100 border border-emerald-200 px-3 py-1 rounded-full dark:text-emerald-400 dark:bg-emerald-500/10 dark:border-emerald-500/20">
+                <NodeIcons.check size={14} /> Class Ended · Recorded
+              </span>
+            ) : state === 'current' ? (
               <span className="inline-flex items-center gap-1.5 text-sm font-bold" style={{ color: cfg.color }}>
                 <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: cfg.color }} />
                 Ready to start
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 text-sm font-bold text-amber-600 bg-amber-100 border border-amber-200 px-3 py-1 rounded-full dark:text-amber-400 dark:bg-amber-500/10 dark:border-amber-500/20">
+                <NodeIcons.lock size={14} /> Locked · Complete previous class to unlock
               </span>
             )}
           </div>
@@ -212,7 +197,11 @@ function NodePopup({
                 isClickable ? 'candy-btn-blue' : 'bg-slate-300 dark:bg-zinc-700 text-slate-500 dark:text-zinc-500 shadow-none border-none'
               }`}
             >
-              {state === 'completed' ? 'Review' : 'Start ▶'}
+              {node.classItem.status === 'in_progress' || node.classItem.status === 'live'
+                ? 'Join Live Class ▶'
+                : state === 'completed' || node.classItem.status === 'completed' || node.classItem.youtube_video_id
+                ? 'Watch Class ▶'
+                : 'Start Class ▶'}
             </button>
           </div>
         </div>
@@ -231,94 +220,6 @@ interface VirtualNode {
   classItem: ClassItem;
 }
 
-// ─── Single Node ──────────────────────────────────────────────────────────────
-
-function MapNode({
-  node, state, index, totalNodes, onClick
-}: {
-  node: VirtualNode;
-  state: NodeState;
-  index: number;
-  totalNodes: number;
-  onClick: () => void;
-}) {
-
-  // Map stepType to kind config
-  let kind: keyof typeof KIND_CONFIG = 'video';
-  if (node.stepType === 'qa') kind = 'quiz';
-  if (node.stepType === 'coding') kind = 'code';
-  
-  const cfg = KIND_CONFIG[kind];
-
-  const sizes = {
-    completed: 'w-16 h-16 md:w-20 md:h-20',
-    current:   'w-20 h-20 md:w-24 md:h-24',
-    locked:    'w-14 h-14 md:w-16 md:h-16',
-  };
-
-  return (
-    <div className="flex flex-col items-center">
-      {/* Node button */}
-      <div className="relative flex flex-col items-center">
-        <button
-          onClick={onClick}
-          disabled={state === 'locked'}
-          className={`
-            ${sizes[state]} rounded-full flex items-center justify-center
-            transition-all duration-300 relative select-none
-            ${state !== 'locked' ? 'cursor-pointer hover:scale-110 active:scale-95' : 'cursor-default opacity-50'}
-            ${state === 'completed' ? 'candy-btn-green' : state === 'current' ? 'candy-btn border-4' : 'bg-slate-300 border-4 border-slate-400 dark:bg-zinc-700 dark:border-zinc-800'}
-          `}
-        >
-          {/* Pulsing ring for current */}
-          {state === 'current' && (
-            <span
-              className="absolute -inset-2 rounded-full animate-ping opacity-30 border-4 border-[#ff71ce]"
-            />
-          )}
-
-          {/* Star badge for completed */}
-          {state === 'completed' && (
-            <span className="absolute -top-2 -right-2 w-6 h-6 bg-yellow-400 rounded-full flex items-center justify-center text-xs shadow-lg">
-              ⭐
-            </span>
-          )}
-
-          {/* Icon */}
-          <span
-            className="relative z-10"
-            style={{ color: state === 'locked' ? '#555' : 'white' }}
-          >
-            {state === 'completed'
-              ? <NodeIcons.check size={state === 'current' ? 28 : 22} />
-              : state === 'locked'
-              ? <NodeIcons.lock size={18} />
-              : React.createElement(NodeIcons[kind as keyof typeof NodeIcons] || NodeIcons.lesson, {
-                  size: state === 'current' ? 28 : 22
-                })
-            }
-          </span>
-        </button>
-
-        {/* Label below node */}
-        <div className="mt-2 text-center max-w-[110px] candy-panel !rounded-xl !p-2 !border-2">
-          <p
-            className="text-[10px] font-black uppercase tracking-wide mb-0.5"
-            style={{ color: state === 'locked' ? '#555' : cfg.labelColor }}
-          >
-            {cfg.label}
-          </p>
-          <p
-            className="text-[11px] font-bold leading-tight line-clamp-2 text-slate-800 dark:text-slate-200"
-          >
-            {node.title}
-          </p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function ModuleMap() {
@@ -332,7 +233,6 @@ export default function ModuleMap() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedNode, setSelectedNode] = useState<VirtualNode | null>(null);
-  const currentNodeRef = useRef<HTMLDivElement>(null);
   const mapContainer = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -353,7 +253,7 @@ export default function ModuleMap() {
             classId: c.id,
             stepType: 'video', // Since we're hiding Q&A and coding, default to video behavior to allow viewing recorded class
             title: c.title,
-            isCompleted: data.completedLessonIds.has(c.id),
+            isCompleted: data.completedLessonIds.has(c.id) || c.status === 'completed' || c.status === 'ended',
             classItem: c
           });
         });
@@ -369,7 +269,20 @@ export default function ModuleMap() {
   const completedCount = virtualNodes.filter(n => n.isCompleted).length;
   const pct = virtualNodes.length > 0 ? Math.round((completedCount / virtualNodes.length) * 100) : 0;
 
-  const handleNodeClick = (node: VirtualNode) => setSelectedNode(node);
+  const handleNodeClick = (node: VirtualNode) => {
+    const isCompleted = node.isCompleted;
+    const isTeacherUnlocked = node.classItem.status === 'unlocked' || node.classItem.status === 'in_progress' || node.classItem.status === 'active' || node.classItem.status === 'completed';
+    const nodeIdx = virtualNodes.findIndex(n => n.id === node.id);
+    const isPreviousCompleted = nodeIdx <= 0 || (nodeIdx > 0 && virtualNodes[nodeIdx - 1].isCompleted);
+    const isUnlocked = isPreviousCompleted || isTeacherUnlocked || isCompleted;
+
+    if (isUnlocked) {
+      navigate(`/student/class-flow?classId=${node.classId}&step=${node.stepType}`);
+    } else {
+      setSelectedNode(node);
+    }
+  };
+
   const handleGo = () => {
     if (!selectedNode) return;
     const { classId, stepType } = selectedNode;
@@ -396,8 +309,8 @@ export default function ModuleMap() {
       <div className="min-h-screen flex items-center justify-center" style={{ background: '#0d0d1a' }}>
         <div className="flex flex-col items-center gap-4">
           <div className="relative w-16 h-16">
-            <div className="absolute inset-0 rounded-full border-4 border-indigo-500/20 animate-ping" />
-            <div className="absolute inset-0 rounded-full border-4 border-t-indigo-500 border-indigo-500/20 animate-spin" />
+            <div className="absolute inset-0 rounded-full border-4 border-blue-500/20 animate-ping" />
+            <div className="absolute inset-0 rounded-full border-4 border-t-blue-500 border-blue-500/20 animate-spin" />
           </div>
           <p className="text-white/50 text-sm font-medium">Loading your quest map…</p>
         </div>
@@ -412,7 +325,7 @@ export default function ModuleMap() {
           <p className="text-red-400 font-semibold mb-4">{error}</p>
           <button
             onClick={() => navigate('/student')}
-            className="px-6 py-3 rounded-2xl bg-indigo-600 text-white font-bold hover:bg-indigo-500 transition-colors"
+            className="px-6 py-3 rounded-2xl bg-blue-600 text-white font-bold hover:bg-blue-500 transition-colors"
           >
             ← Back to Dashboard
           </button>
@@ -422,7 +335,7 @@ export default function ModuleMap() {
   }
 
   return (
-    <div className="min-h-screen candy-map-bg">
+    <div className="w-full min-h-full candy-map-bg">
       {/* ── Sticky Header ── */}
       <div
         className="sticky top-0 z-30 px-2 sm:px-4 py-3 bg-white/70 dark:bg-black/70 backdrop-blur-md border-b border-white/20 shadow-sm"
@@ -444,9 +357,9 @@ export default function ModuleMap() {
           <div
             className="px-3 py-1 rounded-full text-sm font-black"
             style={{
-              background: pct === 100 ? '#10b98120' : '#6366f120',
-              color: pct === 100 ? '#34d399' : '#818cf8',
-              border: `1px solid ${pct === 100 ? '#10b98140' : '#6366f140'}`
+              background: pct === 100 ? '#10b98120' : '#2563eb20',
+              color: pct === 100 ? '#34d399' : '#3b82f6',
+              border: `1px solid ${pct === 100 ? '#10b98140' : '#2563eb40'}`
             }}
           >
             {pct}%
@@ -457,7 +370,7 @@ export default function ModuleMap() {
         <div className="max-w-lg mx-auto mt-2 h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
           <div
             className="h-full rounded-full transition-all duration-1000"
-            style={{ width: `${pct}%`, background: 'linear-gradient(90deg, #6366f1, #8b5cf6)' }}
+            style={{ width: `${pct}%`, background: 'linear-gradient(90deg, #2563eb, #0284c7)' }}
           />
         </div>
       </div>
@@ -489,9 +402,9 @@ export default function ModuleMap() {
         <div className="max-w-lg mx-auto px-4 py-20 text-center">
           <div
             className="w-20 h-20 rounded-3xl mx-auto mb-4 flex items-center justify-center"
-            style={{ background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.2)' }}
+            style={{ background: 'rgba(37,99,235,0.1)', border: '1px solid rgba(37,99,235,0.2)' }}
           >
-            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#6366f1" strokeWidth="1.5">
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="1.5">
               <path d="M12 2a10 10 0 1 0 10 10H12V2z" />
               <path d="M12 2a10 10 0 0 1 10 10" />
             </svg>
@@ -503,33 +416,44 @@ export default function ModuleMap() {
 
       {/* ── Standard Vertical List ── */}
       {virtualNodes.length > 0 && (
-        <div className="max-w-xl mx-auto px-2 sm:px-4 pt-6 pb-32" ref={mapContainer}>
+        <div className="max-w-xl mx-auto px-2 sm:px-4 pt-4 pb-16 sm:pb-24" ref={mapContainer}>
           {/* Start Banner */}
           <div
-            className="text-center mb-6 py-4 rounded-2xl relative z-10"
-            style={{ background: 'rgba(99,102,241,0.08)', border: '1px dashed rgba(99,102,241,0.2)' }}
+            className="text-center mb-4 py-3 rounded-2xl relative z-10"
+            style={{ background: 'rgba(37,99,235,0.08)', border: '1px dashed rgba(37,99,235,0.2)' }}
           >
-            <p className="text-indigo-400/60 text-[11px] font-black uppercase tracking-widest">Course Classes · {virtualNodes.length} Items</p>
+            <p className="text-blue-400/60 text-[11px] font-black uppercase tracking-widest">Course Classes · {virtualNodes.length} Items</p>
           </div>
 
           {/* List Area */}
-          <div className="relative w-full mx-auto space-y-4 pb-32">
+          <div className="relative w-full mx-auto space-y-3 pb-12 sm:pb-20">
             {virtualNodes.map((node, i) => {
-              const state = i < currentLevel ? 'completed' : 'current';
-              let kind: keyof typeof KIND_CONFIG = 'video';
-              if (node.classItem.type === 'live' || node.classItem.type === 'zoom') kind = 'live';
-              const cfg = KIND_CONFIG[kind] || KIND_CONFIG.lesson;
-              
-              const isCompleted = state === 'completed';
-              const isCurrent = state === 'current';
-              
-              let isLocked = false;
+              const isCompleted = node.isCompleted;
+              const isTeacherUnlocked = node.classItem.status === 'unlocked' || node.classItem.status === 'in_progress' || node.classItem.status === 'active' || node.classItem.status === 'completed';
+              const isPreviousCompleted = i === 0 || virtualNodes[i - 1].isCompleted;
+              let isLockedByBatch = false;
               if (moduleData?.title && batchProgress && batchProgress[moduleData.title] !== undefined) {
                  if (i + 1 > batchProgress[moduleData.title]) {
-                    isLocked = true;
+                    isLockedByBatch = true;
                  }
               }
-              
+              const isUnlocked = (isPreviousCompleted || isTeacherUnlocked || isCompleted) && !isLockedByBatch;
+              const isLocked = !isUnlocked;
+
+              const state: NodeState = isCompleted ? 'completed' : isUnlocked ? 'current' : 'locked';
+              const isCurrent = state === 'current';
+
+              let kind: keyof typeof KIND_CONFIG = 'lesson';
+              if (node.classItem.status === 'in_progress') {
+                kind = 'live';
+              } else if (node.classItem.type === 'video') {
+                kind = 'video';
+              } else if (node.classItem.type === 'quiz') {
+                kind = 'quiz';
+              } else if (node.classItem.type === 'code') {
+                kind = 'code';
+              }
+              const cfg = KIND_CONFIG[kind] || KIND_CONFIG.lesson;
               return (
                 <div 
                   key={node.id} 
@@ -542,17 +466,31 @@ export default function ModuleMap() {
                      }
                      handleNodeClick(node);
                   }}
-                  className={`relative p-4 rounded-2xl flex items-center gap-4 transition-all duration-200 border-2 ${isLocked ? 'opacity-60 cursor-not-allowed bg-slate-100 dark:bg-black/30 border-transparent' : isCurrent ? 'cursor-pointer border-indigo-500 bg-white dark:bg-white/10 shadow-lg scale-[1.02]' : 'cursor-pointer border-transparent bg-white dark:bg-white/10 hover:-translate-y-1'}`}
+                  className={`relative p-4 rounded-2xl flex items-center gap-4 transition-all duration-200 border-2 ${
+                    isLocked
+                      ? 'cursor-pointer border-dashed border-slate-300 dark:border-white/10 bg-slate-100/60 dark:bg-white/5 opacity-60 hover:opacity-80'
+                      : isCurrent
+                      ? 'cursor-pointer border-blue-500 bg-white dark:bg-white/10 shadow-lg scale-[1.02]'
+                      : 'cursor-pointer border-transparent bg-white dark:bg-white/10 hover:-translate-y-1'
+                  }`}
                 >
-                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors ${isLocked ? 'bg-slate-200 text-slate-500 dark:bg-black/50 dark:text-white/40' : isCompleted ? 'bg-emerald-100 text-emerald-500 dark:bg-emerald-500/20' : isCurrent ? 'bg-indigo-100 text-indigo-500 dark:bg-indigo-500/20' : 'bg-slate-100 text-slate-500 dark:bg-white dark:bg-black/5 dark:text-white/40'}`}>
-                    {isLocked ? <NodeIcons.lock size={24} /> : isCompleted ? <NodeIcons.check size={24} /> : React.createElement(NodeIcons[kind as keyof typeof NodeIcons] || NodeIcons.lesson, { size: 24 })}
+                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors ${
+                    isCompleted
+                      ? 'bg-emerald-100 text-emerald-500 dark:bg-emerald-500/20'
+                      : isCurrent
+                      ? 'bg-blue-100 text-blue-500 dark:bg-blue-500/20'
+                      : 'bg-slate-200 text-slate-400 dark:bg-white/10 dark:text-white/30'
+                  }`}>
+                    {isCompleted ? <NodeIcons.check size={24} /> : isLocked ? <NodeIcons.lock size={22} /> : React.createElement(NodeIcons[kind as keyof typeof NodeIcons] || NodeIcons.lesson, { size: 24 })}
                   </div>
                   
                   <div className="flex-1 min-w-0">
-                    <p className="text-[10px] font-bold uppercase tracking-wider mb-0.5" style={{ color: cfg.labelColor }}>
-                      {cfg.label} {isCurrent && <span className="ml-2 text-indigo-500 animate-pulse text-[9px] px-1.5 py-0.5 bg-indigo-100 rounded-full">Next up</span>}
+                    <p className="text-[10px] font-bold uppercase tracking-wider mb-0.5" style={{ color: isLocked ? '#94a3b8' : cfg.labelColor }}>
+                      {cfg.label}
+                      {isCurrent && <span className="ml-2 text-blue-500 animate-pulse text-[9px] px-1.5 py-0.5 bg-blue-100 dark:bg-blue-950/60 rounded-full">Next up</span>}
+                      {isLocked && <span className="ml-2 text-slate-500 text-[9px] px-1.5 py-0.5 bg-slate-200 dark:bg-white/10 rounded-full font-bold">Locked 🔒</span>}
                     </p>
-                    <p className={`font-bold text-sm leading-tight line-clamp-2 text-slate-900 dark:text-white`}>
+                    <p className={`font-bold text-sm leading-tight line-clamp-2 ${isLocked ? 'text-slate-500 dark:text-white/40' : 'text-slate-900 dark:text-white'}`}>
                       {node.title}
                     </p>
                     {node.classItem.date && (
@@ -565,6 +503,11 @@ export default function ModuleMap() {
                   {isCompleted && (
                     <div className="flex-shrink-0 text-emerald-500 bg-emerald-100/50 p-2 rounded-full">
                       <span className="text-sm font-black">✓</span>
+                    </div>
+                  )}
+                  {isLocked && (
+                    <div className="flex-shrink-0 text-slate-400 bg-slate-200/50 dark:bg-white/10 p-2.5 rounded-full">
+                      <NodeIcons.lock size={16} />
                     </div>
                   )}
                 </div>
@@ -590,9 +533,15 @@ export default function ModuleMap() {
       {selectedNode && (
         <NodePopup
           node={selectedNode}
-          state={
-            virtualNodes.findIndex(n => n.id === selectedNode.id) < currentLevel ? 'completed' : 'current'
-          }
+          state={(() => {
+            const idx = virtualNodes.findIndex(n => n.id === selectedNode.id);
+            if (idx === -1) return 'locked';
+            const isCompleted = selectedNode.isCompleted;
+            const isTeacherUnlocked = selectedNode.classItem.status === 'unlocked' || selectedNode.classItem.status === 'in_progress' || selectedNode.classItem.status === 'active' || selectedNode.classItem.status === 'completed';
+            const isPreviousCompleted = idx === 0 || virtualNodes[idx - 1].isCompleted;
+            const isUnlocked = isPreviousCompleted || isTeacherUnlocked || isCompleted;
+            return isCompleted ? 'completed' : isUnlocked ? 'current' : 'locked';
+          })()}
           onClose={() => setSelectedNode(null)}
           onGo={handleGo}
         />

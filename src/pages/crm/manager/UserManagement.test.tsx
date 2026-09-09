@@ -15,6 +15,8 @@ vi.mock('../../../lib/api/users', () => ({
 
 vi.mock('../../../lib/auth', () => ({
   getCurrentUser: vi.fn(),
+  getUserPermissions: vi.fn(() => ({})),
+  updateCurrentUserSession: vi.fn(),
 }));
 
 vi.mock('../../../lib/crypto', () => ({

@@ -4,6 +4,7 @@ import { Users, DollarSign, CheckSquare, User, LayoutDashboard, Sun, Moon, Menu,
 import { getCurrentUser } from '../../lib/auth';
 import { useTheme } from '../../lib/ThemeContext';
 import { Sidebar } from './Sidebar';
+import { CynexLogo } from '../ui/CynexLogo';
 
 export const MobileNavigation: React.FC = () => {
   const user = getCurrentUser();
@@ -50,12 +51,12 @@ export const MobileNavigation: React.FC = () => {
   return (
     <>
       {/* Bottom nav bar */}
-      <div className="fixed bottom-0 left-0 w-full z-50 md:hidden">
+      <div className="fixed bottom-0 left-0 right-0 z-50 md:hidden">
         {/* Safe area background with candy-panel style */}
-        <div className="candy-panel !rounded-t-3xl !rounded-b-none !border-b-0 !border-x-0 !shadow-[0_-10px_25px_rgba(0,0,0,0.15)] bg-white dark:bg-black">
+        <div className="bg-white/95 dark:bg-[#09090b]/95 backdrop-blur-xl border-t border-slate-200/80 dark:border-zinc-800 shadow-[0_-10px_30px_rgba(0,0,0,0.35)]">
           <div
-            className="flex items-center h-20 px-2"
-            style={{ paddingBottom: 'env(safe-area-inset-bottom, 12px)' }}
+            className="flex items-center h-[66px] px-1 py-1"
+            style={{ paddingBottom: 'env(safe-area-inset-bottom, 6px)' }}
           >
             {navItems.map(item => (
               <NavLink
@@ -77,7 +78,7 @@ export const MobileNavigation: React.FC = () => {
                     `}>
                       <item.icon className="w-5 h-5" strokeWidth={isActive ? 3 : 2} />
                     </div>
-                    <span className={`text-[10px] font-black leading-none ${isActive ? 'text-[#0096ff] dark:text-[#01cdfe]' : ''}`}>{item.label}</span>
+                    <span className={`text-[10px] font-black leading-none ${isActive ? 'text-blue-600 dark:text-blue-400' : ''}`}>{item.label}</span>
                   </>
                 )}
               </NavLink>
@@ -118,10 +119,10 @@ export const MobileNavigation: React.FC = () => {
         >
           {/* Drawer Header */}
           <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 dark:border-white/10 flex-shrink-0">
-            <span className="font-display font-bold text-lg text-slate-800 dark:text-white">Navigation</span>
+            <CynexLogo size="md" badge="Menu" />
             <button 
               onClick={() => setMenuOpen(false)}
-              className="p-2 rounded-full bg-slate-100 dark:bg-white dark:bg-black/10 text-slate-600 dark:text-white"
+              className="p-2 rounded-full bg-slate-100 dark:bg-zinc-900 text-slate-600 dark:text-white cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>

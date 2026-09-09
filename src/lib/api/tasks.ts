@@ -97,7 +97,7 @@ export const getTasksByProject = async (projectId: string): Promise<Task[]> => {
   return [];
 };
 
-export const ensureDailyTasks = async (tasks: Task[], userId: string) => {
+export const ensureDailyTasks = async (tasks: Task[], userId?: string) => {
   const today = new Date().toISOString().split('T')[0];
   const dailyTasks = tasks.filter(t => t.task_type === 'Daily');
 
@@ -110,6 +110,7 @@ export const ensureDailyTasks = async (tasks: Task[], userId: string) => {
   });
 
   let updatedAny = false;
+  if (!isTursoConfigured || !client) return updatedAny;
 
   for (const [, groupTasks] of grouped.entries()) {
     // Sort descending — latest first
@@ -119,17 +120,15 @@ export const ensureDailyTasks = async (tasks: Task[], userId: string) => {
     for (const t of groupTasks) {
       const taskDate = t.due_date ? t.due_date.split('T')[0] : '';
       if (taskDate && taskDate < today && t.status !== 'Done' && t.status !== 'Excused' && t.status !== 'Missed') {
-        if (isTursoConfigured && client) {
-          try {
-            await client.execute({
-              sql: `UPDATE tasks SET status = 'Missed' WHERE id = ?`,
-              args: [t.id]
-            });
-            t.status = 'Missed'; // update in-memory too
-            updatedAny = true;
-          } catch (e) {
-            console.error('Failed to mark task as Missed', e);
-          }
+        try {
+          await client.execute({
+            sql: `UPDATE tasks SET status = 'Missed' WHERE id = ?`,
+            args: [t.id]
+          });
+          t.status = 'Missed'; // update in-memory too
+          updatedAny = true;
+        } catch (e) {
+          console.error('Failed to mark task as Missed', e);
         }
       }
     }
@@ -169,9 +168,62 @@ export const ensureDailyTasks = async (tasks: Task[], userId: string) => {
     }
   }
 
+  // 2. Auto-repeat active daily tasks for today if today's instance doesn't exist yet
+  // Group by title + assignee_id
+  const seenTodayKeys = new Set(
+    tasks
+      .filter(t => t.task_type === 'Daily' && t.due_date && t.due_date.split('T')[0] === today)
+      .map(t => `${t.title}__${t.assignee_id}`)
+  );
+
+  const activeDailyTemplates = dailyTasks.filter(t => t.recurrence_rule !== 'stopped');
+  for (const template of activeDailyTemplates) {
+    const key = `${template.title}__${template.assignee_id}`;
+    if (seenTodayKeys.has(key)) continue;
+    seenTodayKeys.add(key);
+
+    try {
+      // Double check in DB if today's instance already exists
+      const checkDb = await client.execute({
+        sql: `SELECT id FROM tasks WHERE task_type = 'Daily' AND title = ? AND assignee_id = ? AND due_date = ?`,
+        args: [template.title, template.assignee_id, today]
+      });
+
+      if (checkDb.rows.length === 0) {
+        const newId = 'task_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+        const now = new Date().toISOString();
+        await client.execute({
+          sql: `INSERT INTO tasks (id, title, description, assignee_id, status, priority, due_date, project_id, related_entity, task_type, target_number, current_number, start_date, tags, recurrence_rule, created_by, lead_id, student_id, created_at, updated_at) 
+                VALUES (?, ?, ?, ?, 'To Do', ?, ?, ?, ?, 'Daily', ?, 0, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          args: [
+            newId,
+            template.title,
+            template.description || '',
+            template.assignee_id,
+            template.priority || 'Medium',
+            today,
+            template.project_id || null,
+            template.related_entity || null,
+            template.target_number || null,
+            today,
+            template.tags || null,
+            template.recurrence_rule || 'daily',
+            template.created_by || null,
+            template.lead_id || null,
+            template.student_id || null,
+            now,
+            now
+          ]
+        });
+        updatedAny = true;
+      }
+    } catch (e) {
+      console.error('Failed to auto-repeat daily task', e);
+    }
+  }
+
   return updatedAny;
 };
-
 
 export const getTasksByLead = async (leadId: string): Promise<Task[]> => {
   if (isTursoConfigured && client) {
@@ -218,7 +270,9 @@ const isAuthorized = (task: Task | null): boolean => {
   if (!task) return false;
   const user = getCurrentUser();
   if (!user) return false;
-  return user.id === task.assignee_id || user.id === task.created_by || user.role === 'CEO' || user.role === 'Manager';
+  const role = (user.role || '').toLowerCase();
+  const allowedRoles = ['ceo', 'manager', 'admin', 'general_manager', 'super_admin', 'director'];
+  return user.id === task.assignee_id || user.id === task.created_by || allowedRoles.includes(role);
 };
 
 export const updateTaskStatus = async (taskId: string, newStatus: string): Promise<{ success: boolean, error?: string }> => {
@@ -229,7 +283,7 @@ export const updateTaskStatus = async (taskId: string, newStatus: string): Promi
 
   try {
     await client.execute({
-      sql: `UPDATE tasks SET status = ? WHERE id = ?`,
+      sql: `UPDATE tasks SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
       args: [newStatus, taskId]
     });
     return { success: true };
@@ -262,6 +316,20 @@ export const updateTask = async (taskId: string, updates: Partial<Task>): Promis
   }
 };
 
+export const toggleDailyRecurrence = async (taskId: string, stop: boolean): Promise<boolean> => {
+  if (!isTursoConfigured || !client) return false;
+  try {
+    await client.execute({
+      sql: `UPDATE tasks SET recurrence_rule = ? WHERE id = ?`,
+      args: [stop ? 'stopped' : 'daily', taskId]
+    });
+    return true;
+  } catch (e) {
+    console.error("Failed to toggle daily recurrence", e);
+    return false;
+  }
+};
+
 export const deleteTask = async (taskId: string): Promise<{ success: boolean, error?: string }> => {
   if (!isTursoConfigured || !client) return { success: false, error: 'DB not configured' };
 
@@ -285,8 +353,19 @@ export const deleteTask = async (taskId: string): Promise<{ success: boolean, er
     await client.execute({ sql: `DELETE FROM task_comments WHERE task_id = ?`, args: [taskId] }).catch(() => {});
     await client.execute({ sql: `DELETE FROM task_subtasks WHERE task_id = ?`, args: [taskId] }).catch(() => {});
     return { success: true };
-  } catch (e) {
-    return { success: false, error: 'Delete failed' };
+  } catch (e: any) {
+    try {
+      if (client) {
+        await client.execute({ sql: `DELETE FROM task_subtasks WHERE task_id = ?`, args: [taskId] });
+        await client.execute({ sql: `DELETE FROM task_comments WHERE task_id = ?`, args: [taskId] });
+        await client.execute({ sql: `DELETE FROM task_dependencies WHERE task_id = ? OR depends_on_id = ?`, args: [taskId, taskId] });
+        await client.execute({ sql: `DELETE FROM tasks WHERE id = ?`, args: [taskId] });
+      }
+      return { success: true };
+    } catch (err: any) {
+      console.error("Failed to delete task:", err);
+      return { success: false, error: err.message || 'Delete failed' };
+    }
   }
 };
 
@@ -302,7 +381,9 @@ export const getAllTasks = async (): Promise<Task[]> => {
         LEFT JOIN users u2 ON t.created_by = u2.id 
         ORDER BY t.due_date ASC
       `);
-      return result.rows as unknown as Task[];
+      const allTasks = result.rows as unknown as Task[];
+      await ensureDailyTasks(allTasks);
+      return allTasks;
     } catch (e) {
       console.error("Failed to fetch all tasks", e);
     }

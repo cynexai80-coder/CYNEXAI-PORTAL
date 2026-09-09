@@ -251,13 +251,13 @@ Would love to get on a quick call to walk you through everything. When are you f
                 </div>
 
                 {/* Script Box */}
-                <div className="bg-gradient-to-br from-indigo-50 to-blue-50 border-2 border-indigo-100 rounded-2xl p-6 relative shadow-sm">
+                <div className="bg-gradient-to-br from-blue-50 to-sky-50 dark:from-blue-950/40 dark:to-slate-900 border-2 border-blue-200 dark:border-blue-800/40 rounded-2xl p-6 relative shadow-sm">
                   <div className="flex justify-between items-center mb-4">
-                    <h3 className="font-bold text-indigo-900 flex items-center gap-2 text-lg">
-                      <ClipboardList className="w-6 h-6 text-indigo-600" /> Calling Script
+                    <h3 className="font-bold text-blue-900 dark:text-blue-200 flex items-center gap-2 text-lg">
+                      <ClipboardList className="w-6 h-6 text-blue-600 dark:text-blue-400" /> Calling Script
                     </h3>
                     {canEdit && !isEditing && (
-                      <button onClick={() => setIsEditing(true)} className="bg-white dark:bg-black px-3 py-1.5 rounded-lg text-indigo-600 hover:text-indigo-800 text-sm flex items-center gap-2 font-bold shadow-sm border border-indigo-100 transition-colors">
+                      <button onClick={() => setIsEditing(true)} className="bg-white dark:bg-black px-3 py-1.5 rounded-lg text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 text-sm flex items-center gap-2 font-bold shadow-sm border border-blue-200 dark:border-blue-800/60 transition-colors">
                         <Edit2 className="w-4 h-4" /> Edit Script
                       </button>
                     )}
@@ -266,7 +266,7 @@ Would love to get on a quick call to walk you through everything. When are you f
                         <button onClick={() => setIsEditing(false)} className="bg-white dark:bg-black px-3 py-1.5 rounded-lg text-gray-500 hover:text-gray-700 dark:text-white text-sm flex items-center gap-2 font-bold shadow-sm border border-gray-200 dark:border-white/10 transition-colors">
                           <X className="w-4 h-4" /> Cancel
                         </button>
-                        <button onClick={handleSave} disabled={saving} className="bg-indigo-600 px-4 py-1.5 rounded-lg text-white hover:bg-indigo-700 text-sm flex items-center gap-2 font-bold shadow-sm transition-colors">
+                        <button onClick={handleSave} disabled={saving} className="bg-blue-600 px-4 py-1.5 rounded-lg text-white hover:bg-blue-700 text-sm flex items-center gap-2 font-bold shadow-sm transition-colors">
                           <Save className="w-4 h-4" /> {saving ? 'Saving...' : 'Save Changes'}
                         </button>
                       </div>
@@ -278,11 +278,11 @@ Would love to get on a quick call to walk you through everything. When are you f
                       ref={scriptTextareaRef}
                       value={editScript}
                       onChange={handleScriptChange}
-                      className="w-full min-h-[200px] p-4 rounded-xl border-2 border-indigo-300 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20 outline-none bg-white dark:bg-black font-medium text-indigo-900 text-lg resize-none shadow-inner"
+                      className="w-full min-h-[200px] p-4 rounded-xl border-2 border-blue-300 dark:border-blue-700 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 outline-none bg-white dark:bg-black font-medium text-blue-950 dark:text-blue-100 text-lg resize-none shadow-inner"
                       placeholder="Enter the sales script here..."
                     />
                   ) : (
-                    <p className="text-xl font-medium text-indigo-900 leading-relaxed whitespace-pre-wrap">
+                    <p className="text-xl font-medium text-blue-950 dark:text-blue-100 leading-relaxed whitespace-pre-wrap">
                       "{selectedData.sales_pitch_script}"
                     </p>
                   )}
@@ -503,13 +503,13 @@ Would love to get on a quick call to walk you through everything. When are you f
               </Card>
 
               {/* Demo Materials Box */}
-              <Card className="bg-gradient-to-br from-indigo-600 to-purple-600 text-white border-none shadow-xl shadow-indigo-500/20">
+              <Card className="bg-gradient-to-br from-blue-600 to-sky-600 text-white border-none shadow-xl shadow-blue-500/20">
                 <div className="flex justify-between items-start mb-4">
                   <div>
                     <h3 className="font-bold text-lg flex items-center gap-2">
                       <Download className="w-5 h-5" /> Demo Materials
                     </h3>
-                    <p className="text-indigo-100 text-sm">Download or share course materials.</p>
+                    <p className="text-blue-100 text-sm">Download or share course materials.</p>
                   </div>
                   {canEdit && (
                     <button onClick={() => setIsAddingMaterial(!isAddingMaterial)} className="bg-white dark:bg-black/20 hover:bg-white dark:bg-black/30 p-1.5 rounded-lg transition-colors">
@@ -523,7 +523,7 @@ Would love to get on a quick call to walk you through everything. When are you f
                     <input type="text" placeholder="Material Title (e.g. PDF Brochure)" value={newMaterial.title} onChange={e => setNewMaterial({...newMaterial, title: e.target.value})} className="w-full bg-white dark:bg-black/10 border border-white/20 rounded px-3 py-1.5 text-sm text-white placeholder-white/50 focus:outline-none" />
                     <input type="url" placeholder="URL Link (Drive, DropBox, etc)" value={newMaterial.url} onChange={e => setNewMaterial({...newMaterial, url: e.target.value})} className="w-full bg-white dark:bg-black/10 border border-white/20 rounded px-3 py-1.5 text-sm text-white placeholder-white/50 focus:outline-none" />
                     <div className="flex gap-2">
-                      <Button variant="info" className="flex-1 py-1 h-auto text-xs bg-white dark:bg-black text-indigo-700 font-bold" onClick={handleAddMaterial}>Add</Button>
+                      <Button variant="info" className="flex-1 py-1 h-auto text-xs bg-white dark:bg-black text-blue-700 dark:text-blue-300 font-bold" onClick={handleAddMaterial}>Add</Button>
                       <Button variant="ghost" className="flex-1 py-1 h-auto text-xs text-white hover:bg-white dark:bg-black/20" onClick={() => setIsAddingMaterial(false)}>Cancel</Button>
                     </div>
                   </div>
@@ -537,7 +537,7 @@ Would love to get on a quick call to walk you through everything. When are you f
                   ) : (
                     materials.map(mat => (
                       <div key={mat.id} className="flex gap-2 items-stretch">
-                        <Button variant="info" className="flex-1 flex flex-col items-center justify-center gap-1 bg-white dark:bg-black text-indigo-700 hover:bg-indigo-50 font-bold border-none shadow-md py-3 h-auto" onClick={() => window.open(mat.url, '_blank')}>
+                        <Button variant="info" className="flex-1 flex flex-col items-center justify-center gap-1 bg-white dark:bg-black text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-950/40 font-bold border-none shadow-md py-3 h-auto" onClick={() => window.open(mat.url, '_blank')}>
                           <Download className="w-4 h-4" />
                           <span className="text-xs truncate max-w-full px-1">{mat.title}</span>
                         </Button>

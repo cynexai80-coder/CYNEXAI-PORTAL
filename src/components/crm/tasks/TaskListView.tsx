@@ -1,6 +1,7 @@
 import React from 'react';
 import { Task, updateTaskStatus, deleteTask } from '../../../lib/api/tasks';
 import { CheckCircle, Circle, MoreVertical, Clock, AlertTriangle, Trash2 } from 'lucide-react';
+import { getCurrentUser } from '../../../lib/auth';
 
 interface Props {
   tasks: Task[];
@@ -10,6 +11,26 @@ interface Props {
 }
 
 export const TaskListView: React.FC<Props> = ({ tasks, users, onTaskClick, onUpdate }) => {
+  const currentUser = getCurrentUser();
+
+  const isUserAuthorizedToDelete = (task: Task) => {
+    if (!currentUser) return false;
+    const role = (currentUser.role || '').toLowerCase();
+    const allowed = ['ceo', 'manager', 'admin', 'general_manager', 'super_admin', 'director'];
+    return currentUser.id === task.assignee_id || currentUser.id === task.created_by || allowed.includes(role);
+  };
+
+  const handleDelete = async (e: React.MouseEvent, task: Task) => {
+    e.stopPropagation();
+    if (confirm(`Are you sure you want to delete "${task.title}"?`)) {
+      const res = await deleteTask(task.id);
+      if (res.success) {
+        onUpdate();
+      } else {
+        alert(res.error || 'Failed to delete task');
+      }
+    }
+  };
   const handleToggleStatus = async (e: React.MouseEvent, task: Task) => {
     e.stopPropagation();
     const newStatus = task.status === 'Done' ? 'To Do' : 'Done';
@@ -166,12 +187,17 @@ export const TaskListView: React.FC<Props> = ({ tasks, users, onTaskClick, onUpd
                 </span>
               </td>
               <td className="p-3 text-right flex items-center justify-end gap-1">
-                <button
-                  onClick={(e) => handleDeleteTask(e, task)}
-                  className="opacity-0 group-hover:opacity-100 p-1 text-red-500 hover:text-red-700 dark:text-red-400 transition-all rounded hover:bg-red-500/10"
-                  title="Delete Task"
-                >
-                  <Trash2 className="w-4 h-4" />
+                {isUserAuthorizedToDelete(task) && (
+                  <button
+                    onClick={(e) => handleDelete(e, task)}
+                    className="opacity-0 group-hover:opacity-100 p-1 text-red-500 hover:text-red-700 dark:text-red-400 transition-all rounded hover:bg-red-500/10"
+                    title="Delete Task"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
+                <button className="opacity-0 group-hover:opacity-100 p-1 text-erp-text/40 hover:text-erp-text transition-all rounded hover:bg-erp-surface">
+                  <MoreVertical className="w-4 h-4" />
                 </button>
               </td>
             </tr>

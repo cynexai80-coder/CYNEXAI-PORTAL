@@ -2,18 +2,26 @@ import React from 'react';
 
 type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: 'primary' | 'secondary' | 'danger' | 'info' | 'ghost';
+  size?: 'sm' | 'md' | 'lg';
   fullWidth?: boolean;
 };
 
 export const Button: React.FC<ButtonProps> = ({ 
   children, 
   variant = 'primary', 
+  size = 'md',
   fullWidth = false,
   className = '',
   ...props 
 }) => {
-  const baseStyles = 'relative inline-flex items-center justify-center font-bold text-center rounded-2xl transition-all duration-150 active:translate-y-1 active:shadow-none uppercase tracking-wide px-6 py-3';
+  const baseStyles = 'relative inline-flex items-center justify-center font-bold text-center rounded-2xl transition-all duration-150 active:translate-y-1 active:shadow-none uppercase tracking-wide whitespace-nowrap shrink-0';
   
+  const sizes = {
+    sm: 'px-3.5 py-1.5 text-xs rounded-xl',
+    md: 'px-6 py-3 text-sm rounded-2xl',
+    lg: 'px-8 py-4 text-base rounded-2xl'
+  };
+
   const variants = {
     primary: 'bg-erp-primary text-white shadow-erp-btn-primary hover:opacity-90',
     secondary: 'bg-erp-secondary text-white shadow-erp-btn-secondary hover:opacity-90',
@@ -28,6 +36,7 @@ export const Button: React.FC<ButtonProps> = ({
     <button
       className={`
         ${baseStyles}
+        ${sizes[size]}
         ${variants[variant]}
         ${fullWidth ? 'w-full' : ''}
         ${props.disabled ? disabledStyles : ''}

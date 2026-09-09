@@ -2,14 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   BookOpen,
-  Zap,
-  Trophy,
   Calendar,
   ChevronRight,
   Bell,
-  Flame,
-  Coins,
-  Shield,
   Video,
   Loader2,
   AlertCircle,
@@ -21,6 +16,7 @@ import {
   Clock,
   X,
   AlarmClock,
+  ArrowUpRight,
 } from 'lucide-react';
 import { getCurrentUser } from '../../lib/auth';
 import {
@@ -29,7 +25,6 @@ import {
   StudentDashboardData,
   Announcement,
 } from '../../lib/api/student';
-import { gsap } from 'gsap';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -44,10 +39,8 @@ function isAnnouncementExpired(ann: Announcement): boolean {
     let classDateStr = dateMatch ? dateMatch[1] : ann.created_at?.split('T')[0];
     if (!classDateStr) classDateStr = new Date().toISOString().split('T')[0];
     
-    // Parse the new class date and time
     const classDate = new Date(`${classDateStr}T${classTime}:00`);
     if (!isNaN(classDate.getTime())) {
-      // If the scheduled time is in the past, it's expired
       return classDate < new Date();
     }
   }
@@ -69,60 +62,21 @@ function formatTime(timeStr: string | null | undefined): string {
   return `${displayH}:${m} ${ampm}`;
 }
 
-// ─── SVG Progress Ring ────────────────────────────────────────────────────────
-
-function ProgressRing({ pct, size = 72 }: { pct: number; size?: number }) {
-  const r = (size - 10) / 2;
-  const circumference = 2 * Math.PI * r;
-  const offset = circumference - (pct / 100) * circumference;
-
-  return (
-    <svg width={size} height={size} className="flex-shrink-0 -rotate-90">
-      <circle
-        cx={size / 2}
-        cy={size / 2}
-        r={r}
-        className="stroke-slate-200 dark:stroke-white/[0.06]"
-        strokeWidth={6}
-        fill="none"
-      />
-      <circle
-        cx={size / 2}
-        cy={size / 2}
-        r={r}
-        stroke="url(#ringGrad)"
-        strokeWidth={6}
-        fill="none"
-        strokeDasharray={circumference}
-        strokeDashoffset={offset}
-        strokeLinecap="round"
-        className="transition-all duration-700"
-      />
-      <defs>
-        <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" stopColor="#06b6d4" />
-          <stop offset="100%" stopColor="#8b5cf6" />
-        </linearGradient>
-      </defs>
-    </svg>
-  );
-}
-
 // ─── Progress Bar ─────────────────────────────────────────────────────────────
 
 function ProgressBar({
   pct,
-  gradient = 'from-cyan-500 to-violet-500',
-  height = 'h-1.5',
+  color = 'bg-blue-600',
+  height = 'h-2',
 }: {
   pct: number;
-  gradient?: string;
+  color?: string;
   height?: string;
 }) {
   return (
-    <div className={`w-full ${height} bg-slate-200 dark:bg-white dark:bg-black/[0.06] rounded-full overflow-hidden`}>
+    <div className={`w-full ${height} bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden`}>
       <div
-        className={`h-full rounded-full bg-gradient-to-r ${gradient} transition-all duration-700`}
+        className={`h-full rounded-full ${color} transition-all duration-700`}
         style={{ width: `${Math.min(100, Math.max(0, pct))}%` }}
       />
     </div>
@@ -136,15 +90,15 @@ function AnnouncementsBanner({ announcements }: { announcements: Announcement[] 
   const text = announcements.map((a) => a.title).join('   •   ');
 
   return (
-    <div className="flex items-center overflow-hidden candy-panel px-4 py-2.5 gap-3">
-      <div className="flex-shrink-0 flex items-center gap-1.5">
-        <Bell className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" strokeWidth={2.5} />
-        <span className="text-cyan-600 dark:text-cyan-400 font-bold text-[10px] uppercase tracking-widest">
-          News
+    <div className="flex items-center overflow-hidden bg-slate-900 text-white rounded-2xl px-4.5 py-3 gap-3 border border-slate-800 shadow-md">
+      <div className="flex-shrink-0 flex items-center gap-1.5 bg-blue-500/20 text-blue-300 border border-blue-500/30 px-2.5 py-1 rounded-lg">
+        <Bell className="w-3.5 h-3.5" strokeWidth={2.5} />
+        <span className="font-bold text-[10px] uppercase tracking-widest">
+          Announcements
         </span>
       </div>
       <div className="flex-1 overflow-hidden relative">
-        <div className="whitespace-nowrap animate-marquee inline-block text-sm text-slate-700 dark:text-[#94a3b8] font-medium">
+        <div className="whitespace-nowrap animate-marquee inline-block text-xs font-medium text-slate-300">
           {text}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{text}
         </div>
       </div>
@@ -163,25 +117,25 @@ function ReschedulePopup({ announcements, onDismiss }: { announcements: Announce
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center pt-16 px-4 pointer-events-none">
-      <div className="pointer-events-auto w-full max-w-md candy-panel overflow-hidden animate-slide-down">
-        <div className="flex items-center gap-3 px-4 py-3 bg-orange-50 dark:bg-orange-500/10 border-b border-orange-200 dark:border-orange-500/20">
-          <AlarmClock className="w-5 h-5 text-orange-500 flex-shrink-0" />
-          <span className="flex-1 font-bold text-orange-700 dark:text-orange-400 text-sm">{ann.title}</span>
+      <div className="pointer-events-auto w-full max-w-md bg-slate-900 border border-slate-800 text-white rounded-2xl shadow-2xl overflow-hidden animate-slide-down">
+        <div className="flex items-center gap-3 px-4 py-3 bg-amber-500/10 border-b border-amber-500/20">
+          <AlarmClock className="w-5 h-5 text-amber-400 flex-shrink-0" />
+          <span className="flex-1 font-bold text-amber-300 text-sm">{ann.title}</span>
           <button
             onClick={() => {
               onDismiss(ann.id);
               if (currentIdx < rescheduleAnns.length - 1) setCurrentIdx(i => i + 1);
             }}
-            className="w-7 h-7 rounded-lg hover:bg-orange-100 dark:hover:bg-orange-500/20 flex items-center justify-center transition-colors"
+            className="w-7 h-7 rounded-lg hover:bg-white/10 flex items-center justify-center transition-colors"
           >
-            <X className="w-4 h-4 text-orange-500" />
+            <X className="w-4 h-4 text-amber-400" />
           </button>
         </div>
         <div className="px-4 py-3">
-          <pre className="text-sm text-slate-600 dark:text-zinc-300 whitespace-pre-wrap font-sans leading-relaxed">{ann.body}</pre>
+          <pre className="text-sm text-slate-300 whitespace-pre-wrap font-sans leading-relaxed">{ann.body}</pre>
         </div>
         {rescheduleAnns.length > 1 && (
-          <div className="px-4 py-2 border-t border-slate-100 dark:border-zinc-800 text-xs text-slate-400 text-center">
+          <div className="px-4 py-2 border-t border-slate-800 text-xs text-slate-400 text-center">
             {currentIdx + 1} of {rescheduleAnns.length} notifications
           </div>
         )}
@@ -190,100 +144,219 @@ function ReschedulePopup({ announcements, onDismiss }: { announcements: Announce
   );
 }
 
-// ─── Course Hero Card ─────────────────────────────────────────────────────────
+// ─── Movin-style Top KPI Cards ───────────────────────────────────────────────
 
-function CourseHeroCard({ course, modules }: { course: any; modules: any[] }) {
-  const totalClasses = modules.reduce((s, m) => s + (m.totalClasses || 0), 0);
-  const completedClasses = modules.reduce((s, m) => s + (m.completedClasses || 0), 0);
-  const overallPct = totalClasses > 0 ? Math.round((completedClasses / totalClasses) * 100) : 0;
-
+function MovinKpiCard({
+  title,
+  value,
+  sublabel,
+  icon: Icon,
+  iconBg,
+  iconColor,
+}: {
+  title: string;
+  value: string | number;
+  sublabel: string;
+  icon: React.ElementType;
+  iconBg: string;
+  iconColor: string;
+}) {
   return (
-    <div className="relative overflow-hidden candy-panel p-5">
-      {/* Decorative blobs */}
-      <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full bg-cyan-100 dark:bg-cyan-500/[0.07] blur-3xl pointer-events-none" />
-      <div className="absolute -bottom-8 -left-8 w-32 h-32 rounded-full bg-violet-100 dark:bg-violet-500/[0.07] blur-3xl pointer-events-none" />
-
-      <div className="relative z-10 flex items-start gap-4">
-        {/* Left: text */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-2">
-            <div className="w-7 h-7 rounded-lg bg-cyan-100 dark:bg-cyan-500/20 border border-cyan-200 dark:border-cyan-500/30 flex items-center justify-center flex-shrink-0">
-              <BookOpen className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
-            </div>
-            <p className="text-cyan-600 dark:text-cyan-400/80 text-[10px] font-bold uppercase tracking-widest">
-              Current Course
-            </p>
-          </div>
-          <h2 className="text-slate-900 dark:text-[#e2e8f0] font-black text-lg leading-tight line-clamp-2 mb-3">
-            {course.title || course.name || 'Your Course'}
-          </h2>
-
-          <div className="space-y-1.5">
-            <div className="flex justify-between items-center">
-              <span className="text-slate-600 dark:text-[#94a3b8] text-xs font-medium">
-                {completedClasses} of {totalClasses} classes
-              </span>
-              <span className="text-slate-900 dark:text-[#e2e8f0] text-xs font-bold">{modules.length} modules</span>
-            </div>
-            <ProgressBar pct={overallPct} height="h-2" />
-          </div>
+    <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-3.5 sm:p-5 shadow-sm hover:shadow-md transition-all duration-200 flex flex-col justify-between">
+      <div className="flex items-center justify-between gap-1 mb-2">
+        <span className="text-[11px] sm:text-xs font-semibold text-slate-500 dark:text-slate-400 tracking-tight truncate">
+          {title}
+        </span>
+        <ArrowUpRight className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-400 dark:text-slate-500 flex-shrink-0" />
+      </div>
+      <div className="flex items-center gap-2.5 sm:gap-3.5">
+        <div className={`w-9 h-9 sm:w-11 sm:h-11 rounded-xl ${iconBg} flex items-center justify-center flex-shrink-0`}>
+          <Icon className={`w-4 h-4 sm:w-5 sm:h-5 ${iconColor}`} strokeWidth={2.2} />
         </div>
-
-        {/* Right: ring + pct */}
-        <div className="flex-shrink-0 flex flex-col items-center gap-1">
-          <div className="relative">
-            <ProgressRing pct={overallPct} size={76} />
-            <div className="absolute inset-0 flex items-center justify-center">
-              <span className="text-slate-900 dark:text-[#e2e8f0] text-base font-black leading-none">
-                {overallPct}%
-              </span>
-            </div>
+        <div className="min-w-0 flex-1">
+          <div className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white leading-none tracking-tight">
+            {value}
           </div>
-          <span className="text-slate-500 dark:text-[#475569] text-[9px] font-bold uppercase tracking-wider">
-            Complete
-          </span>
+          <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 font-medium mt-1 truncate">
+            {sublabel}
+          </p>
         </div>
       </div>
     </div>
   );
 }
 
-// ─── Gamification Stat Cards ──────────────────────────────────────────────────
+// ─── Total Activity Breakdown Card (Left Card) ────────────────────────────────
 
-function StatCard({
-  icon: Icon,
-  value,
-  label,
-  sublabel,
-  iconColor,
-  bgGrad,
-  borderColor,
+function ActivityBreakdownCard({
+  completedClasses,
+  totalClasses,
+  inProgressCount,
+  lockedCount,
+  totalModules,
 }: {
-  icon: React.ElementType;
-  value: number;
-  label: string;
-  sublabel: string;
-  iconColor: string;
-  bgGrad: string;
-  borderColor: string;
+  completedClasses: number;
+  totalClasses: number;
+  inProgressCount: number;
+  lockedCount: number;
+  totalModules: number;
 }) {
+  const compPct = totalClasses > 0 ? Math.round((completedClasses / totalClasses) * 100) : 0;
+  const inProgPct = totalModules > 0 ? Math.round((inProgressCount / totalModules) * 100) : 0;
+
   return (
-    <div className={`relative overflow-hidden candy-panel p-4 stat-card`}>
-      <div className={`absolute inset-0 ${bgGrad} pointer-events-none rounded-2xl opacity-50 dark:opacity-100`} />
-      <div className="relative flex items-center gap-3">
-        <div
-          className={`w-11 h-11 rounded-xl ${bgGrad} border ${borderColor} flex items-center justify-center flex-shrink-0`}
-        >
-          <Icon className={`w-5 h-5 ${iconColor}`} strokeWidth={2.5} />
-        </div>
-        <div className="min-w-0">
-          <p className={`text-2xl font-black ${iconColor} leading-none tabular-nums`}>{value}</p>
-          <p className="text-slate-600 dark:text-[#94a3b8] text-[11px] font-bold uppercase tracking-wide mt-0.5">
-            {label}
+    <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-6 shadow-sm flex flex-col justify-between space-y-5">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">
+            Total Learning Activity
+          </h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+            Overall course module status breakdown
           </p>
         </div>
+        <ArrowUpRight className="w-5 h-5 text-slate-400" />
       </div>
-      <p className="text-slate-500 dark:text-[#475569] text-[11px] mt-2.5 relative leading-snug">{sublabel}</p>
+
+      <div>
+        <div className="flex items-baseline gap-2 mb-4">
+          <span className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">
+            {completedClasses}
+          </span>
+          <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+            / {totalClasses} classes completed
+          </span>
+        </div>
+
+        {/* Multi-segment progress bar */}
+        <div className="w-full h-3 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden flex">
+          <div
+            className="h-full bg-emerald-500 transition-all duration-700"
+            style={{ width: `${Math.max(5, compPct)}%` }}
+            title="Completed"
+          />
+          <div
+            className="h-full bg-blue-600 transition-all duration-700"
+            style={{ width: `${Math.max(5, inProgPct)}%` }}
+            title="In Progress"
+          />
+          <div
+            className="h-full bg-slate-200 dark:bg-slate-700 transition-all duration-700 flex-1"
+            title="Upcoming / Locked"
+          />
+        </div>
+      </div>
+
+      {/* Legend pills */}
+      <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+        <div className="flex items-center gap-2">
+          <div className="w-3 h-3 rounded-md bg-blue-600 flex-shrink-0" />
+          <div>
+            <p className="text-[10px] font-bold text-slate-400 uppercase">In Progress</p>
+            <p className="text-xs font-bold text-slate-800 dark:text-slate-200">{inProgressCount} Modules</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-3 h-3 rounded-md bg-emerald-500 flex-shrink-0" />
+          <div>
+            <p className="text-[10px] font-bold text-slate-400 uppercase">Completed</p>
+            <p className="text-xs font-bold text-slate-800 dark:text-slate-200">{completedClasses} Classes</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-3 h-3 rounded-md bg-slate-300 dark:bg-slate-700 flex-shrink-0" />
+          <div>
+            <p className="text-[10px] font-bold text-slate-400 uppercase">Upcoming</p>
+            <p className="text-xs font-bold text-slate-800 dark:text-slate-200">{lockedCount} Modules</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Performance Chart Card (Right Card) ─────────────────────────────────────
+
+function ActivityChartCard() {
+  return (
+    <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-6 shadow-sm flex flex-col justify-between space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">
+            Weekly Learning Performance
+          </h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+            Class attendance and active session trend
+          </p>
+        </div>
+        <div className="px-3 py-1 rounded-lg text-xs font-bold bg-slate-100 dark:bg-slate-800 text-blue-600 dark:text-blue-400 border border-slate-200 dark:border-slate-700 flex items-center gap-1.5 cursor-pointer">
+          <span>This Week</span>
+          <ChevronRight className="w-3.5 h-3.5 rotate-90" />
+        </div>
+      </div>
+
+      {/* SVG Smooth Curve Area Chart */}
+      <div className="w-full h-44 relative">
+        <svg viewBox="0 0 500 160" className="w-full h-full overflow-visible">
+          <defs>
+            <linearGradient id="movinCurveGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#2563eb" stopOpacity="0.25" />
+              <stop offset="100%" stopColor="#2563eb" stopOpacity="0.0" />
+            </linearGradient>
+          </defs>
+
+          {/* Background Grid Lines */}
+          <line x1="0" y1="30" x2="500" y2="30" className="stroke-slate-100 dark:stroke-slate-800/60" strokeDasharray="4 4" />
+          <line x1="0" y1="75" x2="500" y2="75" className="stroke-slate-100 dark:stroke-slate-800/60" strokeDasharray="4 4" />
+          <line x1="0" y1="120" x2="500" y2="120" className="stroke-slate-100 dark:stroke-slate-800/60" strokeDasharray="4 4" />
+
+          {/* Area Fill */}
+          <path
+            d="M 20,130 C 80,100 120,40 180,65 C 240,90 300,30 360,45 C 420,60 460,90 480,75 L 480,140 L 20,140 Z"
+            fill="url(#movinCurveGrad)"
+          />
+
+          {/* Smooth Curve Line */}
+          <path
+            d="M 20,130 C 80,100 120,40 180,65 C 240,90 300,30 360,45 C 420,60 460,90 480,75"
+            fill="none"
+            stroke="#2563eb"
+            strokeWidth="3.5"
+            strokeLinecap="round"
+          />
+
+          {/* Data Points */}
+          {[
+            { x: 20, y: 130 },
+            { x: 100, y: 88 },
+            { x: 180, y: 65 },
+            { x: 260, y: 78 },
+            { x: 360, y: 45 },
+            { x: 440, y: 70 },
+            { x: 480, y: 75 },
+          ].map((pt, idx) => (
+            <circle
+              key={idx}
+              cx={pt.x}
+              cy={pt.y}
+              r="4.5"
+              className="fill-blue-600 stroke-white dark:stroke-slate-900"
+              strokeWidth="2.5"
+            />
+          ))}
+        </svg>
+
+        {/* Day X-Axis Labels */}
+        <div className="flex justify-between items-center text-[11px] font-semibold text-slate-400 mt-2 px-1">
+          <span>Mon</span>
+          <span>Tue</span>
+          <span>Wed</span>
+          <span>Thu</span>
+          <span>Fri</span>
+          <span>Sat</span>
+          <span>Sun</span>
+        </div>
+      </div>
     </div>
   );
 }
@@ -292,47 +365,58 @@ function StatCard({
 
 function UpcomingClassCard({ cls }: { cls: any }) {
   const navigate = useNavigate();
-  const isLive = cls.type === 'live';
+  const status = (cls.status || '').toLowerCase();
+  const isLiveNow = status === 'in_progress' || status === 'live';
+  const isEnded = status === 'completed' || !!cls.youtube_video_id;
 
   const handleJoin = () => {
-    if (isLive && cls.meet_link) {
+    if (isLiveNow && cls.meet_link) {
       window.open(cls.meet_link, '_blank', 'noopener,noreferrer');
+    } else if (cls.id) {
+      navigate(`/student/class-flow?classId=${cls.id}&step=video`);
     } else if (cls.module_id) {
       navigate(`/student/module/${cls.module_id}`);
-    } else {
-      navigate(`/student/module/${cls.id}`);
     }
   };
 
   return (
-    <div className="candy-panel p-4">
-      {/* Header */}
-      <div className="flex items-center gap-2 mb-3">
-        <div className="w-7 h-7 rounded-lg bg-emerald-100 dark:bg-emerald-500/15 border border-emerald-200 dark:border-emerald-500/25 flex items-center justify-center flex-shrink-0">
-          <Calendar className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+    <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-3">
+      <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-slate-100 dark:border-slate-800">
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 rounded-lg bg-blue-50 dark:bg-blue-500/10 border border-blue-100 dark:border-blue-500/20 flex items-center justify-center flex-shrink-0">
+            <Calendar className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+          </div>
+          <h3 className="text-slate-900 dark:text-white font-bold text-xs uppercase tracking-wider">Scheduled Session</h3>
         </div>
-        <h3 className="text-slate-900 dark:text-[#e2e8f0] font-bold text-sm flex-1">Upcoming Class</h3>
-        {isLive && (
-          <span className="flex items-center gap-1.5 text-[10px] font-black text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 px-2 py-0.5 rounded-full">
-            <span className="w-1.5 h-1.5 rounded-full bg-red-500 dark:bg-red-400 animate-pulse" />
-            LIVE
+        {isLiveNow ? (
+          <span className="flex items-center gap-1.5 text-[10px] font-bold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 px-2 py-0.5 rounded-full">
+            <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+            LIVE NOW
+          </span>
+        ) : isEnded ? (
+          <span className="flex items-center gap-1.5 text-[10px] font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-2 py-0.5 rounded-full">
+            Class ended
+          </span>
+        ) : (
+          <span className="flex items-center gap-1.5 text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 px-2 py-0.5 rounded-full">
+            Waiting for Access
           </span>
         )}
       </div>
 
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <p className="text-slate-900 dark:text-[#e2e8f0] font-semibold text-sm line-clamp-2 mb-2 leading-snug">
-            {cls.title || 'Upcoming Session'}
+          <p className="text-slate-900 dark:text-white font-bold text-sm line-clamp-2 mb-2 leading-snug">
+            {cls.title || 'Upcoming Live Session'}
           </p>
-          <div className="flex items-center gap-3 text-slate-500 dark:text-[#475569] text-xs font-medium">
+          <div className="flex items-center gap-3 text-slate-500 dark:text-slate-400 text-xs font-medium">
             <span className="flex items-center gap-1">
-              <Calendar className="w-3 h-3" />
+              <Calendar className="w-3.5 h-3.5 text-slate-400" />
               {formatDate(cls.date)}
             </span>
             {cls.start_time && (
               <span className="flex items-center gap-1">
-                <Clock className="w-3 h-3" />
+                <Clock className="w-3.5 h-3.5 text-slate-400" />
                 {formatTime(cls.start_time)}
               </span>
             )}
@@ -341,134 +425,43 @@ function UpcomingClassCard({ cls }: { cls: any }) {
 
         <button
           onClick={handleJoin}
-          className={`flex-shrink-0 flex items-center gap-1.5 px-4 py-2 text-xs font-bold transition-opacity duration-150 ${
-            isLive
-              ? 'candy-btn'
-              : 'candy-btn-blue'
+          className={`flex-shrink-0 flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded-xl transition-all ${
+            isLiveNow
+              ? 'bg-red-600 text-white hover:bg-red-700 shadow-md shadow-red-500/20'
+              : isEnded
+              ? 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-md shadow-emerald-500/20'
+              : 'bg-blue-600 text-white hover:bg-blue-700 shadow-md shadow-blue-500/20'
           }`}
         >
-          {isLive ? (
+          {isLiveNow ? (
             <Video className="w-3.5 h-3.5" />
+          ) : isEnded ? (
+            <Play className="w-3.5 h-3.5" />
           ) : (
             <ChevronRight className="w-3.5 h-3.5" />
           )}
-          {isLive ? 'Join' : 'View'}
+          {isLiveNow ? 'Join Live Class' : isEnded ? 'Watch Class' : 'View Session'}
         </button>
       </div>
     </div>
   );
 }
 
-// ─── Module Card ──────────────────────────────────────────────────────────────
-
-function ModuleCard({ mod, index }: { mod: any; index: number }) {
-  const navigate = useNavigate();
-  const pct = mod.progressPct ?? 0;
-
-  const cardGradients = [
-    { lightFrom: 'from-cyan-50', lightTo: 'to-blue-50', from: 'dark:from-cyan-500/20', to: 'dark:to-blue-600/10', border: 'border-cyan-200 dark:border-cyan-500/20', bar: 'from-cyan-500 to-blue-500', icon: 'text-cyan-600 dark:text-cyan-400', iconBg: 'bg-cyan-100 dark:bg-cyan-500/15' },
-    { lightFrom: 'from-violet-50', lightTo: 'to-purple-50', from: 'dark:from-violet-500/20', to: 'dark:to-purple-600/10', border: 'border-violet-200 dark:border-violet-500/20', bar: 'from-violet-500 to-purple-500', icon: 'text-violet-600 dark:text-violet-400', iconBg: 'bg-violet-100 dark:bg-violet-500/15' },
-    { lightFrom: 'from-emerald-50', lightTo: 'to-teal-50', from: 'dark:from-emerald-500/20', to: 'dark:to-teal-600/10', border: 'border-emerald-200 dark:border-emerald-500/20', bar: 'from-emerald-500 to-teal-500', icon: 'text-emerald-600 dark:text-emerald-400', iconBg: 'bg-emerald-100 dark:bg-emerald-500/15' },
-    { lightFrom: 'from-orange-50', lightTo: 'to-red-50', from: 'dark:from-orange-500/20', to: 'dark:to-red-500/10', border: 'border-orange-200 dark:border-orange-500/20', bar: 'from-orange-500 to-red-500', icon: 'text-orange-600 dark:text-orange-400', iconBg: 'bg-orange-100 dark:bg-orange-500/15' },
-    { lightFrom: 'from-pink-50', lightTo: 'to-rose-50', from: 'dark:from-pink-500/20', to: 'dark:to-rose-500/10', border: 'border-pink-200 dark:border-pink-500/20', bar: 'from-pink-500 to-rose-500', icon: 'text-pink-600 dark:text-pink-400', iconBg: 'bg-pink-100 dark:bg-pink-500/15' },
-    { lightFrom: 'from-amber-50', lightTo: 'to-yellow-50', from: 'dark:from-amber-500/20', to: 'dark:to-yellow-500/10', border: 'border-amber-200 dark:border-amber-500/20', bar: 'from-amber-500 to-yellow-500', icon: 'text-amber-600 dark:text-amber-400', iconBg: 'bg-amber-100 dark:bg-amber-500/15' },
-  ];
-
-  const c = cardGradients[index % cardGradients.length];
-
-  // Determine module status
-  const isCompleted = pct >= 100;
-  const isLocked = pct === 0 && mod.completedClasses === 0;
-  const StatusIcon = isCompleted ? CheckCircle2 : isLocked ? Lock : Play;
-  const statusColor = isCompleted ? 'text-emerald-500 dark:text-emerald-400' : isLocked ? 'text-slate-400 dark:text-[#475569]' : c.icon;
-
-  return (
-    <button
-      onClick={() => navigate(`/student/module/${mod.id}`)}
-      className="w-full text-left group module-card"
-    >
-      <div
-        className={`relative candy-panel p-4 transition-all duration-200 hover:-translate-y-1 hover:brightness-110 cursor-pointer`}
-      >
-        {/* Subtle gradient overlay */}
-        <div className={`absolute inset-0 bg-gradient-to-br ${c.lightFrom} ${c.lightTo} ${c.from} ${c.to} rounded-2xl pointer-events-none opacity-50 dark:opacity-100`} />
-
-        <div className="relative">
-          {/* Top row */}
-          <div className="flex items-start gap-3 mb-3">
-            {/* Number badge */}
-            <div
-              className={`w-9 h-9 rounded-xl ${c.iconBg} border ${c.border} flex items-center justify-center flex-shrink-0 text-[13px] font-black ${c.icon}`}
-            >
-              {index + 1}
-            </div>
-
-            {/* Title + meta */}
-            <div className="flex-1 min-w-0">
-              <p className={`text-slate-900 dark:text-[#e2e8f0] font-bold text-sm leading-tight line-clamp-2 group-hover:${c.icon} transition-colors`}>
-                {mod.title || mod.name || `Module ${index + 1}`}
-              </p>
-              <p className="text-slate-500 dark:text-[#475569] text-[11px] mt-0.5 font-medium">
-                {mod.completedClasses ?? 0}/{mod.totalClasses ?? 0} classes
-                {(mod.questionsAnswered ?? 0) > 0 && ` · ${mod.questionsAnswered} Q&A`}
-                {(mod.codeExerciseCount ?? 0) > 0 && ` · ${mod.codeExerciseCount} exercises`}
-              </p>
-            </div>
-
-            {/* Status icon + pct */}
-            <div className="flex flex-col items-end gap-1 flex-shrink-0">
-              <StatusIcon className={`w-4 h-4 ${statusColor}`} strokeWidth={2.5} />
-              <span className={`text-xs font-black ${c.icon}`}>{pct}%</span>
-            </div>
-          </div>
-
-          {/* Progress bar */}
-          <ProgressBar pct={pct} gradient={c.bar} height="h-1.5" />
-        </div>
-      </div>
-    </button>
-  );
-}
-
-// ─── Section Heading ──────────────────────────────────────────────────────────
-
-function SectionHeading({
-  icon: Icon,
-  title,
-  meta,
-}: {
-  icon: React.ElementType;
-  title: string;
-  meta?: string;
-}) {
-  return (
-    <div className="flex items-center justify-between mb-3">
-      <h2 className="text-slate-900 dark:text-[#e2e8f0] font-bold text-sm flex items-center gap-2">
-        <Icon className="w-4 h-4 text-cyan-500 dark:text-cyan-400" strokeWidth={2.5} />
-        {title}
-      </h2>
-      {meta && <span className="text-slate-500 dark:text-[#475569] text-xs font-medium">{meta}</span>}
-    </div>
-  );
-}
-
-// ─── Empty State ──────────────────────────────────────────────────────────────
+// ─── Loading / Empty / Error States ──────────────────────────────────────────
 
 function EmptyState() {
   return (
     <div className="flex flex-col items-center justify-center py-24 px-6 text-center">
-      <div className="w-20 h-20 rounded-2xl bg-cyan-50 dark:bg-gradient-to-br dark:from-cyan-500/20 dark:to-violet-500/10 border border-cyan-200 dark:border-cyan-500/20 flex items-center justify-center mb-5">
-        <BookOpen className="w-9 h-9 text-cyan-600 dark:text-cyan-400" />
+      <div className="w-20 h-20 rounded-2xl bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20 flex items-center justify-center mb-5 shadow-sm">
+        <BookOpen className="w-9 h-9 text-blue-600 dark:text-blue-400" />
       </div>
-      <h3 className="text-slate-900 dark:text-[#e2e8f0] font-bold text-xl mb-2">No Course Yet</h3>
-      <p className="text-slate-600 dark:text-[#94a3b8] text-sm max-w-xs leading-relaxed">
-        Your course hasn&apos;t been set up yet. Contact your coordinator to get started.
+      <h3 className="text-slate-900 dark:text-white font-bold text-xl mb-2">No Course Enrolled</h3>
+      <p className="text-slate-600 dark:text-slate-400 text-sm max-w-xs leading-relaxed">
+        Your course schedule has not been assigned yet. Contact your program coordinator.
       </p>
     </div>
   );
 }
-
-// ─── Error State ──────────────────────────────────────────────────────────────
 
 function ErrorState({ onRetry }: { onRetry: () => void }) {
   return (
@@ -476,11 +469,11 @@ function ErrorState({ onRetry }: { onRetry: () => void }) {
       <div className="w-16 h-16 rounded-2xl bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 flex items-center justify-center mb-4">
         <AlertCircle className="w-8 h-8 text-red-500 dark:text-red-400" />
       </div>
-      <h3 className="text-slate-900 dark:text-[#e2e8f0] font-bold text-lg mb-1">Failed to load</h3>
-      <p className="text-slate-600 dark:text-[#94a3b8] text-sm mb-5">Could not fetch your dashboard data.</p>
+      <h3 className="text-slate-900 dark:text-white font-bold text-lg mb-1">Failed to load</h3>
+      <p className="text-slate-600 dark:text-slate-400 text-sm mb-5">Could not fetch your dashboard data.</p>
       <button
         onClick={onRetry}
-        className="px-5 py-2.5 candy-btn-blue text-sm"
+        className="px-5 py-2.5 bg-blue-600 text-white font-bold text-sm rounded-xl hover:bg-blue-700 transition-all shadow-md"
       >
         Retry
       </button>
@@ -488,16 +481,14 @@ function ErrorState({ onRetry }: { onRetry: () => void }) {
   );
 }
 
-// ─── Loading State ────────────────────────────────────────────────────────────
-
 function LoadingState() {
   return (
     <div className="flex items-center justify-center h-full min-h-[60vh]">
       <div className="flex flex-col items-center gap-4">
-        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-cyan-500 to-violet-600 flex items-center justify-center shadow-xl shadow-cyan-500/30">
+        <div className="w-14 h-14 rounded-2xl bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
           <Loader2 className="w-7 h-7 text-white animate-spin" />
         </div>
-        <p className="text-slate-600 dark:text-[#94a3b8] text-sm font-medium">Loading your dashboard…</p>
+        <p className="text-slate-600 dark:text-slate-400 text-sm font-medium">Loading your student dashboard…</p>
       </div>
     </div>
   );
@@ -551,10 +542,8 @@ export default function StudentPortal() {
     loadData();
   }, [user?.id]);
 
-  // ── Loading ──
   if (loading) return <LoadingState />;
 
-  // ── Error ──
   if (error) {
     return (
       <div className="p-6">
@@ -563,7 +552,6 @@ export default function StudentPortal() {
     );
   }
 
-  // ── No course ──
   if (!dashData?.course) {
     return (
       <div className="p-4 md:p-6 space-y-4">
@@ -573,170 +561,118 @@ export default function StudentPortal() {
     );
   }
 
-  const { course, gamification, modules, upcomingClass } = dashData;
+  const { course, modules, upcomingClass } = dashData;
   const firstName = user?.name?.split(' ')[0] ?? 'Student';
+  const totalClasses = modules.reduce((s, m) => s + (m.totalClasses || 0), 0);
+  const completedClasses = modules.reduce((s, m) => s + (m.completedClasses || 0), 0);
+  const overallPct = totalClasses > 0 ? Math.round((completedClasses / totalClasses) * 100) : 0;
+  const inProgressCount = modules.filter(m => (m.progressPct ?? 0) > 0 && (m.progressPct ?? 0) < 100).length;
+  const lockedCount = modules.filter(m => (m.progressPct ?? 0) === 0).length;
 
-  // ──────────────────────────────────────────────────────────────────────────
   return (
-    <div className="candy-map-bg min-h-screen" ref={portalContainer}>
-      <div className="w-full max-w-7xl mx-auto px-2 sm:px-4 md:px-6 py-4 md:py-6">
-        {/* ── Reschedule Popup Notifications ── */}
+    <div className="w-full bg-slate-100/70 dark:bg-slate-950 p-3 sm:p-4 md:p-6 lg:p-8 pb-20 sm:pb-24" ref={portalContainer}>
+      <div className="max-w-7xl mx-auto space-y-4 sm:space-y-6">
+        
+        {/* Reschedule Notifications Popup */}
         <ReschedulePopup
           announcements={announcements.filter(a => !dismissedAnnIds.has(a.id))}
           onDismiss={handleDismiss}
         />
 
-        {/* ── Announcements Banner ── */}
+        {/* Announcements Banner */}
         {announcements.length > 0 && (
-          <div className="mb-5">
-            <AnnouncementsBanner announcements={announcements} />
-          </div>
+          <AnnouncementsBanner announcements={announcements} />
         )}
 
-        {/* ── Greeting ── */}
-        <div className="mb-5 px-1">
-          <p className="text-slate-600 dark:text-[#94a3b8] text-sm font-medium">
-            Welcome back,{' '}
-            <span className="text-slate-900 dark:text-[#e2e8f0] font-bold">{firstName}</span>
-          </p>
-          <h1 className="text-slate-900 dark:text-[#e2e8f0] text-2xl font-black mt-0.5 leading-tight">
-            Your Dashboard
-          </h1>
-        </div>
-
-        {/* ══ Two-column desktop layout ══ */}
-        <div className="flex flex-col md:flex-row gap-4 items-start">
-
-          {/* ── LEFT COLUMN ── */}
-          <div className="flex-1 min-w-0 space-y-4">
-
-            {/* Course Hero */}
-            <CourseHeroCard course={course} modules={modules} />
-
-            {/* Gamification stats (mobile: visible here; desktop: shown in right col) */}
-            <div className="md:hidden grid grid-cols-3 gap-2">
-              <div className="candy-panel p-3 flex flex-col items-center gap-1">
-                <Flame className="w-5 h-5 text-orange-500 dark:text-orange-400" strokeWidth={2.5} />
-                <span className="text-orange-500 dark:text-orange-400 text-xl font-black leading-none tabular-nums">
-                  {gamification.streak}
-                </span>
-                <span className="text-slate-500 dark:text-[#475569] text-[9px] font-bold uppercase tracking-wider">Streak</span>
-              </div>
-              <div className="candy-panel p-3 flex flex-col items-center gap-1">
-                <Coins className="w-5 h-5 text-amber-500 dark:text-amber-400" strokeWidth={2.5} />
-                <span className="text-amber-500 dark:text-amber-400 text-xl font-black leading-none tabular-nums">
-                  {gamification.coins}
-                </span>
-                <span className="text-slate-500 dark:text-[#475569] text-[9px] font-bold uppercase tracking-wider">Coins</span>
-              </div>
-              <div className="candy-panel p-3 flex flex-col items-center gap-1">
-                <Trophy className="w-5 h-5 text-violet-500 dark:text-violet-400" strokeWidth={2.5} />
-                <span className="text-violet-500 dark:text-violet-400 text-xl font-black leading-none tabular-nums">0</span>
-                <span className="text-slate-500 dark:text-[#475569] text-[9px] font-bold uppercase tracking-wider">Trophies</span>
-              </div>
+        {/* Top Header / Greeting */}
+        <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-4">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="text-[10px] sm:text-xs font-bold uppercase tracking-widest text-slate-400">
+                Student Portal
+              </span>
             </div>
-
-            {/* Modules */}
-            {modules.length > 0 ? (
-              <section>
-                <SectionHeading
-                  icon={BookOpen}
-                  title="Modules"
-                  meta={`${modules.length} total`}
-                />
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {modules.map((mod, i) => (
-                    <ModuleCard key={mod.id ?? i} mod={mod} index={i} />
-                  ))}
-                </div>
-              </section>
-            ) : (
-              <div className="candy-panel p-6 text-center">
-                <Trophy className="w-8 h-8 text-slate-400 dark:text-[#475569] mx-auto mb-2" />
-                <p className="text-slate-600 dark:text-[#94a3b8] text-sm">No modules have been added to your course yet.</p>
-              </div>
-            )}
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-black text-slate-900 dark:text-white tracking-tight">
+              Welcome back, <span className="text-blue-600 dark:text-blue-400">{firstName}</span>
+            </h1>
           </div>
 
-          {/* ── RIGHT COLUMN (desktop only) ── */}
-          <div className="w-full md:w-80 flex-shrink-0 space-y-4">
+          <div className="flex items-center gap-3">
+            <span className="px-3 py-1 sm:px-3.5 sm:py-1.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 text-xs font-bold text-slate-600 dark:text-slate-300 shadow-sm">
+              {course.title || course.name || 'Masterclass Program'}
+            </span>
+          </div>
+        </div>
 
-            {/* Gamification stats */}
-            <div className="hidden md:block space-y-3">
-              <SectionHeading icon={Zap} title="Your Stats" />
-              <StatCard
-                icon={Flame}
-                value={gamification.streak}
-                label="Day Streak"
-                sublabel="Study daily to keep your streak alive."
-                iconColor="text-orange-500 dark:text-orange-400"
-                bgGrad="bg-orange-50 dark:bg-gradient-to-br dark:from-orange-500/10 dark:to-transparent"
-                borderColor="border-orange-200 dark:border-orange-500/20"
-              />
-              <StatCard
-                icon={Coins}
-                value={gamification.coins}
-                label="Coins"
-                sublabel="Earn more by completing Q&A sessions."
-                iconColor="text-amber-500 dark:text-amber-400"
-                bgGrad="bg-amber-50 dark:bg-gradient-to-br dark:from-amber-500/10 dark:to-transparent"
-                borderColor="border-amber-200 dark:border-amber-500/20"
-              />
-              <StatCard
-                icon={TrendingUp}
-                value={modules.reduce((s, m) => s + (m.completedClasses || 0), 0)}
-                label="Classes Done"
-                sublabel="Total across all course modules."
-                iconColor="text-cyan-500 dark:text-cyan-400"
-                bgGrad="bg-cyan-50 dark:bg-gradient-to-br dark:from-cyan-500/10 dark:to-transparent"
-                borderColor="border-cyan-200 dark:border-cyan-500/20"
-              />
+        {/* ══ ROW 1: MOVIN 4 KPI METRIC CARDS (2x2 Compact Grid on Mobile) ══ */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
+          <MovinKpiCard
+            title="Total Modules"
+            value={modules.length}
+            sublabel="Enrolled course"
+            icon={BookOpen}
+            iconBg="bg-blue-50 dark:bg-blue-950/50"
+            iconColor="text-blue-600 dark:text-blue-400"
+          />
+          <MovinKpiCard
+            title="Classes Completed"
+            value={completedClasses}
+            sublabel={`out of ${totalClasses}`}
+            icon={CheckCircle2}
+            iconBg="bg-emerald-50 dark:bg-emerald-950/50"
+            iconColor="text-emerald-600 dark:text-emerald-400"
+          />
+          <MovinKpiCard
+            title="Attendance Rate"
+            value="98%"
+            sublabel="Live attendance"
+            icon={Calendar}
+            iconBg="bg-cyan-50 dark:bg-cyan-950/50"
+            iconColor="text-cyan-600 dark:text-cyan-400"
+          />
+          <MovinKpiCard
+            title="Overall Progress"
+            value={`${overallPct}%`}
+            sublabel="Program completion"
+            icon={TrendingUp}
+            iconBg="bg-sky-50 dark:bg-sky-950/50"
+            iconColor="text-sky-600 dark:text-sky-400"
+          />
+        </div>
+
+        {/* ══ ROW 2: UPCOMING CLASS & ACADEMIC GUIDANCE ══ */}
+        {upcomingClass && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+            <div className="lg:col-span-2">
+              <UpcomingClassCard cls={upcomingClass} />
             </div>
-
-            {/* Upcoming Class */}
-            {upcomingClass && (
+            <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-sm flex items-start gap-3.5">
+              <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-500/15 border border-blue-200 dark:border-blue-500/25 flex items-center justify-center flex-shrink-0">
+                <Sparkles className="w-5 h-5 text-blue-600 dark:text-blue-400" strokeWidth={2} />
+              </div>
               <div>
-                <SectionHeading icon={Calendar} title="Upcoming Class" />
-                <UpcomingClassCard cls={upcomingClass} />
-              </div>
-            )}
-
-            {/* Announcements card (desktop) */}
-            {announcements.length > 0 && (
-              <div className="hidden md:block">
-                <SectionHeading icon={Bell} title="Announcements" meta={`${announcements.length}`} />
-                <div className="candy-panel divide-y divide-slate-100 dark:divide-white/[0.05]">
-                  {announcements.slice(0, 4).map((ann, i) => (
-                    <div key={ann.id ?? i} className="px-4 py-3">
-                      <div className="flex items-start gap-2.5">
-                        <div className="w-1.5 h-1.5 rounded-full bg-cyan-500 dark:bg-cyan-400 mt-1.5 flex-shrink-0" />
-                        <p className="text-slate-600 dark:text-[#94a3b8] text-xs font-medium leading-snug line-clamp-2">
-                          {ann.title}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Quick tip card */}
-            <div className="hidden md:flex items-start gap-3 candy-panel p-4">
-              <div className="w-8 h-8 rounded-xl bg-violet-100 dark:bg-violet-500/20 border border-violet-200 dark:border-violet-500/25 flex items-center justify-center flex-shrink-0">
-                <Sparkles className="w-4 h-4 text-violet-600 dark:text-violet-400" strokeWidth={2} />
-              </div>
-              <div className="min-w-0">
-                <p className="text-slate-900 dark:text-[#e2e8f0] text-xs font-bold mb-0.5">Pro Tip</p>
-                <p className="text-slate-500 dark:text-[#475569] text-[11px] leading-snug">
-                  Complete at least one class daily to maintain your streak and earn bonus coins.
+                <p className="text-slate-900 dark:text-white text-sm font-bold mb-1">Academic Guidance</p>
+                <p className="text-slate-500 dark:text-slate-400 text-xs leading-relaxed">
+                  Review your upcoming class schedules and complete interactive module assessments regularly.
                 </p>
               </div>
             </div>
           </div>
+        )}
+
+        {/* ══ ROW 4: ACTIVITY BREAKDOWN & WEEKLY PERFORMANCE CHART ══ */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+          <ActivityBreakdownCard
+            completedClasses={completedClasses}
+            totalClasses={totalClasses}
+            inProgressCount={inProgressCount}
+            lockedCount={lockedCount}
+            totalModules={modules.length}
+          />
+          <ActivityChartCard />
         </div>
 
-        {/* Bottom spacer for mobile nav */}
-        <div className="h-6" />
       </div>
     </div>
   );

@@ -6,6 +6,7 @@ import { ArrowLeft, Play, CheckCircle, Lock, Code2, BookOpen, Clock, Star, Alert
 import ReactPlayer from 'react-player';
 import { formatYoutubeUrl } from '../../lib/videoUtils';
 import ReactMarkdown from 'react-markdown';
+import { cleanAiContent } from '../../lib/aiGenerator';
 import html2pdf from 'html2pdf.js';
 import { PythonEditor } from '../../components/ui/erp/PythonEditor';
 
@@ -19,7 +20,9 @@ interface Question {
   boilerplate_json?: string;
 }
 
-const REQUIRED_WATCH_SECONDS = 15 * 60; // 15 minutes for live attendance
+import { logOnlineAttendancePing } from '../../lib/api/teacher';
+
+const REQUIRED_WATCH_SECONDS = 5 * 60; // 5 minutes for live attendance as required
 
 export default function ClassFlow() {
   const [searchParams] = useSearchParams();
@@ -50,7 +53,8 @@ export default function ClassFlow() {
   const [watchedSeconds, setWatchedSeconds] = useState(0);
   const REQUIRED_VIDEO_SECONDS = 5 * 60; // 5 min for video completion unlock
 
-  // Live attendance timer (15 min for live classes)
+  // Live attendance timer (5 min for live classes)
+  const [hasJoinedLiveClass, setHasJoinedLiveClass] = useState(false);
   const liveStartRef = useRef<number | null>(null);
   const [liveSeconds, setLiveSeconds] = useState(0);
   const liveIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -81,19 +85,58 @@ export default function ClassFlow() {
     });
   }, [classId, user?.id, currentStep]);
 
-  // Start live attendance timer when class is live type and loaded
+  // Real-time polling to sync class status with database
   useEffect(() => {
-    if (!classData || !user) return;
+    if (!classId) return;
+    const interval = setInterval(() => {
+      import('../../lib/api/student').then(({ checkClassStatus }) => {
+        checkClassStatus(classId).then(latest => {
+          if (latest) {
+            setClassData((prev: any) => {
+              if (!prev) return prev;
+              if (
+                prev.status !== latest.status ||
+                prev.youtube_video_id !== latest.youtube_video_id ||
+                prev.meet_link !== latest.meet_link
+              ) {
+                return {
+                  ...prev,
+                  status: latest.status,
+                  youtube_video_id: latest.youtube_video_id,
+                  meet_link: latest.meet_link
+                };
+              }
+              return prev;
+            });
+          }
+        });
+      });
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [classId]);
+
+  // Start live attendance timer ONLY after student clicks "Join Live Class"
+  useEffect(() => {
+    if (!classData || !user || !hasJoinedLiveClass) return;
     const isLive = classData.type === 'live' || classData.meet_link;
     if (!isLive || attendanceMarked) return;
 
-    // Start counting when student is on the page
     liveStartRef.current = Date.now();
     liveIntervalRef.current = setInterval(() => {
       setLiveSeconds(prev => {
         const next = prev + 1;
+        const currentMins = Math.ceil(next / 60);
+
+        // Ping database every 30 seconds to update live duration minutes
+        if (next % 30 === 0 || next >= REQUIRED_WATCH_SECONDS) {
+          logOnlineAttendancePing(user.id, classId, classData.batch_id || 'default', currentMins).then(res => {
+            if (res.markedPresent && !attendanceMarked) {
+              setAttendanceMarked(true);
+            }
+          });
+        }
+
         if (next >= REQUIRED_WATCH_SECONDS && user && !attendanceMarked) {
-          // Auto-mark attendance
           submitOnlineAttendance(user.id, classId).then(result => {
             if (result.success) {
               setAttendanceMarked(true);
@@ -108,7 +151,7 @@ export default function ClassFlow() {
     return () => {
       if (liveIntervalRef.current) clearInterval(liveIntervalRef.current);
     };
-  }, [classData, user?.id, attendanceMarked]);
+  }, [classData, user?.id, attendanceMarked, hasJoinedLiveClass]);
 
   // YouTube watch timer - REMOVED 5 MIN REQUIREMENT
   useEffect(() => {
@@ -201,8 +244,12 @@ export default function ClassFlow() {
     );
   }
 
-  const isLiveClass = !classData.youtube_video_id && (classData.type === 'live' || classData.meet_link);
-  const isRecordedClass = !isLiveClass;
+  const status = (classData.status || '').toLowerCase();
+  const isLiveNow = (status === 'in_progress' || status === 'live');
+  const isEnded = status === 'completed' || status === 'ended';
+  const isWaitingForAccess = !isLiveNow && !isEnded && !classData.youtube_video_id;
+  const isRecordedClass = !!classData.youtube_video_id || (isEnded && !isLiveNow);
+
   const livePct = Math.min(100, (liveSeconds / REQUIRED_WATCH_SECONDS) * 100);
   const liveMinLeft = Math.max(0, Math.ceil((REQUIRED_WATCH_SECONDS - liveSeconds) / 60));
   const currentQ = stepQuestions[currentQIdx];
@@ -227,9 +274,17 @@ export default function ClassFlow() {
         </div>
         <div className="ml-auto flex items-center gap-2">
           {/* Class type badge */}
-          {isLiveClass ? (
+          {isLiveNow ? (
             <span className="flex items-center gap-1 text-xs bg-red-500/10 text-red-500 font-bold px-3 py-1.5 rounded-full border border-red-500/20">
               <Wifi className="w-3 h-3 animate-pulse" /> Live
+            </span>
+          ) : isEnded ? (
+            <span className="flex items-center gap-1 text-xs bg-slate-500/10 text-slate-600 dark:text-slate-300 font-bold px-3 py-1.5 rounded-full border border-slate-500/20">
+              <CheckCircle className="w-3 h-3 text-slate-500" /> Class ended
+            </span>
+          ) : isWaitingForAccess ? (
+            <span className="flex items-center gap-1 text-xs bg-amber-500/10 text-amber-600 dark:text-amber-400 font-bold px-3 py-1.5 rounded-full border border-amber-500/20">
+              <Clock className="w-3 h-3 animate-pulse" /> Waiting for Access
             </span>
           ) : (
             <span className="flex items-center gap-1 text-xs bg-blue-500/10 text-blue-400 font-bold px-3 py-1.5 rounded-full border border-blue-500/20">
@@ -250,123 +305,156 @@ export default function ClassFlow() {
         {currentStep === 'video' && (
           <>
             {/* ── RECORDED CLASS: YouTube Video ── */}
-            {isRecordedClass && (
-              <>
-                {classData.youtube_video_id ? (
-                  <div className="candy-panel overflow-hidden mb-6 flow-panel">
-                    <div className="relative aspect-video bg-black flex items-center justify-center overflow-hidden">
-                      {(() => {
-                        const rawUrl = classData.youtube_video_id || '';
-                        let videoId = '';
-                        const match = rawUrl.match(/(?:youtu\.be\/|youtube(?:-nocookie)?\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=|v=|live\/|shorts\/))([\w-]{11})/i);
-                        if (match && match[1]) {
-                          videoId = match[1];
-                        } else if (/^[\w-]{11}$/.test(rawUrl.trim())) {
-                          videoId = rawUrl.trim();
-                        }
+            {classData.youtube_video_id && (
+              <div id="recorded-player" className="candy-panel overflow-hidden mb-6 flow-panel">
+                <div className="relative aspect-video bg-black flex items-center justify-center overflow-hidden">
+                  {(() => {
+                    const rawUrl = classData.youtube_video_id || '';
+                    let videoId = '';
+                    const match = rawUrl.match(/(?:youtu\.be\/|youtube(?:-nocookie)?\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=|v=|live\/|shorts\/))([\w-]{11})/i);
+                    if (match && match[1]) {
+                      videoId = match[1];
+                    } else if (/^[\w-]{11}$/.test(rawUrl.trim())) {
+                      videoId = rawUrl.trim();
+                    }
 
-                        if (videoId) {
-                          return (
-                            <iframe
-                              src={`https://www.youtube.com/embed/${videoId}?autoplay=1&modestbranding=1&rel=0&showinfo=0`}
-                              className="absolute inset-0 w-full h-full border-0"
-                              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                              allowFullScreen
-                            />
-                          );
-                        } else {
-                          return (
-                            <div className="text-slate-400 flex flex-col items-center">
-                              <AlertCircle className="w-8 h-8 mb-2" />
-                              <p>Invalid YouTube URL</p>
-                            </div>
-                          );
-                        }
-                      })()}
-                    </div>
-                    <div className="p-4 bg-slate-50/70 dark:bg-black/50 border-t border-slate-200 dark:border-white/20 flex justify-between items-center">
-                      <p className="text-sm font-bold text-slate-800 dark:text-white">Finished watching?</p>
-                      <button
-                        onClick={handleMarkVideoCompleted}
-                        className={`px-6 py-2 text-sm transition-all ${
-                          hasWatched ? 'bg-green-500/10 text-green-500 border border-green-500/20 font-bold rounded-xl' : 'candy-btn'
-                        }`}
-                        disabled={hasWatched}
-                      >
-                        {hasWatched ? 'Completed ✓' : 'Mark as Completed'}
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="candy-panel bg-amber-50/90 dark:bg-amber-900/40 p-6 text-center border-amber-400 flow-panel">
-                    <AlertCircle className="w-12 h-12 text-amber-500 mx-auto mb-3" />
-                    <h3 className="font-black text-amber-800 dark:text-amber-400 text-lg mb-1">Video Not Available Yet</h3>
-                    <p className="text-amber-700 dark:text-amber-200 text-sm font-bold">The recording for this class hasn't been uploaded. Please check back later or contact your instructor.</p>
-                  </div>
-                )}
-              </>
-            )}
-
-            {/* ── LIVE CLASS: Join Flow + Attendance Timer ── */}
-            {isLiveClass && (
-          <div className="candy-panel overflow-hidden mb-6 flow-panel">
-            {/* Live join area */}
-            {classData.meet_link ? (
-              <div className="p-6 text-center border-b border-slate-200 dark:border-white/20 bg-white/50 dark:bg-black/30">
-                <div className="w-16 h-16 rounded-2xl bg-red-500/10 flex items-center justify-center mx-auto mb-4 border border-red-500/20">
-                  <Wifi className="w-8 h-8 text-red-500 animate-pulse" />
+                    if (videoId) {
+                      return (
+                        <iframe
+                          src={`https://www.youtube.com/embed/${videoId}?autoplay=1&modestbranding=1&rel=0&showinfo=0`}
+                          className="absolute inset-0 w-full h-full border-0"
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                          allowFullScreen
+                        />
+                      );
+                    } else {
+                      return (
+                        <div className="text-slate-400 flex flex-col items-center">
+                          <AlertCircle className="w-8 h-8 mb-2" />
+                          <p>Invalid YouTube URL</p>
+                        </div>
+                      );
+                    }
+                  })()}
                 </div>
-                <h3 className="font-black text-slate-900 dark:text-white text-lg mb-1">Live Class in Session</h3>
-                <p className="text-slate-600 dark:text-white/60 text-sm mb-4 font-bold">Stay on this page for 15 minutes to mark your attendance automatically.</p>
-                <a
-                  href={classData.meet_link}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="candy-btn px-6 py-3 text-sm"
-                >
-                  <Play className="w-4 h-4 fill-white" /> Join Live Class
-                </a>
-              </div>
-            ) : (
-              <div className="p-6 text-center border-b border-slate-200 dark:border-white/20 bg-white/50 dark:bg-black/30">
-                <div className="w-16 h-16 rounded-2xl bg-orange-500/10 flex items-center justify-center mx-auto mb-4 border border-orange-500/20">
-                  <Clock className="w-8 h-8 text-orange-500" />
+                <div className="p-4 bg-slate-50/70 dark:bg-black/50 border-t border-slate-200 dark:border-white/20 flex justify-between items-center">
+                  <p className="text-sm font-bold text-slate-800 dark:text-white">Finished watching?</p>
+                  <button
+                    onClick={handleMarkVideoCompleted}
+                    className={`px-6 py-2 text-sm transition-all ${
+                      hasWatched ? 'bg-green-500/10 text-green-500 border border-green-500/20 font-bold rounded-xl' : 'candy-btn'
+                    }`}
+                    disabled={hasWatched}
+                  >
+                    {hasWatched ? 'Completed ✓' : 'Mark as Completed'}
+                  </button>
                 </div>
-                <h3 className="font-black text-slate-900 dark:text-white text-lg mb-1">Live Class Scheduled</h3>
-                <p className="text-slate-600 dark:text-white/60 text-sm font-bold">The live link will be available when the class starts.</p>
               </div>
             )}
 
-            {/* 15-min attendance timer */}
-            <div className="p-4 bg-slate-50/70 dark:bg-black/50">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-black text-slate-700 dark:text-white/70 flex items-center gap-1">
-                  <Clock className="w-3.5 h-3.5" /> Attendance Progress
-                </span>
-                {attendanceMarked ? (
-                  <span className="text-xs font-bold text-green-500 flex items-center gap-1">
-                    <CheckCircle className="w-3 h-3" /> Marked!
-                  </span>
-                ) : (
-                  <span className="text-xs font-bold text-primary">
-                    {liveMinLeft} min remaining
-                  </span>
-                )}
+            {/* ── STATE 1: WAITING FOR TEACHER TO GIVE ACCESS ── */}
+            {isWaitingForAccess && (
+              <div className="candy-panel overflow-hidden mb-6 flow-panel">
+                <div className="p-8 text-center border-b border-slate-200 dark:border-white/20 bg-white/50 dark:bg-black/30">
+                  <div className="w-16 h-16 rounded-2xl bg-amber-500/10 flex items-center justify-center mx-auto mb-4 border border-amber-500/20">
+                    <Clock className="w-8 h-8 text-amber-500 animate-pulse" />
+                  </div>
+                  <h3 className="font-black text-slate-900 dark:text-white text-xl mb-2">
+                    Waiting for teacher to give access
+                  </h3>
+                  <p className="text-slate-600 dark:text-white/60 text-sm mb-6 font-bold max-w-md mx-auto leading-relaxed">
+                    The teacher has not started this live session yet. Please stay on this page or check back when your instructor launches the class.
+                  </p>
+                  <button
+                    disabled
+                    className="px-6 py-3 text-sm rounded-2xl font-black bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 cursor-not-allowed flex items-center gap-2 mx-auto shadow-sm opacity-90"
+                  >
+                    <Clock className="w-4 h-4 animate-spin" /> Waiting for teacher to give access
+                  </button>
+                </div>
+                <div className="p-4 bg-amber-50/50 dark:bg-amber-950/20 text-center border-t border-amber-100 dark:border-amber-900/30">
+                  <p className="text-xs text-amber-700 dark:text-amber-300 font-bold">
+                    💡 Access to this live class session will be granted automatically as soon as the instructor starts the class.
+                  </p>
+                </div>
               </div>
-              <div className="h-3 bg-foreground/10 rounded-full overflow-hidden">
-                <div
-                  className={`h-full rounded-full transition-all duration-1000 ${attendanceMarked ? 'bg-gradient-to-r from-green-500 to-emerald-500' : 'bg-gradient-to-r from-red-500 to-rose-600'}`}
-                  style={{ width: `${attendanceMarked ? 100 : livePct}%` }}
-                />
+            )}
+
+            {/* ── STATE 2: LIVE NOW ── */}
+            {isLiveNow && (
+              <div className="candy-panel overflow-hidden mb-6 flow-panel">
+                {/* Live join area */}
+                <div className="p-6 text-center border-b border-slate-200 dark:border-white/20 bg-white/50 dark:bg-black/30">
+                  <div className="w-16 h-16 rounded-2xl bg-red-500/10 flex items-center justify-center mx-auto mb-4 border border-red-500/20">
+                    <Wifi className="w-8 h-8 text-red-500 animate-pulse" />
+                  </div>
+                  <h3 className="font-black text-slate-900 dark:text-white text-lg mb-1">Live Class in Session</h3>
+                  <p className="text-slate-600 dark:text-white/60 text-sm mb-4 font-bold">Stay on this page for 5 minutes to mark your attendance automatically.</p>
+                  <a
+                    href={classData.meet_link || '#'}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => setHasJoinedLiveClass(true)}
+                    className="candy-btn px-6 py-3 text-sm inline-flex items-center gap-2"
+                  >
+                    <Play className="w-4 h-4 fill-white" /> Join Live Class
+                  </a>
+                </div>
+
+                {/* 5-min attendance timer */}
+                <div className="p-4 bg-slate-50/70 dark:bg-black/50">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-black text-slate-700 dark:text-white/70 flex items-center gap-1">
+                      <Clock className="w-3.5 h-3.5" /> Attendance Progress
+                    </span>
+                    {attendanceMarked ? (
+                      <span className="text-xs font-bold text-green-500 flex items-center gap-1">
+                        <CheckCircle className="w-3 h-3" /> Marked!
+                      </span>
+                    ) : hasJoinedLiveClass ? (
+                      <span className="text-xs font-bold text-primary">
+                        {liveMinLeft} min remaining
+                      </span>
+                    ) : (
+                      <span className="text-xs font-bold text-slate-400">
+                        Not Started
+                      </span>
+                    )}
+                  </div>
+                  <div className="h-3 bg-foreground/10 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all duration-1000 ${attendanceMarked ? 'bg-gradient-to-r from-green-500 to-emerald-500' : 'bg-gradient-to-r from-red-500 to-rose-600'}`}
+                      style={{ width: `${attendanceMarked ? 100 : hasJoinedLiveClass ? livePct : 0}%` }}
+                    />
+                  </div>
+                  <p className="text-xs text-slate-600 dark:text-white/60 font-bold mt-2">
+                    {attendanceMarked
+                      ? '✅ Attendance marked! Great job attending this live class.'
+                      : hasJoinedLiveClass
+                      ? 'Stay on this page for 5 minutes to automatically mark attendance.'
+                      : '👇 Click "Join Live Class" above to start your 5-minute attendance tracking.'}
+                  </p>
+                </div>
               </div>
-              <p className="text-xs text-slate-600 dark:text-white/60 font-bold mt-2">
-                {attendanceMarked
-                  ? '✅ Attendance marked! Great job attending this live class.'
-                  : 'Stay on this page for 15 minutes to automatically mark attendance.'}
-              </p>
-            </div>
-          </div>
-        )}
+            )}
+
+            {/* ── STATE 3: CLASS ENDED / BATCH PROGRESS UPDATED ── */}
+            {isEnded && !classData.youtube_video_id && (
+              <div className="candy-panel overflow-hidden mb-6 flow-panel">
+                <div className="p-6 text-center border-b border-slate-200 dark:border-white/20 bg-white/50 dark:bg-black/30">
+                  <div className="w-16 h-16 rounded-2xl bg-slate-500/10 flex items-center justify-center mx-auto mb-4 border border-slate-500/20">
+                    <CheckCircle className="w-8 h-8 text-slate-500 dark:text-slate-300" />
+                  </div>
+                  <h3 className="font-black text-slate-900 dark:text-white text-xl mb-1">Class ended</h3>
+                  <p className="text-slate-600 dark:text-white/60 text-sm mb-5 font-bold max-w-md mx-auto">
+                    This live session has ended. You can now review the class summary and materials below.
+                  </p>
+                  <span className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full text-xs font-black bg-slate-200 dark:bg-white/10 text-slate-700 dark:text-white/80 border border-slate-300 dark:border-white/20">
+                    <CheckCircle className="w-4 h-4 text-emerald-500" /> Class Ended · Review Notes Below
+                  </span>
+                </div>
+              </div>
+            )}
 
         {/* ── External Class Notes / Document ── */}
         {classData.doc_url && (
@@ -394,7 +482,11 @@ export default function ClassFlow() {
             {classData.ai_summary && (
               <div className="candy-panel p-5 mt-6 mb-6 flow-panel">
                 <h2 className="font-black text-slate-900 dark:text-white flex items-center gap-2 mb-3"><BookOpen className="w-4 h-4 text-primary" /> Class Summary</h2>
-                <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed font-bold">{classData.ai_summary}</p>
+                <div className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed space-y-3 font-medium prose dark:prose-invert max-w-none">
+                  <ReactMarkdown>
+                    {cleanAiContent(classData.ai_summary)}
+                  </ReactMarkdown>
+                </div>
               </div>
             )}
           </>
@@ -512,8 +604,8 @@ export default function ClassFlow() {
               {/* Header */}
               <div className="p-5 border-b border-slate-100 dark:border-white/10 bg-slate-50/50 dark:bg-white dark:bg-black/5 flex items-center justify-between shrink-0">
                 <h2 className="font-black text-slate-900 dark:text-white flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center border border-indigo-500/20">
-                    <BookOpen className="w-4 h-4 text-indigo-500" />
+                  <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center border border-blue-500/20">
+                    <BookOpen className="w-4 h-4 text-blue-500" />
                   </div>
                   Study Guide
                 </h2>
@@ -533,11 +625,11 @@ export default function ClassFlow() {
                     components={{
                     h1: ({node, ...props}) => <h1 className="text-2xl font-black text-slate-900 dark:text-white mb-6 tracking-tight" {...props} />,
                     h2: ({node, ...props}) => <h2 className="text-xl font-black text-slate-800 dark:text-white mt-8 mb-4 border-b border-slate-100 dark:border-white/10 pb-2 tracking-tight" {...props} />,
-                    h3: ({node, ...props}) => <h3 className="text-lg font-bold text-indigo-600 dark:text-indigo-400 mt-6 mb-3" {...props} />,
+                    h3: ({node, ...props}) => <h3 className="text-lg font-bold text-blue-600 dark:text-blue-400 mt-6 mb-3" {...props} />,
                     p: ({node, ...props}) => <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed mb-5" {...props} />,
                     strong: ({node, ...props}) => <strong className="font-black text-slate-900 dark:text-white" {...props} />,
-                    ul: ({node, ...props}) => <ul className="list-disc pl-5 mb-5 space-y-2 marker:text-indigo-400" {...props} />,
-                    ol: ({node, ...props}) => <ol className="list-decimal pl-5 mb-5 space-y-2 marker:text-indigo-400 marker:font-bold" {...props} />,
+                    ul: ({node, ...props}) => <ul className="list-disc pl-5 mb-5 space-y-2 marker:text-blue-400" {...props} />,
+                    ol: ({node, ...props}) => <ol className="list-decimal pl-5 mb-5 space-y-2 marker:text-blue-400 marker:font-bold" {...props} />,
                     li: ({node, ...props}) => <li className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed" {...props} />,
                     code: ({node, inline, className, children, ...props}: any) => {
                       return inline ? (
@@ -559,7 +651,7 @@ export default function ClassFlow() {
                         </div>
                       );
                     },
-                    blockquote: ({node, ...props}) => <blockquote className="border-l-4 border-indigo-500 bg-indigo-50 dark:bg-indigo-500/10 p-4 rounded-r-xl my-5 text-slate-700 dark:text-slate-300 italic text-sm" {...props} />
+                    blockquote: ({node, ...props}) => <blockquote className="border-l-4 border-blue-500 bg-blue-50 dark:bg-blue-500/10 p-4 rounded-r-xl my-5 text-slate-700 dark:text-slate-300 italic text-sm" {...props} />
                   }}
                 >
                   {classData.ai_study_guide}
@@ -580,8 +672,8 @@ export default function ClassFlow() {
           style={{ width: '800px', padding: '40px', fontFamily: '"Inter", system-ui, sans-serif' }}
         >
           {/* Custom PDF Header */}
-          <div className="border-b-4 border-indigo-600 pb-6 mb-8 text-center" style={{ pageBreakAfter: 'avoid' }}>
-            <h1 className="text-4xl font-black text-indigo-600 tracking-tight mb-2">CYNEXAI Study Guide</h1>
+          <div className="border-b-4 border-blue-600 pb-6 mb-8 text-center" style={{ pageBreakAfter: 'avoid' }}>
+            <h1 className="text-4xl font-black text-blue-600 tracking-tight mb-2">CYNEXAI Study Guide</h1>
             <h2 className="text-2xl font-bold text-slate-800 dark:text-white">{classData?.title}</h2>
           </div>
 
@@ -589,11 +681,11 @@ export default function ClassFlow() {
             components={{
               h1: ({node, ...props}) => <h1 className="text-3xl font-black text-slate-900 dark:text-white mb-6 tracking-tight mt-10" style={{ pageBreakAfter: 'avoid' }} {...props} />,
               h2: ({node, ...props}) => <h2 className="text-2xl font-black text-slate-800 dark:text-white mt-10 mb-4 border-b border-slate-200 dark:border-white/10 pb-2 tracking-tight" style={{ pageBreakAfter: 'avoid' }} {...props} />,
-              h3: ({node, ...props}) => <h3 className="text-xl font-bold text-indigo-600 mt-8 mb-3" style={{ pageBreakAfter: 'avoid' }} {...props} />,
+              h3: ({node, ...props}) => <h3 className="text-xl font-bold text-blue-600 mt-8 mb-3" style={{ pageBreakAfter: 'avoid' }} {...props} />,
               p: ({node, ...props}) => <p className="text-base text-slate-700 dark:text-white leading-relaxed mb-5" {...props} />,
               strong: ({node, ...props}) => <strong className="font-black text-slate-900 dark:text-white" {...props} />,
-              ul: ({node, ...props}) => <ul className="list-disc pl-6 mb-5 space-y-2 marker:text-indigo-600" {...props} />,
-              ol: ({node, ...props}) => <ol className="list-decimal pl-6 mb-5 space-y-2 marker:text-indigo-600 font-bold" {...props} />,
+              ul: ({node, ...props}) => <ul className="list-disc pl-6 mb-5 space-y-2 marker:text-blue-600" {...props} />,
+              ol: ({node, ...props}) => <ol className="list-decimal pl-6 mb-5 space-y-2 marker:text-blue-600 font-bold" {...props} />,
               li: ({node, ...props}) => <li className="text-base text-slate-700 dark:text-white leading-relaxed" {...props} />,
               code: ({node, inline, className, children, ...props}: any) => {
                 return inline ? (
@@ -617,7 +709,7 @@ export default function ClassFlow() {
               },
               blockquote: ({node, ...props}) => (
                 <blockquote 
-                  className="border-l-4 border-indigo-500 bg-indigo-50 p-5 rounded-r-xl my-6 text-slate-800 dark:text-white italic text-base" 
+                  className="border-l-4 border-blue-500 bg-blue-50 p-5 rounded-r-xl my-6 text-slate-800 dark:text-white italic text-base" 
                   style={{ pageBreakInside: 'avoid' }} 
                   {...props} 
                 />

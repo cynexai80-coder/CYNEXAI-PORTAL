@@ -12,27 +12,41 @@ declare global {
 }
 
 interface PythonEditorProps {
+  value?: string;
   initialCode?: string;
   onChange?: (code: string) => void;
   onRunSuccess?: () => void;
+  height?: string;
+  hideHeader?: boolean;
+  hideTerminal?: boolean;
 }
 
 export const PythonEditor: React.FC<PythonEditorProps> = ({ 
+  value,
   initialCode = "print('Hello from CynexAI!')",
   onChange,
-  onRunSuccess
+  onRunSuccess,
+  height = "340px",
+  hideHeader = false,
+  hideTerminal = false,
 }) => {
-  const [code, setCode] = useState(initialCode);
+  const [code, setCode] = useState(value ?? initialCode);
   const [output, setOutput] = useState<string>('');
   const [isReady, setIsReady] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
 
+  // Sync state when controlled value prop changes
+  useEffect(() => {
+    if (value !== undefined) {
+      setCode(value);
+    }
+  }, [value]);
+
   // Initialize Pyodide on mount
   useEffect(() => {
     const initPyodide = async () => {
       try {
-        // Load the script dynamically if not present
         if (!window.loadPyodide) {
           const script = document.createElement('script');
           script.src = 'https://cdn.jsdelivr.net/pyodide/v0.24.1/full/pyodide.js';
@@ -41,18 +55,16 @@ export const PythonEditor: React.FC<PythonEditorProps> = ({
           await new Promise((resolve) => (script.onload = resolve));
         }
 
-        // Initialize pyodide
         if (!window.pyodide) {
           window.pyodide = await window.loadPyodide({
             indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.24.1/full/',
           });
-          // Load micropip to allow installing packages like numpy/pandas
           await window.pyodide.loadPackage('micropip');
         }
         setIsReady(true);
       } catch (err) {
         console.error("Failed to load Pyodide:", err);
-        setOutput("Error: Failed to initialize Python environment. Check your internet connection.");
+        setOutput("Error: Failed to initialize Python environment.");
       } finally {
         setIsInitializing(false);
       }
@@ -65,7 +77,6 @@ export const PythonEditor: React.FC<PythonEditorProps> = ({
     setIsRunning(true);
     setOutput("Running...\n");
     
-    // Create custom stdout and stderr capture
     let stdoutBuffer = "";
     let stderrBuffer = "";
 
@@ -73,7 +84,6 @@ export const PythonEditor: React.FC<PythonEditorProps> = ({
     window.pyodide.setStderr({ batched: (msg: string) => stderrBuffer += msg + "\n" });
 
     try {
-      // First, scan for imports that might need micropip installation
       const imports = [];
       if (code.includes('import numpy') || code.includes('from numpy')) imports.push('numpy');
       if (code.includes('import pandas') || code.includes('from pandas')) imports.push('pandas');
@@ -81,7 +91,7 @@ export const PythonEditor: React.FC<PythonEditorProps> = ({
       if (code.includes('import sklearn') || code.includes('from sklearn')) imports.push('scikit-learn');
 
       if (imports.length > 0) {
-        setOutput((prev) => prev + `Installing dependencies: ${imports.join(', ')} (this may take a moment)...\n`);
+        setOutput((prev) => prev + `Installing dependencies: ${imports.join(', ')}...\n`);
         const micropip = window.pyodide.pyimport('micropip');
         for (const pkg of imports) {
           await micropip.install(pkg);
@@ -91,78 +101,80 @@ export const PythonEditor: React.FC<PythonEditorProps> = ({
       await window.pyodide.runPythonAsync(code);
       setOutput((prev) => prev + stdoutBuffer + (stderrBuffer ? `\nErrors:\n${stderrBuffer}` : ''));
       
-      // If code executed completely without throwing exception
       if (!stderrBuffer) {
         onRunSuccess?.();
       }
     } catch (err: any) {
-      // Catch syntax errors or runtime exceptions
       setOutput((prev) => prev + stdoutBuffer + `\nException:\n${err.message}`);
     } finally {
       setIsRunning(false);
     }
   };
 
-  const handleCodeChange = (value: string | undefined) => {
-    if (value !== undefined) {
-      setCode(value);
-      onChange?.(value);
+  const handleCodeChange = (val: string | undefined) => {
+    if (val !== undefined) {
+      setCode(val);
+      onChange?.(val);
     }
   };
 
   return (
-    <div className="flex flex-col border border-border rounded-xl overflow-hidden bg-background w-full h-[500px]">
-      {/* Toolbar */}
-      <div className="flex items-center justify-between px-4 py-2 bg-slate-900 border-b border-slate-800">
-        <div className="flex items-center gap-2">
-          <div className="flex gap-1.5">
-            <div className="w-3 h-3 rounded-full bg-red-500"></div>
-            <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
-            <div className="w-3 h-3 rounded-full bg-green-500"></div>
+    <div className={`flex flex-col border border-slate-800 rounded-xl overflow-hidden bg-slate-950 w-full ${hideHeader && hideTerminal ? '' : 'h-[500px]'}`}>
+      {/* Optional Toolbar */}
+      {!hideHeader && (
+        <div className="flex items-center justify-between px-4 py-2 bg-slate-900 border-b border-slate-800">
+          <div className="flex items-center gap-2">
+            <div className="flex gap-1.5">
+              <div className="w-3 h-3 rounded-full bg-red-500"></div>
+              <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+              <div className="w-3 h-3 rounded-full bg-green-500"></div>
+            </div>
+            <span className="text-xs font-bold text-slate-400 ml-2 font-mono">main.py</span>
           </div>
-          <span className="text-xs font-bold text-slate-400 ml-2 font-mono">main.py</span>
+          <div className="flex items-center gap-2">
+            {isInitializing && (
+              <span className="text-xs font-bold text-amber-500 flex items-center gap-1 bg-amber-500/10 px-2 py-1 rounded">
+                <Loader2 className="w-3 h-3 animate-spin" /> Initializing Python...
+              </span>
+            )}
+            <Button 
+              variant="primary" 
+              onClick={handleRunCode} 
+              disabled={!isReady || isRunning}
+              className="h-8 text-xs flex items-center gap-2 px-4 bg-emerald-600 hover:bg-emerald-500 border-none text-white font-bold"
+            >
+              {isRunning ? <Loader2 className="w-3 h-3 animate-spin" /> : <Play className="w-3 h-3 fill-white" />}
+              {isRunning ? 'Running' : 'Run Code'}
+            </Button>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          {isInitializing && (
-            <span className="text-xs font-bold text-amber-500 flex items-center gap-1 bg-amber-500/10 px-2 py-1 rounded">
-              <Loader2 className="w-3 h-3 animate-spin" /> Initializing Python VM...
-            </span>
-          )}
-          <Button 
-            variant="primary" 
-            onClick={handleRunCode} 
-            disabled={!isReady || isRunning}
-            className="h-8 text-xs flex items-center gap-2 px-4 bg-green-600 hover:bg-green-500 border-none text-white"
-          >
-            {isRunning ? <Loader2 className="w-3 h-3 animate-spin" /> : <Play className="w-3 h-3 fill-white" />}
-            {isRunning ? 'Running' : 'Run Code'}
-          </Button>
-        </div>
+      )}
+
+      {/* Editor Container */}
+      <div className="w-full relative" style={{ height: hideHeader && hideTerminal ? height : 'calc(100% - 160px)' }}>
+        <Editor
+          height="100%"
+          defaultLanguage="python"
+          theme="vs-dark"
+          value={code}
+          onChange={handleCodeChange}
+          options={{
+            minimap: { enabled: false },
+            fontSize: 14,
+            fontFamily: 'JetBrains Mono, monospace',
+            padding: { top: 12, bottom: 12 },
+            scrollBeyondLastLine: false,
+            wordWrap: 'on',
+            lineNumbers: 'on',
+            lineNumbersMinChars: 3,
+            automaticLayout: true
+          }}
+        />
       </div>
 
-      {/* Split View: Editor and Output */}
-      <div className="flex flex-col flex-1 min-h-0">
-        {/* Editor Area */}
-        <div className="flex-1 relative">
-          <Editor
-            height="100%"
-            defaultLanguage="python"
-            theme="vs-dark"
-            value={code}
-            onChange={handleCodeChange}
-            options={{
-              minimap: { enabled: false },
-              fontSize: 14,
-              fontFamily: 'JetBrains Mono, monospace',
-              padding: { top: 16 },
-              scrollBeyondLastLine: false,
-              wordWrap: 'on'
-            }}
-          />
-        </div>
-
-        {/* Terminal Output */}
-        <div className="h-1/3 min-h-[150px] border-t border-slate-800 bg-[#1e1e1e] p-4 flex flex-col">
+      {/* Optional Terminal Output */}
+      {!hideTerminal && (
+        <div className="h-[160px] border-t border-slate-800 bg-[#1e1e1e] p-4 flex flex-col">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-bold text-slate-400 font-mono uppercase tracking-wider">Terminal Output</span>
             <button onClick={() => setOutput('')} className="text-xs text-slate-500 hover:text-slate-300 transition-colors">
@@ -171,13 +183,13 @@ export const PythonEditor: React.FC<PythonEditorProps> = ({
           </div>
           <div className="flex-1 overflow-y-auto font-mono text-sm">
             {output ? (
-              <pre className="text-slate-300 whitespace-pre-wrap">{output}</pre>
+              <pre className="text-emerald-400 whitespace-pre-wrap">{output}</pre>
             ) : (
-              <span className="text-slate-600 italic">No output yet. Click 'Run Code' to execute.</span>
+              <span className="text-slate-600 italic text-xs">Click 'Run Code' to execute your solution.</span>
             )}
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

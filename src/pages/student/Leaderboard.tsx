@@ -19,10 +19,10 @@ const REWARD_TIERS = [
     referrals: 5,
     label: 'Premium Earbuds',
     icon: '🎧',
-    color: 'from-purple-400 to-violet-600',
-    border: 'border-purple-400/30',
-    bg: 'bg-purple-500/10',
-    text: 'text-purple-400',
+    color: 'from-blue-500 to-cyan-500',
+    border: 'border-blue-400/30',
+    bg: 'bg-blue-500/10',
+    text: 'text-blue-400',
   },
   {
     referrals: 10,
@@ -87,8 +87,8 @@ function NewsBanner({ entries }: { entries: LeaderboardEntry[] }) {
   return (
     <div className="relative overflow-hidden candy-panel mb-5 py-2.5 px-4 !border-2">
       <div className="flex items-center gap-3">
-        <span className="text-[11px] font-extrabold uppercase tracking-widest text-indigo-400 flex-shrink-0 flex items-center gap-1.5">
-          <Star className="w-3 h-3 fill-indigo-400" /> Live
+        <span className="text-[11px] font-extrabold uppercase tracking-widest text-blue-500 flex-shrink-0 flex items-center gap-1.5">
+          <Star className="w-3 h-3 fill-blue-500" /> Live
         </span>
         <div className="overflow-hidden flex-1">
           <div
@@ -130,7 +130,7 @@ export default function Leaderboard() {
     <div className="min-h-screen candy-map-bg p-4 md:p-6 space-y-6" ref={container}>
 
       {/* ── Page Header ──────────────────────────────────────────────────── */}
-      <div className="relative overflow-hidden candy-panel p-6 bg-gradient-to-br from-indigo-500/80 to-purple-600/80 !border-white text-white">
+      <div className="relative overflow-hidden candy-panel p-6 bg-gradient-to-br from-blue-600 to-sky-600 !border-white text-white">
         {/* decorative circles */}
         <div className="pointer-events-none absolute -top-10 -right-10 w-48 h-48 rounded-full bg-white dark:bg-black/5" />
         <div className="pointer-events-none absolute bottom-0 left-1/2 w-32 h-32 rounded-full bg-white dark:bg-black/5" />
@@ -176,7 +176,7 @@ export default function Leaderboard() {
           /* ── Empty state ── */
             <div className="py-16 px-6 flex flex-col items-center text-center gap-4">
             <div className="w-20 h-20 rounded-3xl candy-panel flex items-center justify-center !border-2">
-              <Trophy className="w-10 h-10 text-indigo-500" />
+              <Trophy className="w-10 h-10 text-blue-500" />
             </div>
             <div>
               <p className="text-foreground font-bold text-lg">No referrers yet!</p>
@@ -192,7 +192,7 @@ export default function Leaderboard() {
               const isTop3 = idx < 3;
               const isCurrentUser = entry.student_id === user?.id;
               const rowClass = isCurrentUser
-                ? 'bg-indigo-500/10 border-l-2 border-l-indigo-500'
+                ? 'bg-blue-500/10 border-l-2 border-l-blue-500'
                 : isTop3
                 ? RANK_STYLES[idx]
                 : '';
@@ -214,7 +214,7 @@ export default function Leaderboard() {
                   {/* Avatar */}
                   <div
                     className={`w-9 h-9 rounded-full flex-shrink-0 flex items-center justify-center text-white text-xs font-extrabold shadow-md bg-gradient-to-br ${
-                      isTop3 ? AVATAR_GRAD[idx] : 'from-indigo-500 to-purple-600'
+                      isTop3 ? AVATAR_GRAD[idx] : 'from-blue-600 to-sky-600'
                     }`}
                   >
                     {getInitials(entry.student_name)}
@@ -222,10 +222,10 @@ export default function Leaderboard() {
 
                   {/* Name + badge */}
                   <div className="flex-1 min-w-0">
-                    <p className={`text-sm font-bold truncate ${isCurrentUser ? 'text-indigo-400' : 'text-foreground'}`}>
+                    <p className={`text-sm font-bold truncate ${isCurrentUser ? 'text-blue-500' : 'text-foreground'}`}>
                       {entry.student_name}
                       {isCurrentUser && (
-                        <span className="ml-2 text-[10px] bg-indigo-500/20 text-indigo-400 rounded-full px-1.5 py-0.5 font-bold">You</span>
+                        <span className="ml-2 text-[10px] bg-blue-500/20 text-blue-500 rounded-full px-1.5 py-0.5 font-bold">You</span>
                       )}
                     </p>
                     <p className="text-xs text-muted-foreground font-medium">
@@ -316,8 +316,8 @@ export default function Leaderboard() {
 
       {/* ── How it works note ────────────────────────────────────────────── */}
       <div className="candy-panel p-4 flex items-start gap-3 bg-white/70 dark:bg-black/70 !border-2">
-        <div className="w-8 h-8 flex-shrink-0 rounded-xl bg-indigo-500/15 flex items-center justify-center">
-          <Star className="w-4 h-4 text-indigo-400 fill-indigo-400/30" />
+        <div className="w-8 h-8 flex-shrink-0 rounded-xl bg-blue-500/15 flex items-center justify-center">
+          <Star className="w-4 h-4 text-blue-400 fill-blue-400/30" />
         </div>
         <div>
           <p className="text-sm font-bold text-foreground">How rankings work</p>

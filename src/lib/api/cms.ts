@@ -86,6 +86,15 @@ export const removeModuleFromCourse = async (courseId: string, moduleId: string)
   cacheInvalidate('cms_courses');
 };
 
+export const updateModuleInstructor = async (moduleId: string, instructorId: string | null) => {
+  await executeWithRetry('UPDATE modules SET instructor_id = ? WHERE id = ?', [instructorId || null, moduleId]);
+};
+
+export const getTeachersList = async () => {
+  const res = await executeWithRetry("SELECT id, name, email, role FROM users WHERE LOWER(role) IN ('teacher', 'faculty', 'instructor') OR email LIKE '%teacher%' ORDER BY name ASC");
+  return res.rows;
+};
+
 // ---- Module Editor ----
 export const getModuleDetails = async (moduleId: string) => {
   return cachedQuery(`module_details_${moduleId}`, async () => {
@@ -108,10 +117,23 @@ export const createClassForModule = async (classId: string, moduleId: string, ti
 };
 
 export const deleteClass = async (classId: string) => {
+  await executeWithRetry('DELETE FROM class_questions WHERE class_id = ?', [classId]);
   await executeWithRetry('DELETE FROM classes WHERE id = ?', [classId]);
   cacheInvalidate('cms_courses');
   cacheInvalidate('module_details_');
   cacheInvalidate(`class_${classId}`);
+};
+
+export const updateClassOrder = async (classList: { id: string; order_index: number }[]) => {
+  await Promise.all(
+    classList.map(cls =>
+      executeWithRetry('UPDATE classes SET order_index = ? WHERE id = ?', [cls.order_index, cls.id])
+    )
+  );
+};
+
+export const updateClassAccessStatus = async (classId: string, status: string) => {
+  await executeWithRetry('UPDATE classes SET status = ? WHERE id = ?', [status, classId]);
 };
 
 // ---- Class Editor ----
@@ -147,7 +169,16 @@ export const updateClassAiMaterials = async (classId: string, ppt: string, keypo
   cacheInvalidate(`class_${classId}`);
 };
 
-export const createClassQuestion = async (id: string, classId: string, type: string, questionText: string, optionsJson: string, correctAnswerIdx: number, boilerplateJson: string, testCasesJson: string) => {
+export const createClassQuestion = async (
+  id: string,
+  classId: string,
+  type: string,
+  questionText: string,
+  optionsJson: string | null,
+  correctAnswerIdx: number | null,
+  boilerplateJson: string | null,
+  testCasesJson: string | null
+) => {
   await executeWithRetry(
     `INSERT INTO class_questions (id, class_id, type, question_text, options_json, correct_answer_idx, boilerplate_json, test_cases_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     [id, classId, type, questionText, optionsJson, correctAnswerIdx, boilerplateJson, testCasesJson]

@@ -50,7 +50,7 @@ function JobCard({ job, searchQuery }: { job: JobListing; searchQuery: string })
 
   return (
     <div className={`job-card group flex flex-col candy-panel !border-2 transition-all duration-300 overflow-hidden ${expired ? 'opacity-60 grayscale' : ''}`}>
-      <div className="h-2 bg-gradient-to-r from-blue-400 via-indigo-500 to-purple-500 w-full" />
+      <div className="h-1 bg-blue-600 dark:bg-blue-500 w-full" />
       <div className="flex flex-col flex-1 p-5 gap-3">
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-center gap-3 min-w-0">
@@ -61,7 +61,7 @@ function JobCard({ job, searchQuery }: { job: JobListing; searchQuery: string })
               <h3 className="font-black text-slate-900 dark:text-white text-base leading-tight">
                 {highlight(job.title, searchQuery)}
               </h3>
-              <p className="text-slate-600 dark:text-white/70 font-bold text-xs mt-0.5">
+              <p className="text-slate-600 dark:text-slate-300 font-bold text-xs mt-0.5">
                 {highlight(job.company, searchQuery)}
               </p>
             </div>
@@ -69,7 +69,7 @@ function JobCard({ job, searchQuery }: { job: JobListing; searchQuery: string })
         </div>
 
         <div className="flex items-center justify-between mt-1">
-          <div className="flex items-center gap-1.5 text-slate-500 dark:text-white/60 text-xs font-bold">
+          <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 text-xs font-bold">
             <MapPin className="w-3.5 h-3.5 shrink-0" />
             <span>{highlight(job.location, searchQuery)}</span>
           </div>
@@ -77,7 +77,7 @@ function JobCard({ job, searchQuery }: { job: JobListing; searchQuery: string })
         </div>
 
         {job.qualifications && (
-          <p className="text-slate-600 dark:text-white/60 text-xs font-bold line-clamp-2 leading-relaxed border-t border-slate-200 dark:border-white/10 pt-3 mt-1">
+          <p className="text-slate-600 dark:text-slate-300 text-xs font-bold line-clamp-2 leading-relaxed border-t border-slate-200 dark:border-zinc-800 pt-3 mt-1">
             {job.qualifications}
           </p>
         )}
@@ -86,7 +86,11 @@ function JobCard({ job, searchQuery }: { job: JobListing; searchQuery: string })
           <button
             onClick={() => window.open(job.source_url, '_blank')}
             disabled={expired}
-            className={`flex-1 flex items-center justify-center gap-1.5 text-xs font-bold px-4 py-2.5 transition-all ${expired ? 'candy-panel !border-2 opacity-50 cursor-not-allowed' : 'candy-btn-blue'}`}
+            className={`flex-1 flex items-center justify-center gap-1.5 text-xs font-bold px-4 py-2.5 rounded-xl transition-all ${
+              expired 
+                ? 'bg-slate-200 dark:bg-zinc-800 opacity-50 cursor-not-allowed text-slate-400' 
+                : 'bg-blue-600 hover:bg-blue-500 text-white shadow-md active:scale-95'
+            }`}
           >
             <ExternalLink className="w-3.5 h-3.5" /> Apply
           </button>
@@ -95,7 +99,7 @@ function JobCard({ job, searchQuery }: { job: JobListing; searchQuery: string })
               const msg = encodeURIComponent(`🚀 Job Alert! ${job.title} at ${job.company} in ${job.location}. Apply before ${formatExpireDate(job.expire_date)}: ${job.source_url}`);
               window.open(`https://wa.me/?text=${msg}`, '_blank');
             }}
-            className="flex items-center justify-center gap-1.5 text-xs font-bold px-4 py-2.5 candy-btn-green"
+            className="flex items-center justify-center gap-1.5 text-xs font-bold px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white shadow-md active:scale-95"
             title="Share"
           >
             <Share2 className="w-3.5 h-3.5" />
@@ -140,7 +144,7 @@ function JobBoard() {
             placeholder="Search roles or companies..."
             value={titleQuery}
             onChange={(e) => setTitleQuery(e.target.value)}
-            className="w-full pl-11 pr-4 py-3 candy-panel !border-2 focus:outline-none focus:border-blue-400 placeholder:text-slate-400 dark:placeholder:text-white/40 font-bold text-slate-900 dark:text-white"
+            className="w-full pl-11 pr-4 py-3 candy-panel !border-2 focus:outline-none focus:border-blue-400 placeholder:text-slate-400 dark:placeholder:text-slate-500 font-bold text-slate-900 dark:text-white"
           />
         </div>
         <div className="relative sm:w-64">
@@ -149,17 +153,17 @@ function JobBoard() {
             placeholder="Location..."
             value={locationQuery}
             onChange={(e) => setLocationQuery(e.target.value)}
-            className="w-full pl-11 pr-4 py-3 candy-panel !border-2 focus:outline-none focus:border-blue-400 placeholder:text-slate-400 dark:placeholder:text-white/40 font-bold text-slate-900 dark:text-white"
+            className="w-full pl-11 pr-4 py-3 candy-panel !border-2 focus:outline-none focus:border-blue-400 placeholder:text-slate-400 dark:placeholder:text-slate-500 font-bold text-slate-900 dark:text-white"
           />
         </div>
       </div>
       
       {filtered.length === 0 ? (
         <div className="py-20 text-center space-y-3 candy-panel !border-2 bg-white/70 dark:bg-black/30">
-          <div className="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-white dark:bg-black/5 mx-auto flex items-center justify-center text-slate-400 dark:text-white/30 border border-slate-200 dark:border-white/10">
+          <div className="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-zinc-800 mx-auto flex items-center justify-center text-slate-400 dark:text-slate-500 border border-slate-200 dark:border-zinc-700">
             <Briefcase className="w-8 h-8" />
           </div>
-          <p className="text-slate-600 dark:text-white/60 font-black">No job listings found.</p>
+          <p className="text-slate-600 dark:text-slate-300 font-black">No job listings found.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -205,7 +209,7 @@ function ResumeBuilder() {
 
       {/* Preview (Printable area) */}
       <div className="lg:col-span-8">
-        <div className="bg-white dark:bg-black text-slate-900 dark:text-white shadow-xl rounded-3xl border border-slate-200 dark:border-white/10 overflow-hidden print:shadow-none print:rounded-none">
+        <div className="bg-white dark:bg-zinc-950 text-slate-900 dark:text-white shadow-xl rounded-3xl border border-slate-200 dark:border-zinc-800 overflow-hidden print:shadow-none print:rounded-none">
           {/* Header */}
           <div className="bg-slate-900 text-white p-8">
             <h1 className="text-3xl font-serif font-black mb-1">{data.name || 'Your Name'}</h1>
@@ -219,25 +223,25 @@ function ResumeBuilder() {
           {/* Body */}
           <div className="p-8 space-y-6">
             <section className="resume-section">
-              <h2 className="text-sm font-bold uppercase tracking-widest text-blue-600 mb-2 border-b border-slate-200 dark:border-white/10 pb-1">Profile</h2>
-              <p className="text-sm text-slate-600 leading-relaxed">{data.summary}</p>
+              <h2 className="text-sm font-bold uppercase tracking-widest text-blue-600 dark:text-blue-400 mb-2 border-b border-slate-200 dark:border-zinc-800 pb-1">Profile</h2>
+              <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">{data.summary}</p>
             </section>
             
             <section className="resume-section">
-              <h2 className="text-sm font-bold uppercase tracking-widest text-blue-600 mb-2 border-b border-slate-200 dark:border-white/10 pb-1">Experience</h2>
-              <div className="text-sm text-slate-600 whitespace-pre-wrap leading-relaxed">{data.exp}</div>
+              <h2 className="text-sm font-bold uppercase tracking-widest text-blue-600 dark:text-blue-400 mb-2 border-b border-slate-200 dark:border-zinc-800 pb-1">Experience</h2>
+              <div className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap leading-relaxed">{data.exp}</div>
             </section>
 
             <section className="resume-section">
-              <h2 className="text-sm font-bold uppercase tracking-widest text-blue-600 mb-2 border-b border-slate-200 dark:border-white/10 pb-1">Education</h2>
-              <div className="text-sm text-slate-600 whitespace-pre-wrap leading-relaxed">{data.edu}</div>
+              <h2 className="text-sm font-bold uppercase tracking-widest text-blue-600 dark:text-blue-400 mb-2 border-b border-slate-200 dark:border-zinc-800 pb-1">Education</h2>
+              <div className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap leading-relaxed">{data.edu}</div>
             </section>
 
             <section className="resume-section">
-              <h2 className="text-sm font-bold uppercase tracking-widest text-blue-600 mb-2 border-b border-slate-200 dark:border-white/10 pb-1">Skills</h2>
+              <h2 className="text-sm font-bold uppercase tracking-widest text-blue-600 dark:text-blue-400 mb-2 border-b border-slate-200 dark:border-zinc-800 pb-1">Skills</h2>
               <div className="flex flex-wrap gap-2 pt-1">
                 {data.skills.split(',').map((s, i) => s.trim() ? (
-                  <span key={i} className="px-2 py-1 bg-slate-100 dark:bg-zinc-900/50 text-slate-600 rounded text-xs font-semibold">{s.trim()}</span>
+                  <span key={i} className="px-2 py-1 bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-slate-200 rounded text-xs font-semibold">{s.trim()}</span>
                 ) : null)}
               </div>
             </section>
@@ -266,14 +270,17 @@ function LinkedInOptimizer() {
 
   return (
     <div className="max-w-3xl mx-auto space-y-6" ref={container}>
-      <div className="candy-panel p-8 !border-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white relative overflow-hidden">
-        <div className="absolute -top-24 -right-24 w-64 h-64 bg-white dark:bg-black opacity-10 rounded-full blur-3xl pointer-events-none" />
-        <div className="relative z-10">
-          <div className="w-12 h-12 bg-white dark:bg-black/20 rounded-2xl flex items-center justify-center mb-4 backdrop-blur-sm border border-white/30">
-            <Linkedin className="w-6 h-6 text-white" />
+      <div className="candy-panel p-6 md:p-8 !border-2 bg-slate-900 dark:bg-zinc-950 text-white relative overflow-hidden border-slate-800 dark:border-zinc-800 shadow-xl">
+        <div className="flex items-start gap-4">
+          <div className="w-12 h-12 bg-blue-600/20 text-blue-400 rounded-2xl flex items-center justify-center border border-blue-500/30 flex-shrink-0">
+            <Linkedin className="w-6 h-6" />
           </div>
-          <h2 className="text-2xl font-black mb-2">LinkedIn Profile Optimizer</h2>
-          <p className="text-blue-100 font-bold">Make recruiters come to you. Analyze your headline and get AI-powered suggestions instantly.</p>
+          <div>
+            <h2 className="text-xl md:text-2xl font-black text-white">LinkedIn Profile Optimizer</h2>
+            <p className="text-slate-300 text-xs md:text-sm font-medium mt-1">
+              Make recruiters come to you. Analyze your headline and get AI-powered suggestions instantly.
+            </p>
+          </div>
         </div>
       </div>
 
@@ -317,7 +324,7 @@ function LinkedInOptimizer() {
         ].map((tip, i) => (
           <div key={i} className="candy-panel p-5 !border-2 bg-white/50 dark:bg-black/30 tip-card">
             <h4 className="font-black text-slate-900 dark:text-white text-sm mb-1">{tip.title}</h4>
-            <p className="text-xs font-bold text-slate-600 dark:text-white/60 leading-relaxed">{tip.desc}</p>
+            <p className="text-xs font-bold text-slate-600 dark:text-slate-300 leading-relaxed">{tip.desc}</p>
           </div>
         ))}
       </div>
@@ -331,31 +338,50 @@ export default function CareerCenter() {
   const [tab, setTab] = useState<'jobs' | 'resume' | 'linkedin'>('jobs');
 
   return (
-    <div className="min-h-screen candy-map-bg pb-24">
+    <div className="min-h-screen p-4 md:p-8 max-w-7xl mx-auto space-y-6 pb-24">
       {/* Header */}
-      <div className="sticky top-0 z-20 print:hidden candy-panel rounded-none border-t-0 border-l-0 border-r-0 border-b-2 bg-white/80 dark:bg-black/60 backdrop-blur-md">
-        <div className="p-4 md:p-8 max-w-7xl mx-auto flex flex-col md:flex-row md:items-end justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-12 h-12 candy-panel !border-2 bg-blue-100/50 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 flex items-center justify-center shadow-none">
-                <Briefcase className="w-6 h-6" />
-              </div>
-              <h1 className="text-2xl md:text-3xl font-black text-slate-900 dark:text-white tracking-tight">Career Center</h1>
+      <div className="candy-panel p-6 md:p-8 rounded-2xl md:rounded-3xl !border-2 flex flex-col md:flex-row md:items-center justify-between gap-6 bg-white/80 dark:bg-black/60 backdrop-blur-md">
+        <div>
+          <div className="flex items-center gap-3 mb-2">
+            <div className="w-12 h-12 candy-panel !border-2 bg-blue-100/50 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 flex items-center justify-center shadow-none rounded-2xl">
+              <Briefcase className="w-6 h-6" />
             </div>
-            <p className="text-slate-600 dark:text-white/70 text-sm font-bold ml-15 pl-0.5">Your launchpad to a successful tech career</p>
+            <h1 className="text-2xl md:text-3xl font-black text-slate-900 dark:text-white tracking-tight">Career Center</h1>
           </div>
-          
-          <div className="flex gap-2 p-1.5 candy-panel !border-2 bg-slate-100/50 dark:bg-black/30 overflow-x-auto shadow-none">
-            <button onClick={() => setTab('jobs')} className={`flex items-center gap-2 px-4 py-2 min-h-[44px] rounded-xl text-sm font-bold transition-all whitespace-nowrap ${tab === 'jobs' ? 'candy-btn-blue' : 'text-slate-500 dark:text-white/60 hover:text-slate-900 dark:text-white dark:hover:text-white'}`}>
-              <Briefcase className="w-4 h-4" /> Jobs
-            </button>
-            <button onClick={() => setTab('resume')} className={`flex items-center gap-2 px-4 py-2 min-h-[44px] rounded-xl text-sm font-bold transition-all whitespace-nowrap ${tab === 'resume' ? 'candy-btn-blue' : 'text-slate-500 dark:text-white/60 hover:text-slate-900 dark:text-white dark:hover:text-white'}`}>
-              <FileText className="w-4 h-4" /> Resume Builder
-            </button>
-            <button onClick={() => setTab('linkedin')} className={`flex items-center gap-2 px-4 py-2 min-h-[44px] rounded-xl text-sm font-bold transition-all whitespace-nowrap ${tab === 'linkedin' ? 'candy-btn-blue' : 'text-slate-500 dark:text-white/60 hover:text-slate-900 dark:text-white dark:hover:text-white'}`}>
-              <Linkedin className="w-4 h-4" /> LinkedIn Optimizer
-            </button>
-          </div>
+          <p className="text-slate-600 dark:text-slate-300 text-sm font-bold ml-15 pl-0.5">Your launchpad to a successful tech career</p>
+        </div>
+        
+        <div className="flex items-center gap-1.5 p-1.5 candy-panel !border-2 bg-slate-100 dark:bg-zinc-900 overflow-x-auto no-scrollbar max-w-full flex-shrink-0 rounded-2xl">
+          <button
+            onClick={() => setTab('jobs')}
+            className={`flex items-center gap-1.5 px-4 py-2 min-h-[40px] rounded-xl text-xs md:text-sm font-bold transition-all whitespace-nowrap flex-shrink-0 ${
+              tab === 'jobs'
+                ? 'bg-blue-600 text-white shadow-md'
+                : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            <Briefcase className="w-4 h-4" /> <span>Jobs</span>
+          </button>
+          <button
+            onClick={() => setTab('resume')}
+            className={`flex items-center gap-1.5 px-4 py-2 min-h-[40px] rounded-xl text-xs md:text-sm font-bold transition-all whitespace-nowrap flex-shrink-0 ${
+              tab === 'resume'
+                ? 'bg-blue-600 text-white shadow-md'
+                : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            <FileText className="w-4 h-4" /> <span>Resume Builder</span>
+          </button>
+          <button
+            onClick={() => setTab('linkedin')}
+            className={`flex items-center gap-1.5 px-4 py-2 min-h-[40px] rounded-xl text-xs md:text-sm font-bold transition-all whitespace-nowrap flex-shrink-0 ${
+              tab === 'linkedin'
+                ? 'bg-blue-600 text-white shadow-md'
+                : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            <Linkedin className="w-4 h-4" /> <span>LinkedIn Optimizer</span>
+          </button>
         </div>
       </div>
 

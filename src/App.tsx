@@ -59,7 +59,9 @@ import ClassFlow from './pages/student/ClassFlow';
 import ModuleMap from './pages/student/ModuleMap';
 import MockInterview from './pages/student/MockInterview';
 import AttendancePage from './pages/student/AttendancePage';
-import Leaderboard from './pages/student/Leaderboard';
+import QuizzesPage from './pages/student/QuizzesPage';
+import AssessmentStudioPage from './pages/student/AssessmentStudioPage';
+import ClassesPage from './pages/student/ClassesPage';
 import StudentLayout from './components/layout/StudentLayout';
 import EnrollPage from './pages/EnrollPage';
 import PreRegistrationPage from './pages/PreRegistrationPage';
@@ -102,18 +104,20 @@ const CRMLayout = ({ children }: { children: React.ReactNode }) => {
         style={{ background: 'var(--erp-sidebar-bg)', borderColor: 'var(--erp-sidebar-border)' }}
       >
         <div className="w-64 h-full">
-          <Sidebar />
+          <Sidebar onToggleSidebar={() => setIsSidebarOpen(false)} />
         </div>
       </div>
       
-      {/* Toggle Button */}
-      <button 
-        onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-        className="hidden md:flex absolute top-1/2 -translate-y-1/2 z-[200] bg-erp-surface border-2 border-erp-border rounded-full p-1 shadow-md hover:bg-erp-background transition-colors"
-        style={{ left: isSidebarOpen ? '15.5rem' : '0.5rem' }}
-      >
-        {isSidebarOpen ? <ChevronLeft className="w-4 h-4 text-erp-text" /> : <ChevronRight className="w-4 h-4 text-erp-text" />}
-      </button>
+      {/* Expand Button when Sidebar is Collapsed */}
+      {!isSidebarOpen && (
+        <button 
+          onClick={() => setIsSidebarOpen(true)}
+          className="hidden md:flex fixed top-4 left-4 z-[200] bg-erp-surface border-2 border-erp-border rounded-xl p-2 shadow-lg hover:bg-erp-background text-erp-text transition-all cursor-pointer items-center gap-1.5 text-xs font-bold"
+          title="Expand sidebar"
+        >
+          <ChevronRight className="w-4 h-4 text-erp-primary" />
+        </button>
+      )}
       
       {/* Main Content Area — overflow-y-auto allows each page to scroll */}
       <div className="flex-1 flex flex-col min-w-0 h-full overflow-y-auto pb-20 md:pb-0 overflow-x-hidden">
@@ -221,7 +225,7 @@ function App() {
         <Route path="/sales/pipeline" element={<SalesLayout><LeadPipeline /></SalesLayout>} />
         <Route path="/sales/leads/new" element={<SalesLayout><LeadCapture /></SalesLayout>} />
         <Route path="/sales/leads/:id" element={<SalesLayout><LeadDetail /></SalesLayout>} />
-        {/* /sales/history removed, now handled by /ceo/history */}
+        <Route path="/sales/history" element={<SalesLayout><HistoryPage /></SalesLayout>} />
         <Route path="/crm/leads/new" element={<Navigate to="/sales/leads/new" replace />} />
         <Route path="/crm/leads" element={<Navigate to="/sales/pipeline" replace />} />
         
@@ -230,6 +234,9 @@ function App() {
         
         {/* Sales / HR Routes */}
         <Route path="/sales/dashboard" element={<SalesLayout><SalesDashboard /></SalesLayout>} />
+        <Route path="/sales/courses" element={<SalesLayout><CourseManagement /></SalesLayout>} />
+        <Route path="/sales/courses/:courseId/modules/:moduleId" element={<SalesLayout><ModuleEditor /></SalesLayout>} />
+        <Route path="/sales/courses/:courseId/modules/:moduleId/classes/:classId" element={<SalesLayout><ClassEditor /></SalesLayout>} />
         <Route path="/sales/tasks" element={<SalesLayout><AsanaTaskApp /></SalesLayout>} />
         
         {/* Shared Routes */}
@@ -257,6 +264,9 @@ function App() {
 
         {/* DM Routes */}
         <Route path="/dm/dashboard" element={<RequireAuth allowedRoles={['DM', 'Manager', 'CEO']}><DMLayout><DMDashboard /></DMLayout></RequireAuth>} />
+        <Route path="/dm/courses" element={<RequireAuth allowedRoles={['DM', 'Manager', 'CEO']}><DMLayout><CourseManagement /></DMLayout></RequireAuth>} />
+        <Route path="/dm/courses/:courseId/modules/:moduleId" element={<RequireAuth allowedRoles={['DM', 'Manager', 'CEO']}><DMLayout><ModuleEditor /></DMLayout></RequireAuth>} />
+        <Route path="/dm/courses/:courseId/modules/:moduleId/classes/:classId" element={<RequireAuth allowedRoles={['DM', 'Manager', 'CEO']}><DMLayout><ClassEditor /></DMLayout></RequireAuth>} />
         <Route path="/dm/planner" element={<RequireAuth allowedRoles={['DM', 'Manager', 'CEO']}><DMLayout><ContentPlanner /></DMLayout></RequireAuth>} />
         <Route path="/dm/tasks" element={<RequireAuth allowedRoles={['DM', 'Manager', 'CEO']}><DMLayout><AsanaTaskApp /></DMLayout></RequireAuth>} />
 
@@ -275,18 +285,24 @@ function App() {
         <Route path="/ceo/sales-pipeline" element={<RequireAuth allowedRoles={['CEO']}><CEOLayout><LeadPipeline /></CEOLayout></RequireAuth>} />
         <Route path="/ceo/history" element={<RequireAuth allowedRoles={['CEO']}><CEOLayout><HistoryPage /></CEOLayout></RequireAuth>} />
         <Route path="/ceo/dm-dashboard" element={<RequireAuth allowedRoles={['CEO']}><CEOLayout><DMDashboard /></CEOLayout></RequireAuth>} />
-        <Route path="/ceo/reports" element={<RequireAuth allowedRoles={['CEO', 'Manager']}><CRMLayout><ReportsPage /></CRMLayout></RequireAuth>} />
+        <Route path="/ceo/sales-pitch" element={<RequireAuth allowedRoles={['CEO']}><CEOLayout><SalesPitchPage /></CEOLayout></RequireAuth>} />
+        <Route path="/ceo/ai-settings" element={<RequireAuth allowedRoles={['CEO']}><CEOLayout><TeacherSettings /></CEOLayout></RequireAuth>} />
+        <Route path="/ceo/gamification" element={<RequireAuth allowedRoles={['CEO']}><CEOLayout><GamificationSettings /></CEOLayout></RequireAuth>} />
+        <Route path="/ceo/reports" element={<RequireAuth allowedRoles={['CEO', 'Manager']}><CEOLayout><ReportsPage /></CEOLayout></RequireAuth>} />
         <Route path="/ceo/students" element={<RequireAuth allowedRoles={['CEO']}><CEOLayout><StudentsPage /></CEOLayout></RequireAuth>} />
         <Route path="/ceo/student-progress" element={<RequireAuth allowedRoles={['CEO']}><CEOLayout><StudentProgress /></CEOLayout></RequireAuth>} />
-        <Route path="/manager/reports" element={<RequireAuth allowedRoles={['CEO', 'Manager']}><ManagerLayout><ReportsPage /></ManagerLayout></RequireAuth>} />
 
         {/* Teacher Routes */}
         <Route path="/teacher" element={<TeacherLayout><TeacherDashboard /></TeacherLayout>} />
+        <Route path="/teacher/courses" element={<TeacherLayout><CourseManagement /></TeacherLayout>} />
+        <Route path="/teacher/courses/:courseId/modules/:moduleId" element={<TeacherLayout><ModuleEditor /></TeacherLayout>} />
+        <Route path="/teacher/courses/:courseId/modules/:moduleId/classes/:classId" element={<TeacherLayout><ClassEditor /></TeacherLayout>} />
         <Route path="/teacher/timetable" element={<TeacherLayout><TeacherTimetable /></TeacherLayout>} />
         <Route path="/teacher/tasks" element={<TeacherLayout><AsanaTaskApp /></TeacherLayout>} />
         <Route path="/teacher/cms" element={<TeacherLayout><TeacherCMS /></TeacherLayout>} />
         <Route path="/teacher/live" element={<TeacherLayout><LiveStreamDashboard /></TeacherLayout>} />
         <Route path="/teacher/attendance" element={<TeacherLayout><AttendanceSystem /></TeacherLayout>} />
+        <Route path="/teacher/student-progress" element={<TeacherLayout><StudentProgress /></TeacherLayout>} />
         {/* Fullscreen presentation route (No Layout) */}
         <Route path="/teacher/presentation-view" element={<RequireAuth allowedRoles={['Teacher', 'Manager', 'CEO']}><PresentationView /></RequireAuth>} />
         <Route path="/teacher/settings" element={<TeacherLayout><TeacherSettings /></TeacherLayout>} />
@@ -294,13 +310,18 @@ function App() {
         {/* Admin & Student Routes */}
         <Route path="/admin/dashboard" element={<RequireAuth allowedRoles={['CEO']}><CRMLayout><AdminDashboard /></CRMLayout></RequireAuth>} />
         <Route path="/student" element={<StudentLayoutWrapper><StudentPortal /></StudentLayoutWrapper>} />
+        <Route path="/student/classes" element={<StudentLayoutWrapper><ClassesPage /></StudentLayoutWrapper>} />
+        <Route path="/student/class" element={<Navigate to="/student/classes" replace />} />
+        <Route path="/student/quizzes" element={<StudentLayoutWrapper><QuizzesPage /></StudentLayoutWrapper>} />
+        <Route path="/student/assessment/:classId" element={<StudentLayoutWrapper><AssessmentStudioPage /></StudentLayoutWrapper>} />
         <Route path="/student/module/:moduleId" element={<StudentLayoutWrapper><ModuleMap /></StudentLayoutWrapper>} />
         <Route path="/student/class-flow" element={<StudentLayoutWrapper><ClassFlow /></StudentLayoutWrapper>} />
         <Route path="/student/interview" element={<StudentLayoutWrapper><MockInterview /></StudentLayoutWrapper>} />
         <Route path="/student/attendance" element={<StudentLayoutWrapper><AttendancePage /></StudentLayoutWrapper>} />
-        <Route path="/student/leaderboard" element={<StudentLayoutWrapper><Leaderboard /></StudentLayoutWrapper>} />
+        <Route path="/student/leaderboard" element={<Navigate to="/student" replace />} />
         <Route path="/student/career" element={<StudentLayoutWrapper><CareerCenter /></StudentLayoutWrapper>} />
-        <Route path="/student/referrals" element={<StudentLayoutWrapper><ReferralCenter /></StudentLayoutWrapper>} />
+        <Route path="/student/referrals" element={<Navigate to="/student" replace />} />
+        <Route path="/student/rewards" element={<Navigate to="/student" replace />} />
       </Routes>
     </Router>
   );

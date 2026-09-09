@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { getTodayAttendance, logOfficeAttendance } from '../../lib/api/reports';
 import { getCurrentUser } from '../../lib/auth';
 import { LogIn, LogOut, Loader2 } from 'lucide-react';
@@ -25,7 +25,7 @@ export function AttendanceButton() {
       setLoading(false);
     };
     checkStatus();
-  }, [user]);
+  }, [user?.id, user?.role]);
 
   const handleToggle = async () => {
     if (!user) return;

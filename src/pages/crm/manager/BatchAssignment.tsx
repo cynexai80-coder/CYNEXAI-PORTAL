@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { isTursoConfigured, client } from '../../../lib/turso';
 import { assignBatchToStudent, getOnboardingDetails, getErpUsers } from '../../../lib/api/manager';
-import { Card } from '../../../components/ui/erp/Card';
+import { getBatchesForAssignment, findPendingTaskForEntity } from '../../../lib/api/batches';
 import { Button } from '../../../components/ui/erp/Button';
 import { SearchableDropdown } from '../../../components/ui/erp/SearchableDropdown';
 
@@ -24,19 +23,17 @@ export default function BatchAssignment() {
 
   useEffect(() => {
     const fetchData = async () => {
-      if (isTursoConfigured && client) {
-        // Fetch onboarding details using studentId
-        const details = await getOnboardingDetails(id as string);
-        if (details) setStudentInfo(details);
+      // Fetch onboarding details using studentId
+      const details = await getOnboardingDetails(id as string);
+      if (details) setStudentInfo(details);
 
-        // Fetch teachers
-        const users = await getErpUsers();
-        setTeachers(users.filter((u: any) => u.role === 'Teacher'));
+      // Fetch teachers
+      const users = await getErpUsers();
+      setTeachers(users.filter((u: any) => u.role === 'Teacher'));
 
-        // Fetch batches
-        const batchesRes = await client.execute(`SELECT id, name, course_id FROM batches ORDER BY created_at DESC`);
-        setBatches(batchesRes.rows);
-      }
+      // Fetch batches
+      const batchesRes = await getBatchesForAssignment();
+      setBatches(batchesRes);
     };
     fetchData();
   }, [id]);
@@ -46,13 +43,8 @@ export default function BatchAssignment() {
     if (!batch || !teacher || !mode || !joiningDate) return alert("Fill all fields");
     
     setIsSubmitting(true);
-    // Find the task ID if any task links here. For now, we update the task by finding it.
-    // Let's find a task for this student.
-    let taskId;
-    if (client) {
-      const taskRes = await client.execute({ sql: `SELECT id FROM tasks WHERE description LIKE '%' || ? || '%' AND status != 'Done' LIMIT 1`, args: [id] });
-      if (taskRes.rows.length > 0) taskId = taskRes.rows[0].id as string;
-    }
+    // Find task ID if any task links here
+    const taskId = await findPendingTaskForEntity(id as string) || undefined;
 
     const result = await assignBatchToStudent(id as string, batch, teacher, mode, joiningDate, remarks, taskId);
     if (result) {

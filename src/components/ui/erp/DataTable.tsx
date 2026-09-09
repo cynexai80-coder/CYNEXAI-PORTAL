@@ -13,6 +13,7 @@ export interface DataTableProps {
   columns: Column[];
   data: any[];
   onSort?: (key: string) => void;
+  onFilter?: (key: string, value: string) => void;
   onEdit?: (row: any, key: string, value: string) => void;
   renderExpandedRow?: (row: any) => React.ReactNode;
   sortBy?: string;

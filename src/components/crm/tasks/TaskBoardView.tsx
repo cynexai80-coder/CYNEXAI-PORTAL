@@ -10,11 +10,11 @@ interface Props {
   onUpdate: () => void;
 }
 
-const COLUMNS: { id: string; label: string; color: string; bg: string }[] = [
-  { id: 'To Do',      label: 'To Do',      color: '#6b7280', bg: '#f3f4f6' },
-  { id: 'In Progress',label: 'In Progress',color: '#3b82f6', bg: '#eff6ff' },
-  { id: 'Review',     label: 'Review',     color: '#a855f7', bg: '#faf5ff' },
-  { id: 'Done',       label: 'Done',       color: '#22c55e', bg: '#f0fdf4' },
+const COLUMNS: { id: string; label: string; color: string; bgClass: string }[] = [
+  { id: 'To Do',      label: 'To Do',      color: '#6b7280', bgClass: 'bg-slate-100/90 dark:bg-zinc-900/80' },
+  { id: 'In Progress',label: 'In Progress',color: '#3b82f6', bgClass: 'bg-blue-50/90 dark:bg-blue-950/30' },
+  { id: 'Review',     label: 'Review',     color: '#a855f7', bgClass: 'bg-purple-50/90 dark:bg-purple-950/30' },
+  { id: 'Done',       label: 'Done',       color: '#22c55e', bgClass: 'bg-emerald-50/90 dark:bg-emerald-950/30' },
 ];
 
 const PRIORITY_STYLES: Record<string, { dot: string; label: string }> = {
@@ -69,7 +69,7 @@ export const TaskBoardView: React.FC<Props> = ({ tasks, users, onTaskClick, onUp
         {COLUMNS.map(col => {
           const colTasks = tasks.filter(t => t.status === col.id);
           return (
-            <div key={col.id} className="flex-shrink-0 w-[300px] flex flex-col rounded-2xl" style={{ background: col.bg, border: `1.5px solid ${col.color}22` }}>
+            <div key={col.id} className={`flex-shrink-0 w-[300px] flex flex-col rounded-2xl ${col.bgClass}`} style={{ border: `1.5px solid ${col.color}22` }}>
               {/* Column Header */}
               <div className="flex items-center justify-between px-4 py-3 rounded-t-2xl border-b" style={{ borderColor: `${col.color}22` }}>
                 <div className="flex items-center gap-2">

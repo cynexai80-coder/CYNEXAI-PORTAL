@@ -12,6 +12,6 @@ describe('test', () => {
     console.log("client:", client);
     console.log("isTursoConfigured:", isTursoConfigured);
     console.log("initTursoDB:", initTursoDB);
-    expect(initTursoDB).toBeUndefined();
+    expect(initTursoDB).toBeDefined();
   });
 });

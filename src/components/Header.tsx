@@ -3,6 +3,8 @@ import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Menu, X } from 'lucide-react';
 
+import { CynexLogo } from './ui/CynexLogo';
+
 const navItems = [
   { name: 'Home', href: '/' },
   { name: 'Courses', href: '#courses' },
@@ -99,11 +101,7 @@ export default function Header() {
             }}
             className="flex items-center h-full"
           >
-            <img
-              src="/CynexAI Logo new (1).png"
-              alt="CynexAI Logo"
-              className="h-14 w-auto lg:h-16"
-            />
+            <CynexLogo size="lg" />
           </Link>
 
           {/* Desktop nav */}

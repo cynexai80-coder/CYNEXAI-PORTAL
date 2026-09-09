@@ -11,6 +11,8 @@ import {
   ArrowUp
 } from 'lucide-react';
 
+import { CynexLogo } from './ui/CynexLogo';
+
 // Custom X (Twitter) Icon
 const XIcon = ({ className }: { className?: string }) => (
   <svg
@@ -97,13 +99,7 @@ const Footer = () => {
                 onClick={(e) => handleNavClick('/', e)}
                 className="flex items-center space-x-3 mb-6 group transition-all duration-300 hover:scale-105 active:scale-95"
               >
-                <div className="relative bg-background p-2 rounded-lg inline-block border border-border shadow-sm">
-                  <img
-                    src="/CynexAI Logo new (1).png"
-                    alt="CynexAI"
-                    className="h-10 w-auto object-contain dark:invert"
-                  />
-                </div>
+                <CynexLogo size="lg" />
               </Link>
 
               <p className="text-muted-foreground mb-6 leading-relaxed">

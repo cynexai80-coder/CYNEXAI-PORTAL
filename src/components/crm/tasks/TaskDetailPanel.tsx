@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Task, updateTask, deleteTask, getTaskComments, getTaskSubtasks, addTaskComment, addSubtask, updateSubtaskStatus } from '../../../lib/api/tasks';
+import { Task, updateTask, deleteTask, getTaskComments, getTaskSubtasks, addTaskComment, addSubtask, updateSubtaskStatus, toggleDailyRecurrence } from '../../../lib/api/tasks';
 import { Project, getProjects } from '../../../lib/api/projects';
 import { Button } from '../../ui/erp/Button';
-import { X, Calendar, Flag, User, Trash2, CheckCircle, AlignLeft, MessageSquare, CheckSquare, Send, Circle, FolderOpen } from 'lucide-react';
+import { X, Calendar, Flag, User, Trash2, CheckCircle, AlignLeft, MessageSquare, CheckSquare, Send, Circle, FolderOpen, PauseCircle, RotateCcw } from 'lucide-react';
 import { getErpUsers } from '../../../lib/api/manager';
 import { getCurrentUser } from '../../../lib/auth';
 import { TimeTracker } from './TimeTracker';
@@ -29,6 +29,13 @@ export const TaskDetailPanel: React.FC<Props> = ({ task, onClose, onUpdate, curr
 
   const currentUser = getCurrentUser();
 
+  const isUserAuthorizedToDelete = () => {
+    if (!currentUser) return false;
+    const role = (currentUserRole || currentUser.role || '').toLowerCase();
+    const allowed = ['ceo', 'manager', 'admin', 'general_manager', 'super_admin', 'director'];
+    return currentUser.id === task.assignee_id || currentUser.id === task.created_by || allowed.includes(role);
+  };
+
   const loadExtraData = async () => {
     const fetchedComments = await getTaskComments(task.id);
     const fetchedSubtasks = await getTaskSubtasks(task.id);
@@ -49,7 +56,7 @@ export const TaskDetailPanel: React.FC<Props> = ({ task, onClose, onUpdate, curr
     }
   }, [currentUserRole]);
 
-  const handleChange = (field: keyof Task, value: string) => {
+  const handleChange = (field: keyof Task, value: any) => {
     setEditedTask(prev => ({ ...prev, [field]: value }));
   };
 
@@ -67,6 +74,7 @@ export const TaskDetailPanel: React.FC<Props> = ({ task, onClose, onUpdate, curr
       current_number: editedTask.current_number,
       project_id: editedTask.project_id,
       expire_date: editedTask.expire_date,
+      recurrence_rule: editedTask.recurrence_rule,
     });
     setIsSaving(false);
     onUpdate();
@@ -122,7 +130,7 @@ export const TaskDetailPanel: React.FC<Props> = ({ task, onClose, onUpdate, curr
   return (
     <div className="flex flex-col h-full bg-erp-surface border-l-2 border-erp-border overflow-hidden">
       <div className="flex items-center justify-between p-4 border-b border-erp-border bg-erp-background">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <Button variant="ghost" className={`py-1 px-3 h-8 border ${editedTask.status === 'Done' ? 'bg-green-50 text-green-600 border-green-200' : 'bg-erp-surface border-erp-border text-erp-text/70'}`} onClick={() => {
             handleChange('status', editedTask.status === 'Done' ? 'To Do' : 'Done');
             updateTask(task.id, { status: editedTask.status === 'Done' ? 'To Do' : 'Done' }).then(onUpdate);
@@ -130,9 +138,28 @@ export const TaskDetailPanel: React.FC<Props> = ({ task, onClose, onUpdate, curr
             <CheckCircle className="w-4 h-4 mr-2" /> 
             {editedTask.task_type === 'Yes/No' ? (editedTask.status === 'Done' ? 'Yes' : 'No (Mark Yes)') : (editedTask.status === 'Done' ? 'Completed' : 'Mark Complete')}
           </Button>
+
+          {editedTask.task_type === 'Daily' && (
+            <Button 
+              variant="secondary" 
+              className="py-1 px-3 h-8 text-xs flex items-center gap-1.5"
+              onClick={async () => {
+                const isCurrentlyStopped = editedTask.recurrence_rule === 'stopped';
+                await toggleDailyRecurrence(task.id, !isCurrentlyStopped);
+                handleChange('recurrence_rule', isCurrentlyStopped ? 'daily' : 'stopped');
+                onUpdate();
+              }}
+            >
+              {editedTask.recurrence_rule === 'stopped' ? (
+                <span className="text-emerald-600 font-bold flex items-center gap-1"><RotateCcw className="w-3.5 h-3.5" /> Resume Daily Repeat</span>
+              ) : (
+                <span className="text-orange-600 font-bold flex items-center gap-1"><PauseCircle className="w-3.5 h-3.5" /> Stop Daily Repeat</span>
+              )}
+            </Button>
+          )}
         </div>
         <div className="flex items-center gap-2">
-          {(['Manager', 'CEO', 'Admin'].includes(currentUserRole) || currentUser?.id === task.assignee_id || currentUser?.id === task.created_by) && (
+          {isUserAuthorizedToDelete() && (
             <button onClick={handleDelete} className="p-2 text-red-500 hover:text-red-700 dark:text-red-400 rounded-full hover:bg-red-500/10 transition-colors" title="Delete Task">
               <Trash2 className="w-5 h-5" />
             </button>

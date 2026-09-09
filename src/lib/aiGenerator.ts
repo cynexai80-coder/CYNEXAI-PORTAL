@@ -1,31 +1,66 @@
-const GROQ_API_KEY = import.meta.env.VITE_GROQ_VOICE_API || import.meta.env.VITE_GROQ_API_KEY || '';
+function getGroqApiKey(): string {
+  return import.meta.env.VITE_GROQ_VOICE_API || import.meta.env.VITE_GROQ_API_KEY || (typeof localStorage !== 'undefined' ? localStorage.getItem('cynex_groq_key') : '') || '';
+}
+
+export function cleanAiContent(text: string): string {
+  if (!text) return '';
+  let cleaned = text;
+  // Remove closed <think>...</think> blocks
+  cleaned = cleaned.replace(/<think>[\s\S]*?<\/think>/gi, '');
+  // Remove unclosed <think>... blocks or remaining <think> tags
+  if (cleaned.includes('<think>')) {
+    const afterThink = cleaned.replace(/<think>[\s\S]*/gi, '').trim();
+    if (afterThink.length > 10) {
+      cleaned = afterThink;
+    } else {
+      cleaned = cleaned.replace(/<think>/gi, '').trim();
+    }
+  }
+  // Strip prompt thought headers if present
+  if (cleaned.toLowerCase().includes('thinking process') || cleaned.toLowerCase().includes('analyze user input')) {
+    const markdownMatch = cleaned.match(/(?:##|#|What We Learned|Important Concepts|1\.)[\s\S]*/i);
+    if (markdownMatch) {
+      cleaned = markdownMatch[0];
+    }
+  }
+  return cleaned.trim();
+}
 
 async function callGroq(prompt: string): Promise<string> {
-  if (!GROQ_API_KEY) throw new Error('VITE_GROQ_VOICE_API is not set in .env');
+  const GROQ_API_KEY = getGroqApiKey();
+  if (!GROQ_API_KEY) throw new Error('Groq API Key is not set in environment or settings');
 
-  const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${GROQ_API_KEY}`,
-    },
-    body: JSON.stringify({
-      model: 'llama-3.3-70b-versatile',
-      messages: [{ role: 'user', content: prompt }],
-      temperature: 0.8,
-    }),
-  });
+  const candidateModels = ['qwen/qwen3.6-27b', 'groq/compound', 'groq/compound-mini', 'openai/gpt-oss-120b', 'llama-3.3-70b-versatile'];
+  let lastErr = '';
 
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`Groq API error ${res.status}: ${err}`);
+  for (const model of candidateModels) {
+    try {
+      const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${GROQ_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model,
+          messages: [{ role: 'user', content: prompt }],
+          temperature: 0.8,
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const content = data.choices?.[0]?.message?.content;
+        if (content) return cleanAiContent(content);
+      } else {
+        lastErr = await res.text();
+      }
+    } catch (err: any) {
+      lastErr = err.message || String(err);
+    }
   }
 
-  const data = await res.json();
-  if (!data.choices?.[0]?.message?.content) {
-    throw new Error('No content returned from AI');
-  }
-  return data.choices[0].message.content;
+  throw new Error(`Groq API error: ${lastErr}`);
 }
 
 /**

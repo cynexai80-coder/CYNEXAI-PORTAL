@@ -404,7 +404,7 @@ export default function AsanaTaskApp() {
   };
 
   return (
-    <div className="flex h-full w-full overflow-hidden bg-erp-background relative">
+    <div className="flex h-full w-full overflow-hidden bg-erp-background relative no-watermark">
 
       {/* Mobile Sidebar Backdrop */}
       {isMobileSidebarOpen && (

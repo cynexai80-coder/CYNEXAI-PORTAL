@@ -32,6 +32,7 @@ export const ALL_PAGES: PageDef[] = [
   { key: 'teacher/live',      to: '/teacher/live',        label: 'Live Stream',   icon: Video,           section: 'Teacher',    defaultRoles: ['Teacher'] },
   { key: 'teacher/cms',       to: '/teacher/cms',         label: 'Course CMS',    icon: BookOpen,        section: 'Teacher',    defaultRoles: ['Teacher'] },
   { key: 'teacher/attendance',to: '/teacher/attendance',  label: 'Attendance',    icon: Users,           section: 'Teacher',    defaultRoles: ['Teacher'] },
+  { key: 'teacher/progress',  to: '/teacher/student-progress', label: 'Student Progress', icon: TrendingUp, section: 'Teacher', defaultRoles: ['Teacher', 'Manager', 'CEO'] },
   { key: 'teacher/tasks',     to: '/teacher/tasks',       label: 'Tasks',         icon: CheckSquare,     section: 'Teacher',    defaultRoles: ['Teacher'] },
   { key: 'teacher/settings',  to: '/teacher/settings',    label: 'AI Settings',   icon: Settings,        section: 'Teacher',    defaultRoles: ['Teacher'] },
 

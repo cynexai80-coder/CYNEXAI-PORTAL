@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { getCurrentUser } from '../../../lib/auth';
 import { getEmployeeReports, getProjectHierarchyReport, EmployeeReport } from '../../../lib/api/reports';
 import { getAllTasks, Task } from '../../../lib/api/tasks';
 import {
-  BarChart2, Users, Phone, CheckSquare, Clock, TrendingUp, Award,
+  Users, Phone, CheckSquare, TrendingUp, Award,
   ChevronDown, ChevronRight, Calendar, Filter, RefreshCw,
-  Crown, Shield, User, Target, Loader2, Star, Briefcase,
-  AlertTriangle, CheckCircle2, Circle, Tag
+  Shield, User, Star, Briefcase, CheckCircle2, Circle,
+  Loader2, BarChart2
 } from 'lucide-react';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -37,16 +36,6 @@ const ROLE_BADGE: Record<string, string> = {
   Teacher: 'bg-purple-100 text-purple-700 border border-purple-200',
   DM: 'bg-pink-100 text-pink-700 border border-pink-200',
 };
-
-// ── Progress Bar ───────────────────────────────────────────────────────────────
-function ProgressBar({ value, max, color = 'bg-emerald-500' }: { value: number; max: number; color?: string }) {
-  const pct = max === 0 ? 0 : Math.min(100, Math.round((value / max) * 100));
-  return (
-    <div className="w-full h-1.5 bg-erp-border/40 rounded-full overflow-hidden">
-      <div className={`h-full rounded-full transition-all duration-500 ${color}`} style={{ width: `${pct}%` }} />
-    </div>
-  );
-}
 
 // ── Stat Card ──────────────────────────────────────────────────────────────────
 function StatCard({ label, value, icon, color }: { label: string; value: string | number; icon: React.ReactNode; color: string }) {
@@ -109,8 +98,6 @@ function EmployeeRow({ report, rank, allTasks, dateFrom, dateTo }: { report: Emp
   });
   const doneTasks = myTasks.filter(t => t.status === 'Done');
   const activeTasks = myTasks.filter(t => t.status !== 'Done');
-  const today = new Date().toISOString().split('T')[0];
-  const overdueTasks = activeTasks.filter(t => t.due_date && t.due_date < today);
 
   const rankColor = rank === 1 ? 'text-amber-500' : rank === 2 ? 'text-slate-400' : rank === 3 ? 'text-amber-700' : 'text-erp-text/30';
 
@@ -148,9 +135,13 @@ function EmployeeRow({ report, rank, allTasks, dateFrom, dateTo }: { report: Emp
           </div>
         </td>
         <td className="px-4 py-3.5 text-center">
-          <div className="flex flex-col text-xs font-bold text-erp-text/60">
+          <div className="flex flex-col items-center justify-center text-xs font-bold text-erp-text/60">
             <span>{report.login_time ? new Date(report.login_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '—'}</span>
-            <span className="text-[10px] text-erp-text/40">{report.logout_time ? new Date(report.logout_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : (report.login_time ? 'Active' : '')}</span>
+            {report.logout_time ? (
+              <span className="text-[10px] text-erp-text/40">{new Date(report.logout_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+            ) : report.login_time ? (
+              <span className="text-[9px] font-black text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 rounded-full mt-0.5 inline-block">Active</span>
+            ) : null}
           </div>
         </td>
         <td className="px-4 py-3.5 text-center">
@@ -338,8 +329,8 @@ export default function ReportsPage() {
   const [projectData, setProjectData] = useState<ProjectGroup[]>([]);
   const [allTasks, setAllTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
-  const [dateFrom, setDateFrom] = useState(() => new Date().toISOString().split('T')[0]);
-  const [dateTo, setDateTo] = useState(() => new Date().toISOString().split('T')[0]);
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   const [sortBy, setSortBy] = useState<keyof EmployeeReport>('completion_rate');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [roleFilter, setRoleFilter] = useState('');
@@ -442,6 +433,9 @@ export default function ReportsPage() {
             {/* Filters */}
             <div className="flex flex-wrap gap-2 items-center bg-erp-surface border-2 border-erp-border rounded-2xl p-3 shadow-sm">
               <div className="flex gap-1 mr-2 bg-erp-background p-1 rounded-xl">
+                <button onClick={() => {
+                  setDateFrom(''); setDateTo('');
+                }} className="text-xs font-bold px-3 py-1.5 rounded-lg bg-erp-surface hover:bg-erp-primary/10">All Time</button>
                 <button onClick={() => {
                   const t = new Date().toISOString().split('T')[0];
                   setDateFrom(t); setDateTo(t);

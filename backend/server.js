@@ -1,5 +1,6 @@
 const path = require('path');
 require('dotenv').config({ path: path.resolve(__dirname, '../.env') }); // load parent .env
+require('dotenv').config(); // load local .env if present
 
 const express = require('express');
 const bodyParser = require('body-parser');
@@ -25,10 +26,39 @@ app.use(cors());
 app.use(bodyParser.json());
 
 // --- Turso Database ---
-const db = createClient({
-  url: process.env.VITE_TURSO_DATABASE_URL || '',
-  authToken: process.env.VITE_TURSO_AUTH_TOKEN || '',
+const tursoUrl = process.env.VITE_TURSO_DATABASE_URL || 'libsql://cynexai-portal-cynexai-new.aws-ap-south-1.turso.io';
+const tursoAuthToken = process.env.VITE_TURSO_AUTH_TOKEN || 'eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3ODQxOTUyNjcsImlkIjoiMDE5ZjZhNTItN2IwMS03Mzc2LWExMGUtNTViZGRiMzAwZTdlIiwia2lkIjoieUdPOElXY1J5RC1VX2J3UFlHWUJJMmlKZEp1R21CSDY5QzJQZzJUWmZhQSIsInJpZCI6IjcxYmEzODM5LTAyZDEtNDJiNS1hNDM5LTVlOWM4MGJkNGRhNSJ9.O2do8U63KLbS_pXwqivQRIYK1SncnMa1VRuePw6UFagpIIFodykzhY2cr6C_iYE83O86fUXhErbRPKfBMZtUAA';
+
+let db = createClient({
+  url: tursoUrl,
+  authToken: tursoAuthToken,
 });
+
+async function initDbTables(clientDb) {
+  try {
+    await clientDb.execute(`
+      CREATE TABLE IF NOT EXISTS whatsapp_messages (
+        id TEXT PRIMARY KEY,
+        lead_id TEXT,
+        direction TEXT,
+        message_body TEXT,
+        timestamp TEXT
+      )
+    `);
+    console.log('[Backend DB] Ensured whatsapp_messages table exists.');
+  } catch (err) {
+    console.warn('[Backend DB] Failed to ensure whatsapp_messages table:', err.message);
+  }
+}
+
+db.execute('SELECT 1')
+  .then(() => initDbTables(db))
+  .catch((err) => {
+    console.warn('[Backend DB] Cloud database BLOCKED/unreachable. Falling back to local SQLite file:cynexai.db');
+    db = createClient({ url: 'file:cynexai.db' });
+    initDbTables(db);
+  });
+
 
 // --- WhatsApp Client ---
 let qrCodeData = null;
@@ -75,7 +105,9 @@ whatsapp.on('message', async (message) => {
     }
 });
 
-whatsapp.initialize();
+whatsapp.initialize().catch(err => {
+    console.error('WhatsApp client initialization failed:', err.message);
+});
 
 // --- API Endpoints ---
 app.get('/api/whatsapp/status', (req, res) => {
@@ -300,11 +332,11 @@ cron.schedule('30 59 23 * * *', async () => {
       });
     }
 
-    // 3. Find all daily tasks due today, group by (title + assignee_id)
-    //    and create tomorrow's copy if one doesn't already exist
+    // 3. Find all active daily tasks, group by (title + assignee_id)
+    //    and create tomorrow's copy if one doesn't already exist and recurrence is not stopped
     const todayResult = await db.execute({
-      sql: `SELECT * FROM tasks WHERE task_type = 'Daily' AND due_date = ?`,
-      args: [today]
+      sql: `SELECT * FROM tasks WHERE task_type = 'Daily' AND (recurrence_rule IS NULL OR recurrence_rule != 'stopped')`,
+      args: []
     });
     const todayTasks = todayResult.rows;
 
@@ -324,7 +356,7 @@ cron.schedule('30 59 23 * * *', async () => {
       if (existsResult.rows.length > 0) continue;
 
       // Create tomorrow's copy
-      const newId = 'task_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+      const newId = 'task_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
       const now = new Date().toISOString();
       await db.execute({
         sql: `INSERT INTO tasks (id, title, description, assignee_id, status, priority, due_date, project_id, related_entity, task_type, target_number, current_number, start_date, tags, recurrence_rule, created_by, lead_id, student_id, created_at, updated_at)
