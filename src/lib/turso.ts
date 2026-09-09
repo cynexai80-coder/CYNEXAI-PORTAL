@@ -1436,9 +1436,12 @@ export const initTursoDB = async (): Promise<boolean> => {
       }
       isDbInitialized = true;
       return true;
-    } catch (e) {
-      console.error("Turso Cloud Initialization Failed (Using Local Fallback):", e);
-      dbConnectionFailed = true;
+    } catch (e: any) {
+      console.warn("Turso Cloud Initialization Warning:", e?.message || e);
+      const msg = String(e?.message || e || '');
+      if (msg.includes('BLOCKED') || msg.includes('forbidden') || msg.includes('403') || msg.includes('401')) {
+        dbConnectionFailed = true;
+      }
       return false;
     } finally {
       dbInitPromise = null;

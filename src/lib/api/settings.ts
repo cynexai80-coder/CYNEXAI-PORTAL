@@ -31,7 +31,7 @@ export const getSetting = async (
     try {
       const result = await client.execute({
         sql: `SELECT value FROM settings WHERE user_id ${userId ? '= ?' : 'IS NULL'} AND setting_group = ? AND key = ?`,
-        args: userId ? [userId, settingGroup, key] : [null, settingGroup, key]
+        args: userId ? [userId, settingGroup, key] : [settingGroup, key]
       });
       if (result.rows.length > 0) {
         return result.rows[0].value as string;
@@ -52,7 +52,7 @@ export const getSettingsGroup = async (
     try {
       const result = await client.execute({
         sql: `SELECT key, value FROM settings WHERE user_id ${userId ? '= ?' : 'IS NULL'} AND setting_group = ?`,
-        args: userId ? [userId, settingGroup] : [null, settingGroup]
+        args: userId ? [userId, settingGroup] : [settingGroup]
       });
       for (const row of result.rows) {
         settings[row.key as string] = row.value as string;

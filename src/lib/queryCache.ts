@@ -12,9 +12,24 @@ const memoryCache = new Map<string, CacheEntry<any>>();
  */
 export async function cachedQuery<T>(
   key: string,
-  ttlMs: number,
-  fetcher: () => Promise<T>
+  arg2: number | (() => Promise<T>),
+  arg3?: number | (() => Promise<T>)
 ): Promise<T> {
+  let ttlMs = 30000;
+  let fetcher: (() => Promise<T>) | undefined;
+
+  if (typeof arg2 === 'function') {
+    fetcher = arg2;
+    if (typeof arg3 === 'number') ttlMs = arg3;
+  } else if (typeof arg2 === 'number') {
+    ttlMs = arg2;
+    if (typeof arg3 === 'function') fetcher = arg3;
+  }
+
+  if (typeof fetcher !== 'function') {
+    throw new Error(`cachedQuery: fetcher function is required for cache key "${key}"`);
+  }
+
   const now = Date.now();
   const existing = memoryCache.get(key);
   if (existing && (now - existing.timestamp < existing.ttlMs)) {
