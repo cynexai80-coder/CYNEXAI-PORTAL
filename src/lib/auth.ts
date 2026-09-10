@@ -55,7 +55,7 @@ export const updateCurrentUserSession = (updatedFields: Partial<User>) => {
 };
 
 export const ROLE_DEFAULT_PERMISSIONS: Record<string, string[]> = {
-  'Manager': ['dashboard', 'tasks', 'reports', 'sales', 'sales_history', 'users', 'students', 'courses', 'timetable', 'gamification', 'settings'],
+  'Manager': ['dashboard', 'tasks', 'reports', 'sales', 'sales_history', 'users', 'students', 'courses', 'timetable', 'classes', 'gamification', 'settings'],
   'Teacher': ['dashboard', 'tasks', 'courses', 'timetable', 'classes', 'ai_voice'],
   'DM': ['dashboard', 'tasks', 'courses', 'marketing'],
   'Sales/HR': ['dashboard', 'tasks', 'courses', 'sales', 'sales_history'],

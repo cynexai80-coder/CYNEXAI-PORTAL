@@ -261,6 +261,7 @@ function App() {
         <Route path="/manager/approvals/:id" element={<RequireAuth allowedRoles={['Manager', 'CEO']}><ManagerLayout><ApprovalDetail /></ManagerLayout></RequireAuth>} />
         <Route path="/manager/student-settings" element={<RequireAuth allowedRoles={['Manager', 'CEO']}><ManagerLayout><StudentPortalSettings /></ManagerLayout></RequireAuth>} />
         <Route path="/manager/students" element={<RequireAuth allowedRoles={['Manager', 'CEO']}><ManagerLayout><StudentsPage /></ManagerLayout></RequireAuth>} />
+        <Route path="/manager/attendance" element={<RequireAuth allowedRoles={['Manager', 'CEO']}><ManagerLayout><AttendanceSystem /></ManagerLayout></RequireAuth>} />
         <Route path="/manager/student-progress" element={<RequireAuth allowedRoles={['Manager', 'CEO']}><ManagerLayout><StudentProgress /></ManagerLayout></RequireAuth>} />
         
         {/* Onboarding is assigned by Manager via Tasks */}
@@ -294,6 +295,7 @@ function App() {
         <Route path="/ceo/gamification" element={<RequireAuth allowedRoles={['CEO']}><CEOLayout><GamificationSettings /></CEOLayout></RequireAuth>} />
         <Route path="/ceo/reports" element={<RequireAuth allowedRoles={['CEO', 'Manager']}><CEOLayout><ReportsPage /></CEOLayout></RequireAuth>} />
         <Route path="/ceo/students" element={<RequireAuth allowedRoles={['CEO']}><CEOLayout><StudentsPage /></CEOLayout></RequireAuth>} />
+        <Route path="/ceo/attendance" element={<RequireAuth allowedRoles={['CEO']}><CEOLayout><AttendanceSystem /></CEOLayout></RequireAuth>} />
         <Route path="/ceo/student-progress" element={<RequireAuth allowedRoles={['CEO']}><CEOLayout><StudentProgress /></CEOLayout></RequireAuth>} />
 
         {/* Teacher Routes */}

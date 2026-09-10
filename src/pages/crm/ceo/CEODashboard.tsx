@@ -1,7 +1,7 @@
 import React from 'react';
 import { Card } from '../../../components/ui/erp/Card';
 import { Button } from '../../../components/ui/erp/Button';
-import { Settings, BrainCircuit, Gift, BookOpen } from 'lucide-react';
+import { Settings, BrainCircuit, Gift, BookOpen, Users, GraduationCap } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 import { getManagerAnalytics } from '../../../lib/api/manager';
@@ -76,6 +76,16 @@ export default function CEODashboard() {
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+          <Card className="flex flex-col items-center justify-center p-6 cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors border-blue-200 dark:border-blue-800/30 card-hover" onClick={() => navigate('/ceo/students')}>
+            <GraduationCap className="w-8 h-8 text-indigo-600 dark:text-indigo-400 mb-2" />
+            <span className="font-bold text-erp-text text-sm text-center">Students & Batches</span>
+          </Card>
+
+          <Card className="flex flex-col items-center justify-center p-6 cursor-pointer hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors border-emerald-200 dark:border-emerald-800/30 card-hover" onClick={() => navigate('/ceo/attendance')}>
+            <Users className="w-8 h-8 text-emerald-600 dark:text-emerald-400 mb-2" />
+            <span className="font-bold text-erp-text text-sm text-center">Batch Attendance</span>
+          </Card>
+
           <Card className="flex flex-col items-center justify-center p-6 cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors border-blue-200 dark:border-blue-800/30 card-hover" onClick={() => navigate('/ceo/courses')}>
             <BookOpen className="w-8 h-8 text-blue-600 dark:text-blue-400 mb-2" />
             <span className="font-bold text-erp-text text-sm text-center">Course Management</span>

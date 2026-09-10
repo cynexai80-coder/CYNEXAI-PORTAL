@@ -25,6 +25,8 @@ export interface StudentDashboardData {
   gamification: { streak: number; coins: number };
   modules: any[];
   upcomingClass: any | null;
+  attendanceRate?: number;
+  attendedClassesCount?: number;
 }
 
 export interface ClassFlowData {
@@ -278,7 +280,32 @@ export async function getStudentDashboardData(studentId: string, forceRefresh = 
     })()
   ]);
 
-  const result: StudentDashboardData = { course: activeCourse, gamification, modules: modulesDataResult, upcomingClass: upcomingClassResult };
+  // Compute real attendance metrics from attendance_logs
+  let attendedClassesCount = 0;
+  try {
+    const attRes = await executeWithRetry(
+      `SELECT COUNT(DISTINCT COALESCE(class_id, batch_id)) as cnt 
+       FROM attendance_logs 
+       WHERE (student_id = ? OR student_id = (SELECT email FROM users WHERE id = ?) OR student_id = (SELECT id FROM users WHERE email = ?))
+         AND (status = 'Present' OR duration_minutes >= 5 OR attendance_type IN ('Manual', 'Offline_QR', 'Online'))`,
+      [studentId, studentId, studentId]
+    );
+    attendedClassesCount = Number(attRes.rows?.[0]?.cnt) || 0;
+  } catch {}
+
+  const totalClassesCount = modulesDataResult.reduce((s: number, m: any) => s + (m.totalClasses || 0), 0);
+  const attendanceRate = totalClassesCount > 0 
+    ? Math.min(100, Math.round((attendedClassesCount / totalClassesCount) * 100))
+    : (attendedClassesCount > 0 ? 100 : 0);
+
+  const result: StudentDashboardData = { 
+    course: activeCourse, 
+    gamification, 
+    modules: modulesDataResult, 
+    upcomingClass: upcomingClassResult,
+    attendanceRate,
+    attendedClassesCount
+  };
   dashboardCache.set(studentId, { data: result, timestamp: Date.now() });
   return result;
 }
@@ -560,11 +587,26 @@ export async function submitOnlineAttendance(studentId: string, classId: string)
       return { success: false, message: 'Class is not currently active.' };
     }
 
-    const id = `att_${Date.now()}`;
-    await executeWithRetry(
-      `INSERT INTO attendance_logs (id, batch_id, student_id, join_time) VALUES (?, ?, ?, ?)`,
-      [id, classId, studentId, new Date().toISOString()]
+    const existing = await executeWithRetry(
+      `SELECT id FROM attendance_logs 
+       WHERE (student_id = ? OR LOWER(student_id) = LOWER(?) OR student_id = (SELECT email FROM users WHERE id = ?) OR student_id = (SELECT id FROM users WHERE LOWER(email) = LOWER(?)))
+         AND (class_id = ? OR batch_id = ?) 
+       LIMIT 1`,
+      [studentId, studentId, studentId, studentId, classId, classId]
     );
+
+    if (existing.rows.length > 0) {
+      await executeWithRetry(
+        "UPDATE attendance_logs SET status = 'Present', duration_minutes = 60, attendance_type = 'Online', join_time = ? WHERE id = ?",
+        [new Date().toISOString(), existing.rows[0].id]
+      );
+    } else {
+      const id = `att_on_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+      await executeWithRetry(
+        `INSERT INTO attendance_logs (id, batch_id, class_id, student_id, join_time, duration_minutes, attendance_type, status) VALUES (?, ?, ?, ?, ?, 60, 'Online', 'Present')`,
+        [id, classId, classId, studentId, new Date().toISOString()]
+      );
+    }
     return { success: true, message: 'Attendance marked successfully!' };
   } catch (e) {
     console.error(e);
@@ -577,16 +619,26 @@ export async function getAttendanceHistory(studentId: string) {
     const res = await executeWithRetry(
       `SELECT al.*, c.title as class_title, c.date as class_date
        FROM attendance_logs al
-       LEFT JOIN classes c ON al.batch_id = c.id OR c.id = al.student_id
-       WHERE al.student_id = ?
+       LEFT JOIN classes c ON al.class_id = c.id OR al.batch_id = c.id
+       WHERE (al.student_id = ? 
+              OR LOWER(al.student_id) = LOWER(?) 
+              OR al.student_id = (SELECT email FROM users WHERE id = ?)
+              OR al.student_id = (SELECT id FROM users WHERE LOWER(email) = LOWER(?))
+             )
        ORDER BY al.join_time DESC`,
-      [studentId]
+      [studentId, studentId, studentId, studentId]
     );
     if (res.rows.length > 0) return res.rows;
     // Simpler query fallback
     const res2 = await executeWithRetry(
-      `SELECT * FROM attendance_logs WHERE student_id = ? ORDER BY join_time DESC`,
-      [studentId]
+      `SELECT * FROM attendance_logs 
+       WHERE (student_id = ? 
+              OR LOWER(student_id) = LOWER(?) 
+              OR student_id = (SELECT email FROM users WHERE id = ?)
+              OR student_id = (SELECT id FROM users WHERE LOWER(email) = LOWER(?))
+             )
+       ORDER BY join_time DESC`,
+      [studentId, studentId, studentId, studentId]
     );
     return res2.rows;
   } catch (e) {

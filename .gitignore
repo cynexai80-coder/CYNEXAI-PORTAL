@@ -33,3 +33,4 @@ backend/.env
 backend/.wwebjs_auth/
 *.db
 .wwebjs_auth/
+screenshots/

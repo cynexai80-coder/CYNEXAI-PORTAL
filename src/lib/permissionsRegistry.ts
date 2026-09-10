@@ -81,6 +81,8 @@ export const ROUTE_MODULE_MAP: Record<string, string> = {
   // Live Classes & Attendance
   '/teacher/live': 'classes',
   '/teacher/attendance': 'classes',
+  '/ceo/attendance': 'classes',
+  '/manager/attendance': 'classes',
 
   // Marketing
   '/ceo/dm-dashboard': 'marketing',

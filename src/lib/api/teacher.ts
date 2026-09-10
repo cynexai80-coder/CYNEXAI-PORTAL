@@ -152,10 +152,11 @@ export async function getAllAvailableClasses(): Promise<any[]> {
   }
 }
 
+let attendanceSchemaEnsured = false;
 export async function ensureAttendanceSchema() {
-  if (!client) return;
+  if (!client || attendanceSchemaEnsured) return;
   try {
-    await executeWithRetry(`
+    await client.execute(`
       CREATE TABLE IF NOT EXISTS attendance_logs (
         id TEXT PRIMARY KEY,
         batch_id TEXT,
@@ -165,17 +166,29 @@ export async function ensureAttendanceSchema() {
         leave_time TEXT,
         duration_minutes INTEGER DEFAULT 0,
         attendance_type TEXT DEFAULT 'Manual',
-        status TEXT DEFAULT 'Present'
+        status TEXT DEFAULT 'Present',
+        user_id TEXT,
+        session_id TEXT,
+        scan_type TEXT,
+        timestamp TEXT
       )
     `);
     const safeAddColumn = async (col: string, def: string) => {
-      try { await executeWithRetry(`ALTER TABLE attendance_logs ADD COLUMN ${col} ${def}`); } catch (e) {}
+      try { await client.execute(`ALTER TABLE attendance_logs ADD COLUMN ${col} ${def}`); } catch (e) {}
     };
+    await safeAddColumn('batch_id', 'TEXT');
     await safeAddColumn('class_id', 'TEXT');
+    await safeAddColumn('student_id', 'TEXT');
+    await safeAddColumn('join_time', 'TEXT');
     await safeAddColumn('leave_time', 'TEXT');
     await safeAddColumn('duration_minutes', 'INTEGER DEFAULT 0');
     await safeAddColumn('attendance_type', "TEXT DEFAULT 'Manual'");
     await safeAddColumn('status', "TEXT DEFAULT 'Present'");
+    await safeAddColumn('user_id', 'TEXT');
+    await safeAddColumn('session_id', 'TEXT');
+    await safeAddColumn('scan_type', 'TEXT');
+    await safeAddColumn('timestamp', 'TEXT');
+    attendanceSchemaEnsured = true;
   } catch (e) {
     console.error("Error ensuring attendance_logs schema", e);
   }
@@ -184,11 +197,26 @@ export async function ensureAttendanceSchema() {
 export async function logAttendance(studentId: string, classId: string, type: string = 'Manual'): Promise<void> {
   await ensureAttendanceSchema();
   try {
-    const id = `att_${Date.now()}`;
-    await executeWithRetry(
-      "INSERT INTO attendance_logs (id, batch_id, class_id, student_id, join_time, duration_minutes, attendance_type, status) VALUES (?, ?, ?, ?, ?, 60, ?, 'Present')",
-      [id, classId, classId, studentId, new Date().toISOString(), type]
+    const existing = await executeWithRetry(
+      `SELECT id FROM attendance_logs 
+       WHERE (student_id = ? OR LOWER(student_id) = LOWER(?) OR student_id = (SELECT email FROM users WHERE id = ?) OR student_id = (SELECT id FROM users WHERE LOWER(email) = LOWER(?)))
+         AND (class_id = ? OR batch_id = ?) 
+       LIMIT 1`,
+      [studentId, studentId, studentId, studentId, classId, classId]
     );
+
+    if (existing.rows.length > 0) {
+      await executeWithRetry(
+        "UPDATE attendance_logs SET status = 'Present', duration_minutes = 60, attendance_type = ?, join_time = ? WHERE id = ?",
+        [type, new Date().toISOString(), existing.rows[0].id]
+      );
+    } else {
+      const id = `att_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+      await executeWithRetry(
+        "INSERT INTO attendance_logs (id, batch_id, class_id, student_id, join_time, duration_minutes, attendance_type, status) VALUES (?, ?, ?, ?, ?, 60, ?, 'Present')",
+        [id, classId, classId, studentId, new Date().toISOString(), type]
+      );
+    }
   } catch (e) {
     console.error("Failed to log attendance", e);
     throw e;
@@ -202,8 +230,11 @@ export async function logOnlineAttendancePing(studentId: string, classId: string
     const statusStr = isPresent ? 'Present' : 'Pending';
 
     const checkRes = await executeWithRetry(
-      "SELECT id, duration_minutes FROM attendance_logs WHERE student_id = ? AND (batch_id = ? OR class_id = ?) LIMIT 1",
-      [studentId, classId, classId]
+      `SELECT id, duration_minutes FROM attendance_logs 
+       WHERE (student_id = ? OR LOWER(student_id) = LOWER(?) OR student_id = (SELECT email FROM users WHERE id = ?) OR student_id = (SELECT id FROM users WHERE LOWER(email) = LOWER(?)))
+         AND (batch_id = ? OR class_id = ?) 
+       LIMIT 1`,
+      [studentId, studentId, studentId, studentId, classId, classId]
     );
 
     if (checkRes.rows.length > 0) {
@@ -216,7 +247,7 @@ export async function logOnlineAttendancePing(studentId: string, classId: string
       );
       return { markedPresent: maxDuration >= 5, durationMinutes: maxDuration };
     } else {
-      const id = `att_on_${Date.now()}`;
+      const id = `att_on_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
       await executeWithRetry(
         "INSERT INTO attendance_logs (id, batch_id, class_id, student_id, join_time, duration_minutes, attendance_type, status) VALUES (?, ?, ?, ?, ?, ?, 'Online', ?)",
         [id, batchId, classId, studentId, new Date().toISOString(), durationMinutes, statusStr]
@@ -232,11 +263,26 @@ export async function logOnlineAttendancePing(studentId: string, classId: string
 export async function logQRAttendance(studentId: string, classId: string): Promise<boolean> {
   await ensureAttendanceSchema();
   try {
-    const id = `att_qr_${Date.now()}`;
-    await executeWithRetry(
-      "INSERT INTO attendance_logs (id, batch_id, class_id, student_id, join_time, duration_minutes, attendance_type, status) VALUES (?, ?, ?, ?, ?, 60, 'Offline_QR', 'Present')",
-      [id, classId, classId, studentId, new Date().toISOString()]
+    const existing = await executeWithRetry(
+      `SELECT id FROM attendance_logs 
+       WHERE (student_id = ? OR LOWER(student_id) = LOWER(?) OR student_id = (SELECT email FROM users WHERE id = ?) OR student_id = (SELECT id FROM users WHERE LOWER(email) = LOWER(?)))
+         AND (class_id = ? OR batch_id = ?) 
+       LIMIT 1`,
+      [studentId, studentId, studentId, studentId, classId, classId]
     );
+
+    if (existing.rows.length > 0) {
+      await executeWithRetry(
+        "UPDATE attendance_logs SET status = 'Present', duration_minutes = 60, attendance_type = 'Offline_QR', join_time = ? WHERE id = ?",
+        [new Date().toISOString(), existing.rows[0].id]
+      );
+    } else {
+      const id = `att_qr_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+      await executeWithRetry(
+        "INSERT INTO attendance_logs (id, batch_id, class_id, student_id, join_time, duration_minutes, attendance_type, status) VALUES (?, ?, ?, ?, ?, 60, 'Offline_QR', 'Present')",
+        [id, classId, classId, studentId, new Date().toISOString()]
+      );
+    }
     return true;
   } catch (e) {
     console.error("Failed to log QR attendance", e);
@@ -247,8 +293,10 @@ export async function logQRAttendance(studentId: string, classId: string): Promi
 export async function removeAttendance(studentId: string, classId: string): Promise<void> {
   try {
     await executeWithRetry(
-      "DELETE FROM attendance_logs WHERE student_id = ? AND (batch_id = ? OR class_id = ?)",
-      [studentId, classId, classId]
+      `DELETE FROM attendance_logs 
+       WHERE (student_id = ? OR LOWER(student_id) = LOWER(?) OR student_id = (SELECT email FROM users WHERE id = ?) OR student_id = (SELECT id FROM users WHERE LOWER(email) = LOWER(?)))
+         AND (batch_id = ? OR class_id = ?)`,
+      [studentId, studentId, studentId, studentId, classId, classId]
     );
   } catch (e) {
     console.error("Failed to remove attendance", e);

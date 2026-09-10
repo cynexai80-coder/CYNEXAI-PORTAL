@@ -19,6 +19,8 @@ import {
 } from '../../lib/api/teacher';
 import { getAllBatches, BatchItem } from '../../lib/api/batches';
 import { getCoursesFull } from '../../lib/api/cms';
+import { getManagerStudents } from '../../lib/api/student';
+import { getUsers } from '../../lib/api/users';
 import { generateQRAttendance, QRCodeResult } from '../../lib/api/ux';
 import { QRCodeSVG } from 'qrcode.react';
 
@@ -76,8 +78,8 @@ export default function AttendanceSystem() {
     try {
       setSyncing(true);
       const [logs, matrixData] = await Promise.all([
-        getLiveAttendance(classId || 'default', batchName),
-        getAllAttendanceLogsMatrix()
+        getLiveAttendance(classId || 'default', batchName).catch(() => []),
+        getAllAttendanceLogsMatrix().catch(() => [])
       ]);
       setLiveLogs(logs || []);
       setMatrixLogs(matrixData || []);
@@ -96,11 +98,12 @@ export default function AttendanceSystem() {
     async function initData() {
       try {
         setLoading(true);
-        const [batchList, primaryClass, classList, usersModule, matrixLogsData, coursesData] = await Promise.all([
+        const [batchList, primaryClass, classList, managerStudents, allUsers, matrixLogsData, coursesData] = await Promise.all([
           getAllBatches().catch(() => []),
           getActiveLiveClass(userId || 'teacher').catch(() => null),
           getAllAvailableClasses().catch(() => []),
-          import('../../lib/api/users').catch(() => null),
+          getManagerStudents().catch(() => []),
+          getUsers().catch(() => []),
           getAllAttendanceLogsMatrix().catch(() => []),
           getCoursesFull().catch(() => ({ courses: [], modules: [], classes: [] }))
         ]);
@@ -116,20 +119,27 @@ export default function AttendanceSystem() {
         setMatrixLogs(matrixLogsData || []);
         setCourses(coursesData?.courses || []);
 
-        // Load all students
-        if (usersModule) {
-          const allUsers = await usersModule.getUsers().catch(() => []);
-          if (isMounted) {
-            const studentUsers = (allUsers || []).filter((u: any) => 
-              !u.role || u.role.toLowerCase() === 'student' || u.student_code || u.batch_number || u.classes_attended_json
-            );
+        // Load all students: prefer manager students from Turso DB
+        let loadedStudents: any[] = [];
+        if (managerStudents && managerStudents.length > 0) {
+          const usersByEmail = new Map((allUsers || []).map((u: any) => [u.email?.toLowerCase(), u]));
+          loadedStudents = managerStudents.map((s: any) => {
+            const u = usersByEmail.get(s.email?.toLowerCase()) || usersByEmail.get(s.portal_login_email?.toLowerCase());
+            return {
+              ...s,
+              avatar: u?.avatar || s.avatar,
+              role: u?.role || 'Student',
+              classes_attended_json: s.classes_attended_json || u?.classes_attended_json
+            };
+          });
+        } else if (allUsers && allUsers.length > 0) {
+          loadedStudents = (allUsers || []).filter((u: any) => 
+            !u.role || u.role.toLowerCase() === 'student' || u.student_code || u.batch_number || u.classes_attended_json
+          );
+        }
 
-            if (studentUsers.length > 0) {
-              setStudents(studentUsers);
-            } else {
-              setStudents(DEFAULT_DEMO_STUDENTS);
-            }
-          }
+        if (loadedStudents.length > 0) {
+          setStudents(loadedStudents);
         } else {
           setStudents(DEFAULT_DEMO_STUDENTS);
         }
@@ -215,13 +225,27 @@ export default function AttendanceSystem() {
   const handleToggleMatrixCell = async (studentId: string, classId: string, currentIsPresent: boolean) => {
     try {
       if (currentIsPresent) {
+        setMatrixLogs(prev => prev.filter(l => !(l.student_id === studentId && (l.class_id === classId || l.batch_id === classId))));
+        setLiveLogs(prev => prev.filter(l => !(l.student_id === studentId && (l.class_id === classId || l.batch_id === classId))));
         await removeAttendance(studentId, classId);
       } else {
+        const newLog = {
+          id: `opt_${Date.now()}`,
+          student_id: studentId,
+          class_id: classId,
+          batch_id: classId,
+          status: 'Present',
+          duration_minutes: 60,
+          attendance_type: 'Manual',
+          join_time: new Date().toISOString()
+        };
+        setMatrixLogs(prev => [...prev.filter(l => !(l.student_id === studentId && (l.class_id === classId || l.batch_id === classId))), newLog]);
         await logAttendance(studentId, classId, 'Manual');
       }
       await syncAttendanceFromDB(activeClass?.id || 'default', selectedBatch?.name);
     } catch (e) {
       console.error('Error toggling matrix cell:', e);
+      await syncAttendanceFromDB(activeClass?.id || 'default', selectedBatch?.name);
     }
   };
 
@@ -297,11 +321,21 @@ export default function AttendanceSystem() {
     if (selectedBatchId === 'all' || !selectedBatch) return students;
     const cleanSelectedBatchName = selectedBatch.name.trim().toLowerCase().replace(/\s*\([^)]*\)/g, '');
     const cleanSelectedId = selectedBatch.id.trim().toLowerCase();
+    const extractNum = (str: string) => {
+      const m = str.match(/\d+/);
+      return m ? m[0] : '';
+    };
+    const selectedNum = extractNum(cleanSelectedBatchName) || extractNum(cleanSelectedId);
 
     return students.filter(s => {
-      const studentBatch = (s.batch_number || s.batch_name || s.batch || '').trim().toLowerCase();
-      if (!studentBatch) return true;
+      const studentBatch = String(s.batch_number || s.batch_name || s.batch || '').trim().toLowerCase();
+      if (!studentBatch) return false;
       const cleanStudentBatch = studentBatch.replace(/\s*\([^)]*\)/g, '');
+      const studentNum = extractNum(cleanStudentBatch);
+
+      // Exact numeric match e.g. '1' matches 'Batch 1'
+      if (selectedNum && studentNum && selectedNum === studentNum) return true;
+
       return (
         cleanStudentBatch === cleanSelectedBatchName ||
         cleanStudentBatch.includes(cleanSelectedBatchName) ||
@@ -507,11 +541,19 @@ export default function AttendanceSystem() {
 
   const currentWindowSize = classPageSize === 'all' ? allFlatClasses.length : Number(classPageSize) || 8;
 
+  const backPortalRoute = user?.role === 'CEO' ? '/ceo/dashboard' : user?.role === 'Manager' ? '/manager' : '/teacher';
+  const roleBadgeLabel = user?.role === 'CEO' ? 'CEO Portal' : user?.role === 'Manager' ? 'Manager Portal' : 'Teacher Portal';
+
   return (
     <div className="flex-1 flex flex-col min-w-0 overflow-y-auto pb-32 p-4 md:p-8 bg-erp-background subtle-watermark">
       {/* Top Header Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
+          <div className="flex items-center gap-2 mb-1.5">
+            <span className="text-[10px] font-black uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+              {roleBadgeLabel}
+            </span>
+          </div>
           <h1 className="text-3xl font-display font-bold text-erp-text flex items-center gap-3 whitespace-nowrap">
             <Users className="w-8 h-8 text-blue-500 shrink-0" /> 
             <span>Batch Attendance & Matrix System</span>
@@ -530,7 +572,7 @@ export default function AttendanceSystem() {
             <Download className="w-4 h-4" />
             Export All Classes (CSV)
           </Button>
-          <Button onClick={() => navigate('/teacher')} variant="secondary" size="md">
+          <Button onClick={() => navigate(backPortalRoute)} variant="secondary" size="md">
             Back to Portal
           </Button>
         </div>

@@ -625,8 +625,8 @@ export default function StudentPortal() {
           />
           <MovinKpiCard
             title="Attendance Rate"
-            value="98%"
-            sublabel="Live attendance"
+            value={`${dashData.attendanceRate ?? 0}%`}
+            sublabel={`${dashData.attendedClassesCount ?? 0} classes verified`}
             icon={Calendar}
             iconBg="bg-cyan-50 dark:bg-cyan-950/50"
             iconColor="text-cyan-600 dark:text-cyan-400"

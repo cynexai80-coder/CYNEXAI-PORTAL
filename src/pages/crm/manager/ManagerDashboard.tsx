@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getPendingApprovals, PendingApproval, getManagerAnalytics } from '../../../lib/api/manager';
 import { Card } from '../../../components/ui/erp/Card';
-import { CheckCircle, Users, BookOpen, CheckSquare, Settings, Calendar } from 'lucide-react';
+import { CheckCircle, Users, BookOpen, CheckSquare, Settings, Calendar, GraduationCap } from 'lucide-react';
 
 import { AttendanceButton } from '../../../components/ui/AttendanceButton';
 
@@ -48,25 +48,35 @@ export default function ManagerDashboard() {
         </div>
 
         {/* Action Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          <Card className="flex flex-col items-center justify-center p-6 cursor-pointer hover:bg-erp-hover transition-colors border-erp-border card-hover" onClick={() => navigate('/manager/courses')}>
-            <BookOpen className="w-8 h-8 text-erp-primary mb-2" />
-            <span className="font-bold text-erp-text text-sm text-center">Course CMS</span>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
+          <Card className="flex flex-col items-center justify-center p-5 cursor-pointer hover:bg-erp-hover transition-colors border-erp-border card-hover" onClick={() => navigate('/manager/students')}>
+            <GraduationCap className="w-7 h-7 text-indigo-500 mb-2" />
+            <span className="font-bold text-erp-text text-xs text-center">Students</span>
+          </Card>
+
+          <Card className="flex flex-col items-center justify-center p-5 cursor-pointer hover:bg-erp-hover transition-colors border-erp-border card-hover" onClick={() => navigate('/manager/attendance')}>
+            <Users className="w-7 h-7 text-emerald-500 mb-2" />
+            <span className="font-bold text-erp-text text-xs text-center">Attendance</span>
+          </Card>
+
+          <Card className="flex flex-col items-center justify-center p-5 cursor-pointer hover:bg-erp-hover transition-colors border-erp-border card-hover" onClick={() => navigate('/manager/courses')}>
+            <BookOpen className="w-7 h-7 text-erp-primary mb-2" />
+            <span className="font-bold text-erp-text text-xs text-center">Course CMS</span>
           </Card>
           
-          <Card className="flex flex-col items-center justify-center p-6 cursor-pointer hover:bg-erp-hover transition-colors border-erp-border card-hover" onClick={() => navigate('/manager/timetable')}>
-            <Calendar className="w-8 h-8 text-purple-500 mb-2" />
-            <span className="font-bold text-erp-text text-sm text-center">Timetable</span>
+          <Card className="flex flex-col items-center justify-center p-5 cursor-pointer hover:bg-erp-hover transition-colors border-erp-border card-hover" onClick={() => navigate('/manager/timetable')}>
+            <Calendar className="w-7 h-7 text-purple-500 mb-2" />
+            <span className="font-bold text-erp-text text-xs text-center">Timetable</span>
           </Card>
           
-          <Card className="flex flex-col items-center justify-center p-6 cursor-pointer hover:bg-erp-hover transition-colors border-erp-border card-hover" onClick={() => navigate('/manager/users')}>
-            <Users className="w-8 h-8 text-green-500 mb-2" />
-            <span className="font-bold text-erp-text text-sm text-center">Staff Mgmt</span>
+          <Card className="flex flex-col items-center justify-center p-5 cursor-pointer hover:bg-erp-hover transition-colors border-erp-border card-hover" onClick={() => navigate('/manager/users')}>
+            <Users className="w-7 h-7 text-green-500 mb-2" />
+            <span className="font-bold text-erp-text text-xs text-center">Staff Mgmt</span>
           </Card>
           
-          <Card className="flex flex-col items-center justify-center p-6 cursor-pointer hover:bg-erp-hover transition-colors border-erp-border card-hover" onClick={() => navigate('/manager/tasks')}>
-            <CheckSquare className="w-8 h-8 text-orange-500 mb-2" />
-            <span className="font-bold text-erp-text text-sm text-center">Assign Tasks</span>
+          <Card className="flex flex-col items-center justify-center p-5 cursor-pointer hover:bg-erp-hover transition-colors border-erp-border card-hover" onClick={() => navigate('/manager/tasks')}>
+            <CheckSquare className="w-7 h-7 text-orange-500 mb-2" />
+            <span className="font-bold text-erp-text text-xs text-center">Assign Tasks</span>
           </Card>
         </div>
 
