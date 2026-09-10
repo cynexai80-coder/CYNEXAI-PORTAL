@@ -55,8 +55,8 @@ export const updateCurrentUserSession = (updatedFields: Partial<User>) => {
 };
 
 export const ROLE_DEFAULT_PERMISSIONS: Record<string, string[]> = {
-  'Manager': ['dashboard', 'tasks', 'reports', 'sales', 'sales_history', 'users', 'students', 'courses', 'timetable', 'classes', 'gamification', 'settings'],
-  'Teacher': ['dashboard', 'tasks', 'courses', 'timetable', 'classes', 'ai_voice'],
+  'Manager': ['dashboard', 'tasks', 'reports', 'sales', 'sales_history', 'users', 'students', 'attendance', 'courses', 'timetable', 'classes', 'gamification', 'settings'],
+  'Teacher': ['dashboard', 'tasks', 'attendance', 'courses', 'timetable', 'classes', 'ai_voice'],
   'DM': ['dashboard', 'tasks', 'courses', 'marketing'],
   'Sales/HR': ['dashboard', 'tasks', 'courses', 'sales', 'sales_history'],
 };
@@ -81,6 +81,10 @@ export function getUserPermissions(user: User | null): Record<string, AccessLeve
           val = parsed[k] as AccessLevel;
         }
         res[k] = val;
+      }
+      // Backward compatibility: If attendance is not explicitly defined in permissions_json, inherit classes access
+      if (parsed.attendance === undefined && parsed.classes !== undefined) {
+        res.attendance = res.classes;
       }
       return res;
     } catch {

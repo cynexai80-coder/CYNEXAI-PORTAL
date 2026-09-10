@@ -79,7 +79,9 @@ function PermissionsDropdown({
   const filteredModules = modulesList.filter(mod => 
     !searchQuery.trim() || 
     (mod.label && mod.label.toLowerCase().includes(searchQuery.toLowerCase().trim())) ||
-    (mod.category && mod.category.toLowerCase().includes(searchQuery.toLowerCase().trim()))
+    (mod.category && mod.category.toLowerCase().includes(searchQuery.toLowerCase().trim())) ||
+    (mod.id && mod.id.toLowerCase().includes(searchQuery.toLowerCase().trim())) ||
+    (mod.description && mod.description.toLowerCase().includes(searchQuery.toLowerCase().trim()))
   );
 
   return (
@@ -99,15 +101,15 @@ function PermissionsDropdown({
 
       {isOpen && (
         <div 
-          className="absolute right-0 top-full mt-1.5 z-50 w-72 bg-erp-surface border border-erp-border rounded-xl shadow-2xl p-3 text-left space-y-2 animate-in fade-in zoom-in-95 duration-100"
+          className="absolute right-0 top-full mt-1.5 z-50 w-80 bg-erp-surface border border-erp-border rounded-xl shadow-2xl p-3 text-left space-y-2 animate-in fade-in zoom-in-95 duration-100"
           onClick={(e) => e.stopPropagation()}
         >
-          {/* Search Box matching Image 3 */}
+          {/* Search Box */}
           <div className="relative">
             <Search className="w-3.5 h-3.5 text-erp-text/40 absolute left-2.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder="search"
+              placeholder="Search modules (e.g. Attendance)..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full bg-erp-background border border-erp-border rounded-lg pl-8 pr-3 py-1.5 text-xs text-erp-text focus:outline-none focus:border-blue-500 font-medium"
@@ -115,18 +117,21 @@ function PermissionsDropdown({
             />
           </div>
 
-          {/* List Container matching Image 3 */}
-          <div className="max-h-60 overflow-y-auto space-y-0.5 divide-y divide-erp-border/30 pr-1">
+          {/* List Container */}
+          <div className="max-h-72 overflow-y-auto space-y-0.5 divide-y divide-erp-border/30 pr-1">
             {/* All Option */}
             {!searchQuery && (
-              <label className="flex items-center gap-2.5 px-2 py-1.5 hover:bg-erp-background/80 rounded-lg cursor-pointer text-xs font-bold text-erp-text transition-colors">
-                <input
-                  type="checkbox"
-                  checked={allChecked}
-                  onChange={handleToggleAll}
-                  className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-erp-border cursor-pointer"
-                />
-                <span>All</span>
+              <label className="flex items-center justify-between px-2 py-1.5 hover:bg-erp-background/80 rounded-lg cursor-pointer text-xs font-bold text-erp-text transition-colors">
+                <div className="flex items-center gap-2.5">
+                  <input
+                    type="checkbox"
+                    checked={allChecked}
+                    onChange={handleToggleAll}
+                    className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-erp-border cursor-pointer"
+                  />
+                  <span>All Permissions</span>
+                </div>
+                <span className="text-[10px] text-erp-text/40 font-normal">{modulesList.length} modules</span>
               </label>
             )}
 
@@ -136,15 +141,20 @@ function PermissionsDropdown({
               return (
                 <label 
                   key={mod.id} 
-                  className="flex items-center gap-2.5 px-2 py-1.5 hover:bg-erp-background/80 rounded-lg cursor-pointer text-xs font-medium text-erp-text transition-colors"
+                  className="flex items-center justify-between gap-2 px-2 py-1.5 hover:bg-erp-background/80 rounded-lg cursor-pointer text-xs font-medium text-erp-text transition-colors"
                 >
-                  <input
-                    type="checkbox"
-                    checked={checked}
-                    onChange={() => handleToggleModule(mod.id)}
-                    className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-erp-border cursor-pointer shrink-0"
-                  />
-                  <span className="truncate">{mod.label}</span>
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => handleToggleModule(mod.id)}
+                      className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-erp-border cursor-pointer shrink-0"
+                    />
+                    <span className="truncate text-erp-text font-medium">{mod.label}</span>
+                  </div>
+                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-erp-background text-erp-text/50 uppercase font-semibold shrink-0">
+                    {mod.category}
+                  </span>
                 </label>
               );
             })}
