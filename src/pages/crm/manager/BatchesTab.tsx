@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { client } from '../../../lib/turso';
 import { Button } from '../../../components/ui/erp/Button';
-import { Loader2, Plus, Edit2, X, Save } from 'lucide-react';
+import { Loader2, Plus, Edit2, X, Save, Trash2 } from 'lucide-react';
 import { DataTable } from '../../../components/ui/erp/DataTable';
 
 interface Batch {
@@ -12,7 +12,11 @@ interface Batch {
   primary_teacher_id?: string;
 }
 
-export function BatchesTab() {
+interface BatchesTabProps {
+  onBatchChange?: () => void;
+}
+
+export function BatchesTab({ onBatchChange }: BatchesTabProps) {
   const [batches, setBatches] = useState<Batch[]>([]);
   const [loading, setLoading] = useState(true);
   const [courses, setCourses] = useState<{id: string, title: string}[]>([]);
@@ -84,12 +88,29 @@ export function BatchesTab() {
         });
       }
       setIsModalOpen(false);
-      loadData();
+      await loadData();
+      onBatchChange?.();
     } catch (e) {
       console.error(e);
       alert('Failed to save batch');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleDelete = async (batch: Batch) => {
+    if (!confirm(`Are you sure you want to delete batch "${batch.name}"?`)) return;
+    try {
+      if (!client) return;
+      await client.execute({
+        sql: "DELETE FROM batches WHERE id = ?",
+        args: [batch.id]
+      });
+      await loadData();
+      onBatchChange?.();
+    } catch (e) {
+      console.error(e);
+      alert('Failed to delete batch');
     }
   };
 
@@ -111,7 +132,14 @@ export function BatchesTab() {
             { key: 'course_id', header: 'Course', render: (r) => courses.find(c => c.id === r.course_id || c.title === r.course_id)?.title || r.course_id },
             { key: 'module_progress_json', header: 'Module Progress (JSON)', render: (r) => <pre className="text-xs text-erp-text/70">{r.module_progress_json}</pre> },
             { key: 'actions', header: 'Actions', render: (r) => (
-              <Button variant="ghost" onClick={() => openModal(r as Batch)}><Edit2 className="w-4 h-4" /></Button>
+              <div className="flex items-center gap-1">
+                <Button variant="ghost" className="p-1.5 h-auto text-indigo-400 hover:text-indigo-300" onClick={() => openModal(r as Batch)} title="Edit Batch">
+                  <Edit2 className="w-4 h-4" />
+                </Button>
+                <Button variant="ghost" className="p-1.5 h-auto text-red-400 hover:text-red-300 hover:bg-red-500/10" onClick={() => handleDelete(r as Batch)} title="Delete Batch">
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              </div>
             )}
           ]}
           data={batches}

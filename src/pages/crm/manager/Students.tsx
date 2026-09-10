@@ -59,6 +59,7 @@ export default function StudentsPage() {
   const [batchFilter, setBatchFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [courses, setCourses] = useState<string[]>([]);
+  const [courseObjects, setCourseObjects] = useState<{ id: string; title: string }[]>([]);
   const [batches, setBatches] = useState<{id: string, name: string, course_id: string, module_progress_json: string}[]>([]);
   
   // Details Panel
@@ -124,7 +125,7 @@ export default function StudentsPage() {
           email: r.email, 
           phone: r.phone,
           course: r.course, 
-          batch_number: r.batch_number ? (String(r.batch_number).toLowerCase().startsWith('batch') ? String(r.batch_number) : `Batch ${r.batch_number}`) : '', 
+          batch_number: r.batch_number ? String(r.batch_number).trim() : '', 
           status: r.status || 'Active',
           joining_date: r.joining_date, 
           portal_login_email: r.portal_login_email,
@@ -206,10 +207,15 @@ export default function StudentsPage() {
     setStudents(data);
 
     try {
-      const coursesList = await cachedQuery('courses_title_list', async () => {
-        const cRes = await client?.execute({ sql: `SELECT title FROM courses ORDER BY title`, args: [] }).catch(() => ({ rows: [] }));
-        return (cRes?.rows || []).map((r: any) => r.title).filter(Boolean);
-      }, 5 * 60 * 1000) || [];
+      const [coursesRes, batchesRes] = await Promise.all([
+        client?.execute({ sql: `SELECT id, title FROM courses ORDER BY title`, args: [] }).catch(() => ({ rows: [] })),
+        client?.execute({ sql: `SELECT id, name, course_id, module_progress_json, primary_teacher_id FROM batches ORDER BY name ASC`, args: [] }).catch(() => ({ rows: [] }))
+      ]);
+
+      const coursesObjList = ((coursesRes?.rows || []) as unknown as { id: string; title: string }[]).filter(c => c && c.title);
+      setCourseObjects(coursesObjList);
+
+      const dbBatches = ((batchesRes?.rows || []) as unknown as { id: string; name: string; course_id: string; module_progress_json: string }[]).filter(b => b && b.name);
 
       const statsRes = await client?.execute({ sql: `SELECT course, batch_number, COUNT(*) as cnt FROM students WHERE (approval_status = 'Approved' OR approval_status IS NULL) GROUP BY course, batch_number`, args: [] }).catch(() => ({ rows: [] }));
       
@@ -230,7 +236,7 @@ export default function StudentsPage() {
       setStudentStats(finalStats);
 
       const allCourseNames = new Set<string>();
-      coursesList.forEach((c: string) => allCourseNames.add(c));
+      coursesObjList.forEach(c => allCourseNames.add(c.title));
       finalStats.forEach(st => { if (st.course) allCourseNames.add(st.course); });
       data.forEach(s => { if (s.course) allCourseNames.add(s.course); });
 
@@ -239,35 +245,56 @@ export default function StudentsPage() {
       }
       setCourses(Array.from(allCourseNames));
 
-      const allBatchNames = new Set<string>();
-      finalStats.forEach(st => {
-        if (st.batch_number) {
-          const norm = String(st.batch_number).toLowerCase().startsWith('batch') 
-            ? String(st.batch_number) 
-            : `Batch ${st.batch_number}`;
-          allBatchNames.add(norm);
+      // Build unified batch list from DB batches + any student batch numbers
+      const finalBatchesMap = new Map<string, { id: string; name: string; course_id: string; module_progress_json: string }>();
+
+      // 1. Add DB batches from batches table
+      dbBatches.forEach(b => {
+        const bName = String(b.name || '').trim();
+        if (bName) {
+          finalBatchesMap.set(bName.toLowerCase(), {
+            id: b.id,
+            name: bName,
+            course_id: b.course_id || '',
+            module_progress_json: b.module_progress_json || '{}'
+          });
         }
       });
-      data.forEach(st => {
-        if (st.batch_number) {
-          const norm = String(st.batch_number).toLowerCase().startsWith('batch') 
-            ? String(st.batch_number) 
-            : `Batch ${st.batch_number}`;
-          allBatchNames.add(norm);
+
+      // 2. Add distinct student batches if not already in DB batches
+      const checkAndAddBatch = (rawBatchName: string, courseName?: string) => {
+        if (!rawBatchName) return;
+        const trimmed = String(rawBatchName).trim();
+        if (!trimmed) return;
+        const lower = trimmed.toLowerCase();
+        const cleanLower = lower.replace(/^batch\s*/i, '');
+        if (!finalBatchesMap.has(lower) && !finalBatchesMap.has(cleanLower) && !finalBatchesMap.has(`batch ${cleanLower}`)) {
+          finalBatchesMap.set(lower, {
+            id: `batch_stu_${finalBatchesMap.size + 1}`,
+            name: trimmed,
+            course_id: courseName || '',
+            module_progress_json: '{}'
+          });
         }
-      });
-      if (allBatchNames.size === 0) {
-        ['Batch 1', 'Batch 2', 'Batch 3', 'Batch 4', 'Batch 5'].forEach(b => allBatchNames.add(b));
+      };
+
+      finalStats.forEach(st => checkAndAddBatch(st.batch_number, st.course));
+      data.forEach(st => checkAndAddBatch(st.batch_number, st.course));
+
+      if (finalBatchesMap.size === 0) {
+        ['1', '2', '3', '4', '5'].forEach(b => {
+          finalBatchesMap.set(b.toLowerCase(), {
+            id: `batch_${b}`,
+            name: b,
+            course_id: '',
+            module_progress_json: '{}'
+          });
+        });
       }
 
-      const sortedBatchList = Array.from(allBatchNames).sort((a, b) => 
-        a.localeCompare(b, undefined, { numeric: true })
-      ).map((bName, idx) => ({
-        id: `batch_${idx + 1}`,
-        name: bName,
-        course_id: '',
-        module_progress_json: '{}'
-      }));
+      const sortedBatchList = Array.from(finalBatchesMap.values()).sort((a, b) =>
+        a.name.localeCompare(b.name, undefined, { numeric: true })
+      );
 
       setBatches(sortedBatchList);
     } catch (e) {
@@ -337,6 +364,30 @@ export default function StudentsPage() {
     reader.readAsDataURL(file);
   };
 
+  const isBatchMatchingCourse = (batchCourseId: string | undefined, selectedCourse: string) => {
+    if (!selectedCourse) return true;
+    if (!batchCourseId) return true;
+
+    const normSelected = selectedCourse.trim().toLowerCase();
+    const normBatch = batchCourseId.trim().toLowerCase();
+
+    if (normBatch === normSelected) return true;
+
+    const courseObj = courseObjects.find(c => c.title.toLowerCase() === normSelected || c.id.toLowerCase() === normSelected);
+    if (courseObj) {
+      if (courseObj.id.toLowerCase() === normBatch || courseObj.title.toLowerCase() === normBatch) return true;
+    }
+
+    const batchCourseObj = courseObjects.find(c => c.id.toLowerCase() === normBatch || c.title.toLowerCase() === normBatch);
+    if (batchCourseObj) {
+      if (batchCourseObj.id.toLowerCase() === normSelected || batchCourseObj.title.toLowerCase() === normSelected) return true;
+    }
+
+    if (normSelected.includes(normBatch) || normBatch.includes(normSelected)) return true;
+
+    return false;
+  };
+
   const handleEditStudent = async (stu: any) => {
     setEditStudentId(stu.id);
     setName(stu.name || '');
@@ -344,7 +395,15 @@ export default function StudentsPage() {
     setPassword('');
     setStuPhone(stu.phone || '');
     setStuCourse(stu.course || '');
-    setStuBatch(stu.batch_number || '');
+    
+    const rawBatch = (stu.batch_number || '').trim();
+    const matchedBatch = batches.find(b => 
+      b.name.toLowerCase() === rawBatch.toLowerCase() ||
+      b.name.toLowerCase() === rawBatch.toLowerCase().replace(/^batch\s*/i, '') ||
+      rawBatch.toLowerCase() === b.name.toLowerCase().replace(/^batch\s*/i, '')
+    );
+    setStuBatch(matchedBatch ? matchedBatch.name : rawBatch);
+    setIsCustomBatchMode(false);
     setStatus(stu.status || 'Active');
     
     // Fetch full student profile and user password
@@ -675,7 +734,7 @@ export default function StudentsPage() {
         )}
 
         {activeTab === 'batches' && (
-          <BatchesTab />
+          <BatchesTab onBatchChange={loadData} />
         )}
       </div>
 
@@ -821,10 +880,29 @@ export default function StudentsPage() {
                           }}
                         >
                           <option value="">Select or type new batch</option>
-                          {batches.filter(b => !stuCourse || !b.course_id || b.course_id === stuCourse || b.name.toLowerCase().includes(stuCourse.toLowerCase())).map(b => (
-                            <option key={b.id} value={b.name}>{b.name}</option>
-                          ))}
-                          {stuBatch && !batches.some(b => b.name === stuBatch) && (
+                          {(() => {
+                            const matching = batches.filter(b => isBatchMatchingCourse(b.course_id, stuCourse));
+                            const other = batches.filter(b => !isBatchMatchingCourse(b.course_id, stuCourse));
+                            return (
+                              <>
+                                {matching.length > 0 && (
+                                  <optgroup label={stuCourse ? `Batches for ${stuCourse}` : 'Available Batches'}>
+                                    {matching.map(b => (
+                                      <option key={b.id} value={b.name}>{b.name}</option>
+                                    ))}
+                                  </optgroup>
+                                )}
+                                {other.length > 0 && (
+                                  <optgroup label="Other Batches">
+                                    {other.map(b => (
+                                      <option key={b.id} value={b.name}>{b.name}</option>
+                                    ))}
+                                  </optgroup>
+                                )}
+                              </>
+                            );
+                          })()}
+                          {stuBatch && !batches.some(b => b.name.toLowerCase() === stuBatch.toLowerCase()) && (
                             <option value={stuBatch}>{stuBatch}</option>
                           )}
                           <option value="__custom__">+ Type New Batch...</option>
@@ -904,11 +982,27 @@ export default function StudentsPage() {
                   onChange={e => setApproveForm({...approveForm, batch: e.target.value})} 
                   className={inputCls}
                 >
-                   <option value="">Select Batch</option>
-                   {batches.filter(b => {
+                    <option value="">Select Batch</option>
+                    {(() => {
                       const stu = pendingStudents.find(s => s.id === approvingStudentId);
-                      return !stu || !stu.course || !b.course_id || b.course_id === stu.course || b.name.toLowerCase().includes(stu.course.toLowerCase());
-                   }).map(b => <option key={b.id} value={b.name}>{b.name}</option>)}
+                      const sCourse = stu?.course || '';
+                      const matching = batches.filter(b => isBatchMatchingCourse(b.course_id, sCourse));
+                      const other = batches.filter(b => !isBatchMatchingCourse(b.course_id, sCourse));
+                      return (
+                        <>
+                          {matching.length > 0 && (
+                            <optgroup label={sCourse ? `Batches for ${sCourse}` : 'Available Batches'}>
+                              {matching.map(b => <option key={b.id} value={b.name}>{b.name}</option>)}
+                            </optgroup>
+                          )}
+                          {other.length > 0 && (
+                            <optgroup label="Other Batches">
+                              {other.map(b => <option key={b.id} value={b.name}>{b.name}</option>)}
+                            </optgroup>
+                          )}
+                        </>
+                      );
+                    })()}
                 </select>
               </div>
             </div>
