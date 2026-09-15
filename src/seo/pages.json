@@ -1,0 +1,1282 @@
+{
+  "origin": "https://cynexai.in",
+  "pages": [
+    {
+      "path": "/",
+      "title": "IT & Corporate Training Programs | CynexAI",
+      "description": "Join CynexAI in Hyderabad to learn AI, Machine Learning and emerging tech. Over 500 students trained, 95% job placement and 50+ industry partners.",
+      "ogImage": "https://cynexai.in/assets/cynexai-banner.jpg",
+      "jsonLd": [
+        {
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          "mainEntity": [
+            {
+              "@type": "Question",
+              "name": "What technology courses are available at CynexAI?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "CynexAI offers courses in Data Science & Machine Learning, Artificial Intelligence & Generative AI, Full Stack Java Development, DevOps & Cloud Technologies, Python Programming, Software Testing (Manual + Automation) and SAP."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "How long does each training program last?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Each program is a 6‑month course, with levels ranging from beginner to advanced."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "What is CynexAI’s job placement success rate?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "CynexAI reports a 95% job placement rate for its graduates."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "How many students has CynexAI trained?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "More than 500 students have been trained through CynexAI’s programs."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Does CynexAI collaborate with industry partners?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Yes, CynexAI works with over 50 industry partners to ensure its curriculum is aligned with real‑world needs."
+              }
+            }
+          ]
+        }
+      ],
+      "summary": "CynexAI offers IT and corporate training programs in AI, machine learning, data science, full‑stack Java, DevOps, cloud, Python, software testing, SAP and essential soft skills. The institute provides industry‑aligned curricula, 6‑month intermediate or advanced courses, job placement support with a 95% placement rate, and has trained over 500 students in partnership with more than 50 industry partners.",
+      "faqs": [
+        {
+          "q": "What technology courses are available at CynexAI?",
+          "a": "CynexAI offers courses in Data Science & Machine Learning, Artificial Intelligence & Generative AI, Full Stack Java Development, DevOps & Cloud Technologies, Python Programming, Software Testing (Manual + Automation) and SAP."
+        },
+        {
+          "q": "How long does each training program last?",
+          "a": "Each program is a 6‑month course, with levels ranging from beginner to advanced."
+        },
+        {
+          "q": "What is CynexAI’s job placement success rate?",
+          "a": "CynexAI reports a 95% job placement rate for its graduates."
+        },
+        {
+          "q": "How many students has CynexAI trained?",
+          "a": "More than 500 students have been trained through CynexAI’s programs."
+        },
+        {
+          "q": "Does CynexAI collaborate with industry partners?",
+          "a": "Yes, CynexAI works with over 50 industry partners to ensure its curriculum is aligned with real‑world needs."
+        }
+      ]
+    },
+    {
+      "path": "/courses/pre-registration",
+      "title": "Pre‑Registration for AI Tools Course | CynexAI",
+      "description": "Book your slot with an official token to secure a seat and gain instant lifetime access to CynexAI tools, including AI resume builder. Available in Hyderabad.",
+      "ogImage": "https://cynexai.in/assets/cynexai-banner.jpg",
+      "jsonLd": [
+        {
+          "@context": "https://schema.org",
+          "@type": "BreadcrumbList",
+          "itemListElement": [
+            {
+              "@type": "ListItem",
+              "position": 1,
+              "name": "Home",
+              "item": "https://cynexai.in/"
+            },
+            {
+              "@type": "ListItem",
+              "position": 2,
+              "name": "Pre‑Registration for AI Tools Course",
+              "item": "https://cynexai.in/courses/pre-registration"
+            }
+          ]
+        },
+        {
+          "@context": "https://schema.org",
+          "@type": "Course",
+          "name": "Pre Registration",
+          "description": "Book your slot with an official token to secure a seat and gain instant lifetime access to CynexAI tools, including AI resume builder. Available in Hyderabad.",
+          "url": "https://cynexai.in/courses/pre-registration",
+          "provider": {
+            "@type": "Organization",
+            "name": "CynexAI",
+            "url": "https://cynexai.in/"
+          }
+        },
+        {
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          "mainEntity": [
+            {
+              "@type": "Question",
+              "name": "What does the pre‑registration token give me?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "It guarantees your seat in the upcoming CynexAI course and provides immediate, lifetime access to AI career tools such as the Resume Builder, Mock Interviews, and Smart Chat."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Is the token amount refundable?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "No, the token amount is non‑refundable."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "How long will I have access to the AI tools?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Access is valid for 99,999 days and is described as lifetime, never expiring."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Who should pre‑register for this course?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "It is intended for ambitious professionals, recent graduates, and career changers who want to secure a seat in CynexAI's training program and use AI tools to enhance their job readiness."
+              }
+            }
+          ]
+        }
+      ],
+      "summary": "Pre‑Registration for AI Tools Course is a token‑based slot reservation that guarantees a seat in CynexAI's professional training program and unlocks instant, lifetime access to AI career tools. By paying a non‑refundable ₹2,000 token you receive an AI Resume Builder, AI Mock Interviews with adaptive feedback, and a 24/7 AI Smart Chat, with access valid for 99,999 days.",
+      "faqs": [
+        {
+          "q": "What does the pre‑registration token give me?",
+          "a": "It guarantees your seat in the upcoming CynexAI course and provides immediate, lifetime access to AI career tools such as the Resume Builder, Mock Interviews, and Smart Chat."
+        },
+        {
+          "q": "Is the token amount refundable?",
+          "a": "No, the token amount is non‑refundable."
+        },
+        {
+          "q": "How long will I have access to the AI tools?",
+          "a": "Access is valid for 99,999 days and is described as lifetime, never expiring."
+        },
+        {
+          "q": "Who should pre‑register for this course?",
+          "a": "It is intended for ambitious professionals, recent graduates, and career changers who want to secure a seat in CynexAI's training program and use AI tools to enhance their job readiness."
+        }
+      ]
+    },
+    {
+      "path": "/pre-registration",
+      "title": "Course Token Reservation – Secure Your Seat | CynexAI",
+      "description": "Reserve a seat at CynexAI by paying a token and receive unlimited access to our AI platform, tools and resources. Registration is open for Hyderabad learners.",
+      "ogImage": "https://cynexai.in/assets/cynexai-banner.jpg",
+      "jsonLd": [
+        {
+          "@context": "https://schema.org",
+          "@type": "BreadcrumbList",
+          "itemListElement": [
+            {
+              "@type": "ListItem",
+              "position": 1,
+              "name": "Home",
+              "item": "https://cynexai.in/"
+            },
+            {
+              "@type": "ListItem",
+              "position": 2,
+              "name": "Course Token Reservation",
+              "item": "https://cynexai.in/pre-registration"
+            }
+          ]
+        },
+        {
+          "@context": "https://schema.org",
+          "@type": "Course",
+          "name": "Pre Registration",
+          "description": "Reserve a seat at CynexAI by paying a token and receive unlimited access to our AI platform, tools and resources. Registration is open for Hyderabad learners.",
+          "url": "https://cynexai.in/pre-registration",
+          "provider": {
+            "@type": "Organization",
+            "name": "CynexAI",
+            "url": "https://cynexai.in/"
+          }
+        },
+        {
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          "mainEntity": [
+            {
+              "@type": "Question",
+              "name": "Who is this course for?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "It is designed for anyone who wants to book a slot in CynexAI’s professional training program, including ambitious professionals, recent graduates, and career changers."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "How long do I have access?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Access is valid for 99,999 days and is lifetime, never expiring."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Will this be refundable?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "The token amount is non‑refundable."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "What is the token amount?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "The token amount required for pre‑registration is ₹2,000."
+              }
+            }
+          ]
+        }
+      ],
+      "summary": "Course Token Reservation is a pre‑registration service that lets you pay a ₹2,000 non‑refundable token to lock a seat in a CynexAI professional training program and instantly unlock lifetime access to AI career tools such as a resume builder, mock interview platform and 24/7 smart chat. Access remains valid for 99,999 days and never expires.",
+      "faqs": [
+        {
+          "q": "Who is this course for?",
+          "a": "It is designed for anyone who wants to book a slot in CynexAI’s professional training program, including ambitious professionals, recent graduates, and career changers."
+        },
+        {
+          "q": "How long do I have access?",
+          "a": "Access is valid for 99,999 days and is lifetime, never expiring."
+        },
+        {
+          "q": "Will this be refundable?",
+          "a": "The token amount is non‑refundable."
+        },
+        {
+          "q": "What is the token amount?",
+          "a": "The token amount required for pre‑registration is ₹2,000."
+        }
+      ]
+    },
+    {
+      "path": "/webinar",
+      "title": "Live Webinar Portal – Join Expert Sessions | CynexAI",
+      "description": "Access the CynexAI webinar portal to join live sessions with industry experts. Currently no webinars scheduled. Contact us at +91 9966639869, Hyderabad.",
+      "ogImage": "https://cynexai.in/assets/cynexai-banner.jpg",
+      "jsonLd": [
+        {
+          "@context": "https://schema.org",
+          "@type": "BreadcrumbList",
+          "itemListElement": [
+            {
+              "@type": "ListItem",
+              "position": 1,
+              "name": "Home",
+              "item": "https://cynexai.in/"
+            },
+            {
+              "@type": "ListItem",
+              "position": 2,
+              "name": "Live Webinar Portal",
+              "item": "https://cynexai.in/webinar"
+            }
+          ]
+        },
+        {
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          "mainEntity": [
+            {
+              "@type": "Question",
+              "name": "What is the webinar portal?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "The webinar portal is an interactive online platform where CynexAI offers real‑time sessions with industry experts. It is part of CynexAI’s suite of AI and emerging technology training resources."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Are there any webinars scheduled right now?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "No webinar sessions are currently scheduled. The portal will display future sessions when they become available."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "How can I be notified about upcoming webinars?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "You can stay updated by subscribing to CynexAI’s updates or contacting them via phone (+91 9966639869) or email (contact@cynexai.in)."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Where is CynexAI located?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "CynexAI is located at MIG‑215, Rd Number 1, KPHB Phase I, Kukatpally, Hyderabad, Telangana 500072."
+              }
+            }
+          ]
+        }
+      ],
+      "summary": "The Live Webinar Portal is an interactive online platform where CynexAI students can join real‑time sessions with industry experts. Currently, no webinar sessions are scheduled, but the portal serves as a hub for future expert‑led webinars covering AI, machine learning, and other emerging technologies. Interested participants can contact CynexAI at +91 9966639869 or email contact@cynexai.in for updates.",
+      "faqs": [
+        {
+          "q": "What is the webinar portal?",
+          "a": "The webinar portal is an interactive online platform where CynexAI offers real‑time sessions with industry experts. It is part of CynexAI’s suite of AI and emerging technology training resources."
+        },
+        {
+          "q": "Are there any webinars scheduled right now?",
+          "a": "No webinar sessions are currently scheduled. The portal will display future sessions when they become available."
+        },
+        {
+          "q": "How can I be notified about upcoming webinars?",
+          "a": "You can stay updated by subscribing to CynexAI’s updates or contacting them via phone (+91 9966639869) or email (contact@cynexai.in)."
+        },
+        {
+          "q": "Where is CynexAI located?",
+          "a": "CynexAI is located at MIG‑215, Rd Number 1, KPHB Phase I, Kukatpally, Hyderabad, Telangana 500072."
+        }
+      ]
+    },
+    {
+      "path": "/gallery",
+      "title": "Student & Event Photo Gallery | CynexAI",
+      "description": "Browse the CynexAI photo gallery to see class sessions, events and student life in Hyderabad. Images highlight our technology education community and activities.",
+      "ogImage": "https://cynexai.in/assets/cynexai-banner.jpg",
+      "jsonLd": [
+        {
+          "@context": "https://schema.org",
+          "@type": "BreadcrumbList",
+          "itemListElement": [
+            {
+              "@type": "ListItem",
+              "position": 1,
+              "name": "Home",
+              "item": "https://cynexai.in/"
+            },
+            {
+              "@type": "ListItem",
+              "position": 2,
+              "name": "Student & Event Photo Gallery",
+              "item": "https://cynexai.in/gallery"
+            }
+          ]
+        },
+        {
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          "mainEntity": [
+            {
+              "@type": "Question",
+              "name": "What does the photo gallery display?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "The gallery displays photos from CynexAI's classes, events, and student life. It provides a visual glimpse of the institute’s learning environment."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Will new photos be added to the gallery?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Yes, more photos are coming soon. The page indicates that additional images will be added over time."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "How can I contact CynexAI for more information?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "You can contact CynexAI by calling +91 9966639869 or emailing contact@Cynexai.in. The contact details are listed on the gallery page."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Where is CynexAI located?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "CynexAI is located at MIG-215, Rd Number 1, KPHB Phase I, Kukatpally, Hyderabad, Telangana 500072."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "What popular courses does CynexAI offer?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "CynexAI offers popular courses such as Data Science & Machine Learning, Artificial Intelligence & Generative AI, Full Stack Java Development, DevOps & Cloud Technologies, Python Programming, Software Testing (Manual + Automation), and SAP (Data Processing)."
+              }
+            }
+          ]
+        }
+      ],
+      "summary": "The Student & Event Photo Gallery is a visual showcase of moments from CynexAI's classes, events, and student life in Hyderabad. Visitors can explore images that highlight the institute's vibrant learning environment and community. The page notes that more photos will be added soon, and it includes contact details, the institute’s address, and a list of popular AI and technology courses offered.",
+      "faqs": [
+        {
+          "q": "What does the photo gallery display?",
+          "a": "The gallery displays photos from CynexAI's classes, events, and student life. It provides a visual glimpse of the institute’s learning environment."
+        },
+        {
+          "q": "Will new photos be added to the gallery?",
+          "a": "Yes, more photos are coming soon. The page indicates that additional images will be added over time."
+        },
+        {
+          "q": "How can I contact CynexAI for more information?",
+          "a": "You can contact CynexAI by calling +91 9966639869 or emailing contact@Cynexai.in. The contact details are listed on the gallery page."
+        },
+        {
+          "q": "Where is CynexAI located?",
+          "a": "CynexAI is located at MIG-215, Rd Number 1, KPHB Phase I, Kukatpally, Hyderabad, Telangana 500072."
+        },
+        {
+          "q": "What popular courses does CynexAI offer?",
+          "a": "CynexAI offers popular courses such as Data Science & Machine Learning, Artificial Intelligence & Generative AI, Full Stack Java Development, DevOps & Cloud Technologies, Python Programming, Software Testing (Manual + Automation), and SAP (Data Processing)."
+        }
+      ]
+    },
+    {
+      "path": "/blog",
+      "title": "CynexAI Blog – AI & Tech Insights | CynexAI",
+      "description": "Explore AI and tech trends on the CynexAI blog. Access articles, categories, and contact details for the Hyderabad-based IT and corporate training institute.",
+      "ogImage": "https://cynexai.in/assets/cynexai-banner.jpg",
+      "jsonLd": [
+        {
+          "@context": "https://schema.org",
+          "@type": "BreadcrumbList",
+          "itemListElement": [
+            {
+              "@type": "ListItem",
+              "position": 1,
+              "name": "Home",
+              "item": "https://cynexai.in/"
+            },
+            {
+              "@type": "ListItem",
+              "position": 2,
+              "name": "CynexAI Blog",
+              "item": "https://cynexai.in/blog"
+            }
+          ]
+        },
+        {
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          "mainEntity": [
+            {
+              "@type": "Question",
+              "name": "What kind of content does the CynexAI Blog provide?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "The blog provides the latest trends and insights in AI and technology. It covers a range of topics across all categories."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "How can I receive updates when new blog posts are published?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "You can subscribe to get the latest updates on new courses and tech trends. The page includes a subscription option."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Which popular courses are highlighted on the blog page?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "The page lists popular courses such as Data Science & Machine Learning, Artificial Intelligence & Generative AI, Full Stack Java Development, DevOps & Cloud Technologies, Python Programming, Software Testing (Manual + Automation), and SAP (Data Processing)."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Where is CynexAI located?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "CynexAI is located at MIG-215, Rd Number 1, KPHB Phase I, Kukatpally, Hyderabad, Telangana 500072, India."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "How can I contact CynexAI for more information?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "You can contact CynexAI by calling +91 9966639869 or emailing contact@Cynexai.in."
+              }
+            }
+          ]
+        }
+      ],
+      "summary": "CynexAI Blog is a collection of articles that keep readers updated with the latest trends and insights in artificial intelligence and technology. It features content across all categories, highlights popular courses such as Data Science, Machine Learning, Generative AI, Full Stack Java, DevOps, Cloud, Python, Software Testing, and SAP, and offers a subscription option for new updates.",
+      "faqs": [
+        {
+          "q": "What kind of content does the CynexAI Blog provide?",
+          "a": "The blog provides the latest trends and insights in AI and technology. It covers a range of topics across all categories."
+        },
+        {
+          "q": "How can I receive updates when new blog posts are published?",
+          "a": "You can subscribe to get the latest updates on new courses and tech trends. The page includes a subscription option."
+        },
+        {
+          "q": "Which popular courses are highlighted on the blog page?",
+          "a": "The page lists popular courses such as Data Science & Machine Learning, Artificial Intelligence & Generative AI, Full Stack Java Development, DevOps & Cloud Technologies, Python Programming, Software Testing (Manual + Automation), and SAP (Data Processing)."
+        },
+        {
+          "q": "Where is CynexAI located?",
+          "a": "CynexAI is located at MIG-215, Rd Number 1, KPHB Phase I, Kukatpally, Hyderabad, Telangana 500072, India."
+        },
+        {
+          "q": "How can I contact CynexAI for more information?",
+          "a": "You can contact CynexAI by calling +91 9966639869 or emailing contact@Cynexai.in."
+        }
+      ]
+    },
+    {
+      "path": "/course/artificial-intelligence-generative-ai",
+      "title": "Artificial Intelligence & Generative AI Course | CynexAI",
+      "description": "Advanced Artificial Intelligence & Generative AI course in Hyderabad. 6‑month program with 98% placement, 4.8 rating, online & classroom options.",
+      "ogImage": "https://cynexai.in/assets/cynexai-banner.jpg",
+      "jsonLd": [
+        {
+          "@context": "https://schema.org",
+          "@type": "BreadcrumbList",
+          "itemListElement": [
+            {
+              "@type": "ListItem",
+              "position": 1,
+              "name": "Home",
+              "item": "https://cynexai.in/"
+            },
+            {
+              "@type": "ListItem",
+              "position": 2,
+              "name": "Artificial Intelligence & Generative AI Course",
+              "item": "https://cynexai.in/course/artificial-intelligence-generative-ai"
+            }
+          ]
+        },
+        {
+          "@context": "https://schema.org",
+          "@type": "Course",
+          "name": "Artificial Intelligence & Generative AI",
+          "description": "Advanced Artificial Intelligence & Generative AI course in Hyderabad. 6‑month program with 98% placement, 4.8 rating, online & classroom options.",
+          "url": "https://cynexai.in/course/artificial-intelligence-generative-ai",
+          "provider": {
+            "@type": "Organization",
+            "name": "CynexAI",
+            "url": "https://cynexai.in/"
+          }
+        },
+        {
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          "mainEntity": [
+            {
+              "@type": "Question",
+              "name": "What is the duration of the Artificial Intelligence & Generative AI course?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "The course lasts six months. It is delivered as both online and classroom training."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "What placement support does the course provide?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "The program reports a 98% job/internship placement rate. Placement assistance is part of the offering."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "What are the prerequisites for enrolling in this course?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "You need strong Python programming skills, familiarity with basic machine‑learning concepts, and an understanding of linear algebra and calculus."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Which career paths can this course help me pursue?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Graduates can aim for roles such as AI Engineer, Generative AI Specialist, Machine Learning Researcher, Prompt Engineer, or Generative Computer Vision Engineer."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Do I receive a certificate after completing the course?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Yes, a certificate is awarded upon successful completion of the program."
+              }
+            }
+          ]
+        }
+      ],
+      "summary": "CynexAI offers an advanced Artificial Intelligence & Generative AI course that runs for six months in both online and classroom formats in Hyderabad. The program covers neural networks, GANs, VAEs, diffusion models, large language models, and prompt engineering, and includes hands‑on projects, a certificate, and reported 98% job/internship placement. It is designed for learners with strong Python skills and basic machine‑learning knowledge.",
+      "faqs": [
+        {
+          "q": "What is the duration of the Artificial Intelligence & Generative AI course?",
+          "a": "The course lasts six months. It is delivered as both online and classroom training."
+        },
+        {
+          "q": "What placement support does the course provide?",
+          "a": "The program reports a 98% job/internship placement rate. Placement assistance is part of the offering."
+        },
+        {
+          "q": "What are the prerequisites for enrolling in this course?",
+          "a": "You need strong Python programming skills, familiarity with basic machine‑learning concepts, and an understanding of linear algebra and calculus."
+        },
+        {
+          "q": "Which career paths can this course help me pursue?",
+          "a": "Graduates can aim for roles such as AI Engineer, Generative AI Specialist, Machine Learning Researcher, Prompt Engineer, or Generative Computer Vision Engineer."
+        },
+        {
+          "q": "Do I receive a certificate after completing the course?",
+          "a": "Yes, a certificate is awarded upon successful completion of the program."
+        }
+      ]
+    },
+    {
+      "path": "/course/data-science-machine-learning",
+      "title": "Data Science & Machine Learning Course | CynexAI",
+      "description": "Intermediate Data Science & Machine Learning program in Hyderabad. 6‑month course with 95% placement, 4.9 rating, covering data analysis and modeling.",
+      "ogImage": "https://cynexai.in/assets/cynexai-banner.jpg",
+      "jsonLd": [
+        {
+          "@context": "https://schema.org",
+          "@type": "BreadcrumbList",
+          "itemListElement": [
+            {
+              "@type": "ListItem",
+              "position": 1,
+              "name": "Home",
+              "item": "https://cynexai.in/"
+            },
+            {
+              "@type": "ListItem",
+              "position": 2,
+              "name": "Data Science & Machine Learning Course",
+              "item": "https://cynexai.in/course/data-science-machine-learning"
+            }
+          ]
+        },
+        {
+          "@context": "https://schema.org",
+          "@type": "Course",
+          "name": "Data Science & Machine Learning",
+          "description": "Intermediate Data Science & Machine Learning program in Hyderabad. 6‑month course with 95% placement, 4.9 rating, covering data analysis and modeling.",
+          "url": "https://cynexai.in/course/data-science-machine-learning",
+          "provider": {
+            "@type": "Organization",
+            "name": "CynexAI",
+            "url": "https://cynexai.in/"
+          }
+        },
+        {
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          "mainEntity": [
+            {
+              "@type": "Question",
+              "name": "What is the duration of the Data Science & Machine Learning course?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "The course runs for 6 months. It is designed as an intermediate‑level program."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "What prior knowledge do I need before enrolling?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "You need basic programming knowledge (Python preferred) and high‑school‑level mathematics, including algebra and basic calculus. Familiarity with basic statistics concepts is also helpful."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "What career roles can I pursue after completing the course?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Graduates can work as Data Scientists, Machine Learning Engineers, AI/ML Engineers, Data Analysts, or Business Intelligence Developers."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Does CynexAI provide placement assistance?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Yes, the program offers job/internship placement support with a reported 95% placement rate."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Which technical skills will I gain from this program?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "You will learn Python, TensorFlow, Pandas, Scikit‑learn, NumPy, Matplotlib, Jupyter, SQL and Git, among other data‑science tools."
+              }
+            }
+          ]
+        }
+      ],
+      "summary": "Data Science & Machine Learning is a 6‑month intermediate course offered by CynexAI in Hyderabad that teaches end‑to‑end machine‑learning pipelines, deep‑learning models, data visualisation, and AI deployment. The program includes hands‑on labs in Python, TensorFlow, Pandas, Scikit‑learn and more, provides a certificate, and reports a 95% job/internship placement rate with a 4.9 rating.",
+      "faqs": [
+        {
+          "q": "What is the duration of the Data Science & Machine Learning course?",
+          "a": "The course runs for 6 months. It is designed as an intermediate‑level program."
+        },
+        {
+          "q": "What prior knowledge do I need before enrolling?",
+          "a": "You need basic programming knowledge (Python preferred) and high‑school‑level mathematics, including algebra and basic calculus. Familiarity with basic statistics concepts is also helpful."
+        },
+        {
+          "q": "What career roles can I pursue after completing the course?",
+          "a": "Graduates can work as Data Scientists, Machine Learning Engineers, AI/ML Engineers, Data Analysts, or Business Intelligence Developers."
+        },
+        {
+          "q": "Does CynexAI provide placement assistance?",
+          "a": "Yes, the program offers job/internship placement support with a reported 95% placement rate."
+        },
+        {
+          "q": "Which technical skills will I gain from this program?",
+          "a": "You will learn Python, TensorFlow, Pandas, Scikit‑learn, NumPy, Matplotlib, Jupyter, SQL and Git, among other data‑science tools."
+        }
+      ]
+    },
+    {
+      "path": "/course/devops-cloud-technologies",
+      "title": "DevOps & Cloud Technologies | CynexAI",
+      "description": "Learn cloud infrastructure, CI/CD pipelines, and deployment on AWS and Azure with hands‑on training in Hyderabad. 6‑month course, 96% placement, 4.8 rating.",
+      "ogImage": "https://cynexai.in/assets/cynexai-banner.jpg",
+      "jsonLd": [
+        {
+          "@context": "https://schema.org",
+          "@type": "BreadcrumbList",
+          "itemListElement": [
+            {
+              "@type": "ListItem",
+              "position": 1,
+              "name": "Home",
+              "item": "https://cynexai.in/"
+            },
+            {
+              "@type": "ListItem",
+              "position": 2,
+              "name": "DevOps & Cloud Technologies",
+              "item": "https://cynexai.in/course/devops-cloud-technologies"
+            }
+          ]
+        },
+        {
+          "@context": "https://schema.org",
+          "@type": "Course",
+          "name": "DevOps & Cloud Technologies",
+          "description": "Learn cloud infrastructure, CI/CD pipelines, and deployment on AWS and Azure with hands‑on training in Hyderabad. 6‑month course, 96% placement, 4.8 rating.",
+          "url": "https://cynexai.in/course/devops-cloud-technologies",
+          "provider": {
+            "@type": "Organization",
+            "name": "CynexAI",
+            "url": "https://cynexai.in/"
+          }
+        },
+        {
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          "mainEntity": [
+            {
+              "@type": "Question",
+              "name": "What is the duration of the DevOps & Cloud Technologies course?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "The course runs for 6 months. It is offered as an intermediate‑level program."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "What prior knowledge is required before enrolling?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Basic understanding of IT operations, familiarity with command line interfaces, and some programming experience are beneficial. These are listed as prerequisites."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Which cloud platforms and tools are taught in the program?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "The curriculum covers AWS, Azure, GCP, Docker, Kubernetes, Jenkins, GitLab CI, GitHub Actions, Terraform, Ansible, Git, Linux Shell Scripting and monitoring tools like Prometheus, Grafana and ELK Stack. These are included in the course modules."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "What career roles can graduates pursue after completing the course?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Graduates can work as DevOps Engineer, Cloud Engineer, Site Reliability Engineer (SRE), Cloud Architect or Automation Engineer. These are the potential career paths mentioned."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Does the program provide job or internship placement assistance?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Yes, the program offers job/internship placement support with a reported 96% placement rate. This is highlighted in the course description."
+              }
+            }
+          ]
+        }
+      ],
+      "summary": "DevOps & Cloud Technologies is an intermediate 6‑month training program in Hyderabad that teaches cloud infrastructure, CI/CD pipelines and automation using AWS, Azure, Docker, Kubernetes, Terraform and more. The course includes hands‑on labs, a final project, and offers 96% job/internship placement support with a 4.8 rating. Graduates gain skills for roles such as DevOps Engineer, Cloud Engineer, SRE, Cloud Architect or Automation Engineer.",
+      "faqs": [
+        {
+          "q": "What is the duration of the DevOps & Cloud Technologies course?",
+          "a": "The course runs for 6 months. It is offered as an intermediate‑level program."
+        },
+        {
+          "q": "What prior knowledge is required before enrolling?",
+          "a": "Basic understanding of IT operations, familiarity with command line interfaces, and some programming experience are beneficial. These are listed as prerequisites."
+        },
+        {
+          "q": "Which cloud platforms and tools are taught in the program?",
+          "a": "The curriculum covers AWS, Azure, GCP, Docker, Kubernetes, Jenkins, GitLab CI, GitHub Actions, Terraform, Ansible, Git, Linux Shell Scripting and monitoring tools like Prometheus, Grafana and ELK Stack. These are included in the course modules."
+        },
+        {
+          "q": "What career roles can graduates pursue after completing the course?",
+          "a": "Graduates can work as DevOps Engineer, Cloud Engineer, Site Reliability Engineer (SRE), Cloud Architect or Automation Engineer. These are the potential career paths mentioned."
+        },
+        {
+          "q": "Does the program provide job or internship placement assistance?",
+          "a": "Yes, the program offers job/internship placement support with a reported 96% placement rate. This is highlighted in the course description."
+        }
+      ]
+    },
+    {
+      "path": "/course/full-stack-java-development",
+      "title": "Full Stack Java Development | CynexAI",
+      "description": "Become a versatile Java developer with hands‑on training in Hyderabad covering Java, Spring Boot, and modern front‑end tools. 6‑month course, 92% placement, 4.7 rating.",
+      "ogImage": "https://cynexai.in/assets/cynexai-banner.jpg",
+      "jsonLd": [
+        {
+          "@context": "https://schema.org",
+          "@type": "BreadcrumbList",
+          "itemListElement": [
+            {
+              "@type": "ListItem",
+              "position": 1,
+              "name": "Home",
+              "item": "https://cynexai.in/"
+            },
+            {
+              "@type": "ListItem",
+              "position": 2,
+              "name": "Full Stack Java Development",
+              "item": "https://cynexai.in/course/full-stack-java-development"
+            }
+          ]
+        },
+        {
+          "@context": "https://schema.org",
+          "@type": "Course",
+          "name": "Full Stack Java Development",
+          "description": "Become a versatile Java developer with hands‑on training in Hyderabad covering Java, Spring Boot, and modern front‑end tools. 6‑month course, 92% placement, 4.7 rating.",
+          "url": "https://cynexai.in/course/full-stack-java-development",
+          "provider": {
+            "@type": "Organization",
+            "name": "CynexAI",
+            "url": "https://cynexai.in/"
+          }
+        },
+        {
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          "mainEntity": [
+            {
+              "@type": "Question",
+              "name": "What is the duration of the Full Stack Java Development course?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "The program runs for 6 months. It is delivered as an intermediate‑level course in Hyderabad."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "What job placement support does the course provide?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "CynexAI reports a 92 % job/internship placement rate for graduates of the Full Stack Java Development program. Placement assistance is part of the course offering."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "What prior knowledge is required before enrolling?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "You need basic programming knowledge in any language and an understanding of web concepts such as HTTP and client‑server architecture. A willingness to learn both front‑end and back‑end development is also required."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "What certification do I receive after completing the course?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Upon successful completion, you receive a certificate confirming your Full Stack Java Development training."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Which technologies and skills will I learn in this program?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "The curriculum teaches Java core and OOP, data structures, SQL databases, Spring Framework (Core, MVC, Security), Spring Boot microservices, RESTful API development, front‑end development with HTML, CSS, JavaScript and React or Angular, version control with Git, and cloud deployment using platforms like AWS."
+              }
+            }
+          ]
+        }
+      ],
+      "summary": "Full Stack Java Development is a 6‑month intermediate program in Hyderabad that trains you to build robust web applications using Java, Spring Boot, and modern front‑end frameworks such as React or Angular. The curriculum covers core Java, data structures, SQL, Spring MVC, microservices, REST APIs, version control, and cloud deployment, and includes a capstone project. Graduates receive a certificate and benefit from a 92 % job/internship placement rate.",
+      "faqs": [
+        {
+          "q": "What is the duration of the Full Stack Java Development course?",
+          "a": "The program runs for 6 months. It is delivered as an intermediate‑level course in Hyderabad."
+        },
+        {
+          "q": "What job placement support does the course provide?",
+          "a": "CynexAI reports a 92 % job/internship placement rate for graduates of the Full Stack Java Development program. Placement assistance is part of the course offering."
+        },
+        {
+          "q": "What prior knowledge is required before enrolling?",
+          "a": "You need basic programming knowledge in any language and an understanding of web concepts such as HTTP and client‑server architecture. A willingness to learn both front‑end and back‑end development is also required."
+        },
+        {
+          "q": "What certification do I receive after completing the course?",
+          "a": "Upon successful completion, you receive a certificate confirming your Full Stack Java Development training."
+        },
+        {
+          "q": "Which technologies and skills will I learn in this program?",
+          "a": "The curriculum teaches Java core and OOP, data structures, SQL databases, Spring Framework (Core, MVC, Security), Spring Boot microservices, RESTful API development, front‑end development with HTML, CSS, JavaScript and React or Angular, version control with Git, and cloud deployment using platforms like AWS."
+        }
+      ]
+    },
+    {
+      "path": "/course/python-programming",
+      "title": "Python Programming Course | CynexAI",
+      "description": "Master Python fundamentals for data analysis, web development, and automation with beginner‑friendly training in Hyderabad. 6‑month program, 90% placement, 4.7 rating.",
+      "ogImage": "https://cynexai.in/assets/cynexai-banner.jpg",
+      "jsonLd": [
+        {
+          "@context": "https://schema.org",
+          "@type": "BreadcrumbList",
+          "itemListElement": [
+            {
+              "@type": "ListItem",
+              "position": 1,
+              "name": "Home",
+              "item": "https://cynexai.in/"
+            },
+            {
+              "@type": "ListItem",
+              "position": 2,
+              "name": "Python Programming Course",
+              "item": "https://cynexai.in/course/python-programming"
+            }
+          ]
+        },
+        {
+          "@context": "https://schema.org",
+          "@type": "Course",
+          "name": "Python Programming",
+          "description": "Master Python fundamentals for data analysis, web development, and automation with beginner‑friendly training in Hyderabad. 6‑month program, 90% placement, 4.7 rating.",
+          "url": "https://cynexai.in/course/python-programming",
+          "provider": {
+            "@type": "Organization",
+            "name": "CynexAI",
+            "url": "https://cynexai.in/"
+          }
+        },
+        {
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          "mainEntity": [
+            {
+              "@type": "Question",
+              "name": "What is the duration of the Python Programming course?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "The course runs for 6 months. It is structured as a beginner-level program."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Do I need any prior programming experience to enroll?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "No prior programming experience is required; only basic computer literacy is needed."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "What career opportunities are available after completing the course?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Graduates can pursue roles such as Python developer, automation engineer, junior data analyst, web developer (Python), or entry‑level software engineer."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Does the program provide job or internship placement assistance?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Yes, the course offers a 90% job/internship placement rate for its graduates."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "What topics are covered in the curriculum?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "The curriculum includes Python basics, data types, control flow, OOP, file handling, modules, Flask/Django basics, Pandas introduction, automation scripting, and final mini‑projects."
+              }
+            }
+          ]
+        }
+      ],
+      "summary": "Python Programming is a 6‑month beginner course offered by CynexAI in Hyderabad. The program teaches Python fundamentals, data manipulation, basic web development with Flask/Django, and automation scripting, preparing students for roles such as Python developer, automation engineer, junior data analyst, or web developer. It includes a certificate, a 90% job/internship placement rate, and requires only basic computer literacy.",
+      "faqs": [
+        {
+          "q": "What is the duration of the Python Programming course?",
+          "a": "The course runs for 6 months. It is structured as a beginner-level program."
+        },
+        {
+          "q": "Do I need any prior programming experience to enroll?",
+          "a": "No prior programming experience is required; only basic computer literacy is needed."
+        },
+        {
+          "q": "What career opportunities are available after completing the course?",
+          "a": "Graduates can pursue roles such as Python developer, automation engineer, junior data analyst, web developer (Python), or entry‑level software engineer."
+        },
+        {
+          "q": "Does the program provide job or internship placement assistance?",
+          "a": "Yes, the course offers a 90% job/internship placement rate for its graduates."
+        },
+        {
+          "q": "What topics are covered in the curriculum?",
+          "a": "The curriculum includes Python basics, data types, control flow, OOP, file handling, modules, Flask/Django basics, Pandas introduction, automation scripting, and final mini‑projects."
+        }
+      ]
+    },
+    {
+      "path": "/course/sap-data-processing",
+      "title": "SAP Data Processing Training | CynexAI",
+      "description": "Learn SAP ERP modules, business process optimization, and implementation strategies with expert‑led training in Hyderabad. 6‑month course, 94% placement, 4.6 rating.",
+      "ogImage": "https://cynexai.in/assets/cynexai-banner.jpg",
+      "jsonLd": [
+        {
+          "@context": "https://schema.org",
+          "@type": "BreadcrumbList",
+          "itemListElement": [
+            {
+              "@type": "ListItem",
+              "position": 1,
+              "name": "Home",
+              "item": "https://cynexai.in/"
+            },
+            {
+              "@type": "ListItem",
+              "position": 2,
+              "name": "SAP Data Processing Training",
+              "item": "https://cynexai.in/course/sap-data-processing"
+            }
+          ]
+        },
+        {
+          "@context": "https://schema.org",
+          "@type": "Course",
+          "name": "SAP (Systems, Applications, and Products in Data Processing)",
+          "description": "Learn SAP ERP modules, business process optimization, and implementation strategies with expert‑led training in Hyderabad. 6‑month course, 94% placement, 4.6 rating.",
+          "url": "https://cynexai.in/course/sap-data-processing",
+          "provider": {
+            "@type": "Organization",
+            "name": "CynexAI",
+            "url": "https://cynexai.in/"
+          }
+        },
+        {
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          "mainEntity": [
+            {
+              "@type": "Question",
+              "name": "What is the duration of the SAP Data Processing course?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "The SAP Data Processing course runs for 6 months. It is designed as a professional‑level program."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Do I need prior SAP experience to enroll?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "No prior SAP experience is required. A basic understanding of business processes and familiarity with IT systems is beneficial."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "What placement support does the course provide?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "The program offers job/internship placement support with a 94% placement rate. Successful graduates are assisted in finding roles in the SAP ecosystem."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Will I receive a certificate after completing the course?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Yes, a certificate is awarded upon successful completion of the course."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "What career paths can I pursue after finishing the training?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Graduates can pursue roles such as SAP Consultant (functional or technical), SAP Analyst, ERP Specialist, SAP Business Process Analyst, or entry‑level SAP Basis Administrator."
+              }
+            }
+          ]
+        }
+      ],
+      "summary": "SAP Data Processing Training is a professional 6‑month course offered by CynexAI in Hyderabad. It covers SAP modules, ABAP programming, HANA, Fiori, and implementation methodologies, and equips students with skills in SAP HANA, ABAP, Fiori, S/4HANA, and ERP concepts. The program includes a certificate, a 94% job/internship placement rate, and prepares graduates for roles such as SAP Consultant, Analyst, or ERP Specialist.",
+      "faqs": [
+        {
+          "q": "What is the duration of the SAP Data Processing course?",
+          "a": "The SAP Data Processing course runs for 6 months. It is designed as a professional‑level program."
+        },
+        {
+          "q": "Do I need prior SAP experience to enroll?",
+          "a": "No prior SAP experience is required. A basic understanding of business processes and familiarity with IT systems is beneficial."
+        },
+        {
+          "q": "What placement support does the course provide?",
+          "a": "The program offers job/internship placement support with a 94% placement rate. Successful graduates are assisted in finding roles in the SAP ecosystem."
+        },
+        {
+          "q": "Will I receive a certificate after completing the course?",
+          "a": "Yes, a certificate is awarded upon successful completion of the course."
+        },
+        {
+          "q": "What career paths can I pursue after finishing the training?",
+          "a": "Graduates can pursue roles such as SAP Consultant (functional or technical), SAP Analyst, ERP Specialist, SAP Business Process Analyst, or entry‑level SAP Basis Administrator."
+        }
+      ]
+    },
+    {
+      "path": "/course/software-testing-manual-automation",
+      "title": "Software Testing (Manual + Automation) | CynexAI",
+      "description": "Gain manual and automation testing skills with hands‑on labs in KPHB, Hyderabad. 6‑month program prepares you for QA roles, 91% placement, 4.5 rating.",
+      "ogImage": "https://cynexai.in/assets/cynexai-banner.jpg",
+      "jsonLd": [
+        {
+          "@context": "https://schema.org",
+          "@type": "BreadcrumbList",
+          "itemListElement": [
+            {
+              "@type": "ListItem",
+              "position": 1,
+              "name": "Home",
+              "item": "https://cynexai.in/"
+            },
+            {
+              "@type": "ListItem",
+              "position": 2,
+              "name": "Software Testing (Manual + Automation)",
+              "item": "https://cynexai.in/course/software-testing-manual-automation"
+            }
+          ]
+        },
+        {
+          "@context": "https://schema.org",
+          "@type": "Course",
+          "name": "Software Testing (Manual + Automation)",
+          "description": "Gain manual and automation testing skills with hands‑on labs in KPHB, Hyderabad. 6‑month program prepares you for QA roles, 91% placement, 4.5 rating.",
+          "url": "https://cynexai.in/course/software-testing-manual-automation",
+          "provider": {
+            "@type": "Organization",
+            "name": "CynexAI",
+            "url": "https://cynexai.in/"
+          }
+        },
+        {
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          "mainEntity": [
+            {
+              "@type": "Question",
+              "name": "What is the duration of the Software Testing (Manual + Automation) course?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "The course runs for 6 months. It is offered at an intermediate level in KPHB, Hyderabad."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "What topics and tools are covered in the curriculum?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "The curriculum includes manual testing fundamentals, test case design, defect reporting with Jira, Agile testing principles, Selenium WebDriver with Java/Python, TestNG/Pytest frameworks, API testing with Postman/Rest Assured, and performance testing basics using JMeter."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "What are the prerequisites for enrolling in the course?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Applicants need basic computer knowledge and analytical skills; familiarity with web applications is a plus, and no prior coding experience is required for the manual testing portion."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Does the program provide job placement assistance?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Yes, the institute reports a 91% job/internship placement rate for graduates. Placement support is part of the program offering."
+              }
+            }
+          ]
+        }
+      ],
+      "summary": "Software Testing (Manual + Automation) is a 6‑month intermediate course in KPHB, Hyderabad that teaches manual testing, test case design, Selenium, Jira, Agile, API testing, and Java/Python automation, culminating in a certificate and 91% job/internship placement support. The program includes hands‑on labs across 10 modules covering SDLC, STLC, defect management, performance testing basics, and prepares graduates for roles such as QA Engineer, Automation Test Engineer, and Performance Tester.",
+      "faqs": [
+        {
+          "q": "What is the duration of the Software Testing (Manual + Automation) course?",
+          "a": "The course runs for 6 months. It is offered at an intermediate level in KPHB, Hyderabad."
+        },
+        {
+          "q": "What topics and tools are covered in the curriculum?",
+          "a": "The curriculum includes manual testing fundamentals, test case design, defect reporting with Jira, Agile testing principles, Selenium WebDriver with Java/Python, TestNG/Pytest frameworks, API testing with Postman/Rest Assured, and performance testing basics using JMeter."
+        },
+        {
+          "q": "What are the prerequisites for enrolling in the course?",
+          "a": "Applicants need basic computer knowledge and analytical skills; familiarity with web applications is a plus, and no prior coding experience is required for the manual testing portion."
+        },
+        {
+          "q": "Does the program provide job placement assistance?",
+          "a": "Yes, the institute reports a 91% job/internship placement rate for graduates. Placement support is part of the program offering."
+        }
+      ]
+    }
+  ]
+}

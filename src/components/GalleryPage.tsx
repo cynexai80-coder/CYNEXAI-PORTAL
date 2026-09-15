@@ -4,6 +4,15 @@ import { useInView } from 'react-intersection-observer';
 import { ArrowLeft, Image as ImageIcon } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
+// Written by the SEO crawl: what each photo shows, for image search and screen readers.
+const SEO_IMAGE_ALT: Record<string, string> = {
+  "/gallery_images/cynexAiimage.1.jpeg": "Three people stand in an office on a CynexAI placement graphic for Swathi K at Crestonix Global.",
+  "/gallery_images/cynexAi.2.jpeg": "Two men stand in front of a manager's office on a CynexAI placement graphic for Sai Nath at Crestonix.",
+  "/gallery_images/cynexAi.3.jpeg": "A CynexAI placement graphic featuring a portrait of K. Pullaiah, hired as a Software Tester at Persistent Systems.",
+  "/gallery_images/6.png": "A CynexAI placement graphic featuring a portrait of Chandrashekar, hired as a Software Tester at Paramount Software.",
+  "/gallery_images/7.png": "A CynexAI placement graphic featuring a portrait of Sai Nath, hired as a Web Developer at Cognizent.",
+};
+
 // IMPORTANT: The images from your request have been added here.
 // These paths assume the images are located in the `public/gallery_images` folder.
 const galleryImages = [
@@ -79,7 +88,7 @@ const GalleryPage = () => {
               >
                 <img
                   src={imageSrc}
-                  alt={`Gallery Image ${index + 1}`}
+                  alt={SEO_IMAGE_ALT[imageSrc] ?? `Gallery Image ${index + 1}`}
                   className="w-full aspect-[4/3] object-cover transition-transform duration-300 group-hover:scale-105"
                 />
                 <div className="absolute inset-0 bg-background/40 group-hover:bg-background/20 transition-colors duration-300 flex items-center justify-center opacity-0 group-hover:opacity-100">

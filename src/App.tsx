@@ -1,5 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import PageAnswers from './seo/PageAnswers';
+import RouteMeta from './seo/RouteMeta';
 
 // Mock component imports to make the app runnable
 import ScrollToTop from './utils/ScrollToTop';
@@ -144,6 +146,7 @@ const MainLayout = ({ children }: { children: React.ReactNode }) => (
   <div className="min-h-screen bg-primary-900">
     <Header />
     {children}
+    <PageAnswers />
     <Footer />
   </div>
 );
@@ -204,6 +207,7 @@ function App() {
   return (
     <Router>
       <ScrollToTop />
+      <RouteMeta />
       <Routes>
         {/* Assessment Portal */}
         <Route path="/test" element={<TestLogin />} />
