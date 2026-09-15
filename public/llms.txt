@@ -1,0 +1,21 @@
+# CynexAI
+
+> CynexAI is an IT and corporate training institute in Hyderabad offering AI, data science, full‑stack, DevOps, and Python courses with high placement rates and industry partnerships.
+
+## Main pages
+
+- [IT & Corporate Training Institute](https://cynexai.in/): Explore over 500 students trained, a 95% job placement rate, and partnerships with 50+ industry leaders. Join AI, ML and tech programs in Hyderabad.
+- [Webinar Portal – Live Sessions](https://cynexai.in/webinar): Join interactive online webinars with industry experts, access recordings, and connect with peers; contact info and location provided for Hyderabad.
+- [Photo Gallery of CynexAI Classes & Events](https://cynexai.in/gallery): View images from CynexAI's classes, events, and student activities in Hyderabad, illustrating hands‑on technology training and career‑focused learning.
+- [CynexAI Blog – AI, Data Science & Tech News](https://cynexai.in/blog): Read the CynexAI blog from Hyderabad for AI, machine learning, data science and tech insights that match the institute’s industry‑aligned curriculum.
+- [Enroll in CynexAI Course – Secure ₹500 Fee](https://cynexai.in/Enroll): Complete the enrollment form for a CynexAI course in Hyderabad, pay the ₹500 fee through Razorpay, and choose your learning mode like recorded classes.
+
+## Courses
+
+- [Data Science & Machine Learning Course](https://cynexai.in/course/data-science-machine-learning): A 6‑month Data Science & Machine Learning program in Hyderabad covering data analysis, modeling, and AI implementation, with 95% placement and a 4.9 rating.
+- [Artificial Intelligence & Generative AI Course](https://cynexai.in/course/artificial-intelligence-generative-ai): A 6‑month Advanced AI & Generative AI course in Hyderabad covering neural networks and generative models, with 98% placement and a 4.8 rating.
+- [Full Stack Java Development Course](https://cynexai.in/course/full-stack-java-development): Six‑month Full Stack Java Development program in Hyderabad teaching Java, Spring Boot, and modern frontend technologies, with 92% placement and a 4.7 rating.
+- [DevOps & Cloud Technologies Course](https://cynexai.in/course/devops-cloud-technologies): Six‑month DevOps & Cloud Technologies course in Hyderabad covering AWS, Azure, CI/CD pipelines and strategies, with 96% placement and a 4.8 rating.
+- [Python Programming Course](https://cynexai.in/course/python-programming): Six‑month Python Programming course in Hyderabad teaching fundamentals for data analysis, web development, and automation, with 90% placement and a 4.7 rating.
+- [Software Testing (Manual + Automation) Course](https://cynexai.in/course/software-testing-manual-automation): Master software testing with manual and automation frameworks, hands‑on labs, 6‑month placement support, 4.5 rating, in KPHB, Hyderabad.
+- [SAP Data Processing (ERP) Course](https://cynexai.in/course/sap-data-processing): Professional SAP training covering key modules, business process optimization, and implementation strategies, with 6‑month placement support, 4.6 rating, in Hyderabad.
