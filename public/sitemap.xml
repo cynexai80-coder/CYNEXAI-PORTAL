@@ -2,62 +2,67 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://cynexai.in/</loc>
-    <lastmod>2026-09-15</lastmod>
+    <lastmod>2026-09-16</lastmod>
     <priority>1.0</priority>
   </url>
   <url>
     <loc>https://cynexai.in/blog</loc>
-    <lastmod>2026-09-15</lastmod>
-    <priority>0.8</priority>
-  </url>
-  <url>
-    <loc>https://cynexai.in/Enroll</loc>
-    <lastmod>2026-09-15</lastmod>
+    <lastmod>2026-09-16</lastmod>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://cynexai.in/gallery</loc>
-    <lastmod>2026-09-15</lastmod>
+    <lastmod>2026-09-16</lastmod>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://cynexai.in/pre-registration</loc>
+    <lastmod>2026-09-16</lastmod>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://cynexai.in/webinar</loc>
-    <lastmod>2026-09-15</lastmod>
+    <lastmod>2026-09-16</lastmod>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://cynexai.in/course/artificial-intelligence-generative-ai</loc>
-    <lastmod>2026-09-15</lastmod>
+    <lastmod>2026-09-16</lastmod>
     <priority>0.6</priority>
   </url>
   <url>
     <loc>https://cynexai.in/course/data-science-machine-learning</loc>
-    <lastmod>2026-09-15</lastmod>
+    <lastmod>2026-09-16</lastmod>
     <priority>0.6</priority>
   </url>
   <url>
     <loc>https://cynexai.in/course/devops-cloud-technologies</loc>
-    <lastmod>2026-09-15</lastmod>
+    <lastmod>2026-09-16</lastmod>
     <priority>0.6</priority>
   </url>
   <url>
     <loc>https://cynexai.in/course/full-stack-java-development</loc>
-    <lastmod>2026-09-15</lastmod>
+    <lastmod>2026-09-16</lastmod>
     <priority>0.6</priority>
   </url>
   <url>
     <loc>https://cynexai.in/course/python-programming</loc>
-    <lastmod>2026-09-15</lastmod>
+    <lastmod>2026-09-16</lastmod>
     <priority>0.6</priority>
   </url>
   <url>
     <loc>https://cynexai.in/course/sap-data-processing</loc>
-    <lastmod>2026-09-15</lastmod>
+    <lastmod>2026-09-16</lastmod>
     <priority>0.6</priority>
   </url>
   <url>
     <loc>https://cynexai.in/course/software-testing-manual-automation</loc>
-    <lastmod>2026-09-15</lastmod>
+    <lastmod>2026-09-16</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://cynexai.in/courses/pre-registration</loc>
+    <lastmod>2026-09-16</lastmod>
     <priority>0.6</priority>
   </url>
 </urlset>
