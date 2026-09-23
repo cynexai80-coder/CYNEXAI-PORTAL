@@ -1186,17 +1186,57 @@ export async function spendCoins(studentId: string, amount: number): Promise<boo
 
 // ─── Manager Student Management API ──────────────────────────────────────────────
 
-export async function getManagerStudentProgress(): Promise<any[]> {
+export async function getManagerStudentProgress(batchFilter?: string): Promise<any[]> {
   try {
-    const res = await executeWithRetry(`
+    let sql = `
       SELECT 
-        sp.*,
+        COALESCE(sp.id, 'msp_' || s.id) as id,
+        s.id as student_id,
+        COALESCE(sp.course_progress_num, 0) as course_progress_num,
+        COALESCE(sp.course_progress_den, 50) as course_progress_den,
+        CASE WHEN sp.course_progress_den > 0 THEN ROUND((CAST(sp.course_progress_num AS REAL) / sp.course_progress_den) * 100) ELSE COALESCE(sp.course_progress_percentage, 0) END as course_progress_percentage,
+        COALESCE(sp.attendance_num, 0) as attendance_num,
+        COALESCE(sp.attendance_den, 15) as attendance_den,
+        CASE WHEN sp.attendance_den > 0 THEN ROUND((CAST(sp.attendance_num AS REAL) / sp.attendance_den) * 100) ELSE COALESCE(sp.attendance_score, 0) END as attendance_score,
+        COALESCE(sp.quiz_num, 0) as quiz_num,
+        COALESCE(sp.quiz_den, 10) as quiz_den,
+        CASE WHEN sp.quiz_den > 0 THEN ROUND((CAST(sp.quiz_num AS REAL) / sp.quiz_den) * 100) ELSE COALESCE(sp.quiz_score, 0) END as quiz_score,
+        COALESCE(sp.interview_num, 0) as interview_num,
+        COALESCE(sp.interview_den, 5) as interview_den,
+        CASE WHEN sp.interview_den > 0 THEN ROUND((CAST(sp.interview_num AS REAL) / sp.interview_den) * 100) ELSE COALESCE(sp.interview_score, 0) END as interview_score,
+        COALESCE(sp.coding_num, 0) as coding_num,
+        COALESCE(sp.coding_den, 10) as coding_den,
+        CASE WHEN sp.coding_den > 0 THEN ROUND((CAST(sp.coding_num AS REAL) / sp.coding_den) * 100) ELSE COALESCE(sp.coding_test_score, 0) END as coding_test_score,
+        COALESCE(sp.coins_spent, 0) as coins_spent,
+        COALESCE(NULLIF(sp.leaderboard_rank, 0), ROW_NUMBER() OVER (ORDER BY (CASE WHEN sp.course_progress_den > 0 THEN (CAST(sp.course_progress_num AS REAL)/sp.course_progress_den)*100 ELSE sp.course_progress_percentage END) DESC, sp.attendance_score DESC, s.name ASC)) as leaderboard_rank,
+        sp.last_updated,
         COALESCE(s.name, (SELECT name FROM users u WHERE u.email = s.portal_login_email)) as student_name,
-        s.portal_login_email as student_email
-      FROM manager_student_progress sp
-      JOIN students s ON sp.student_id = s.id
-      ORDER BY sp.course_progress_percentage DESC
-    `);
+        s.portal_login_email as student_email,
+        s.batch_number,
+        s.course as student_course,
+        COALESCE(b1.name, b2.name, CASE WHEN s.batch_number IS NOT NULL AND s.batch_number != '' THEN (CASE WHEN s.batch_number LIKE 'Batch%' THEN s.batch_number ELSE 'Batch ' || s.batch_number END) ELSE NULL END, 'Unallocated') as batch_name,
+        COALESCE(b1.id, b2.id, s.batch_number, 'unallocated') as batch_id
+      FROM students s
+      LEFT JOIN manager_student_progress sp ON s.id = sp.student_id
+      LEFT JOIN onboardings o ON s.onboarding_id = o.id
+      LEFT JOIN batches b1 ON (s.batch_number = b1.id OR s.batch_number = b1.name OR ('Batch ' || s.batch_number) = b1.name OR s.batch_number = REPLACE(b1.name, 'Batch ', ''))
+      LEFT JOIN batches b2 ON (o.batch_id = b2.id OR o.batch_id = b2.name OR ('Batch ' || o.batch_id) = b2.name)
+      WHERE (s.approval_status = 'Approved' OR s.approval_status IS NULL)
+    `;
+    const args: any[] = [];
+    if (batchFilter && batchFilter !== 'all') {
+      const clean = batchFilter.replace(/batch[_\s]*/i, '').trim();
+      sql += ` AND (
+        LOWER(TRIM(b1.name)) = LOWER(TRIM(?)) OR 
+        LOWER(TRIM(b2.name)) = LOWER(TRIM(?)) OR 
+        LOWER(TRIM(s.batch_number)) = LOWER(TRIM(?)) OR 
+        LOWER(TRIM(s.batch_number)) = LOWER(TRIM(?))
+      )`;
+      args.push(batchFilter.trim(), batchFilter.trim(), batchFilter.trim(), clean);
+    }
+    sql += ` ORDER BY leaderboard_rank ASC`;
+
+    const res = await executeWithRetry(sql, args);
     return res && res.rows ? res.rows : [];
   } catch (err) {
     console.error("getManagerStudentProgress DB error:", err);
@@ -1211,26 +1251,63 @@ export async function updateManagerStudentProgress(id: string, editForm: any): P
   const int_perc = editForm.interview_den > 0 ? Math.round((editForm.interview_num / editForm.interview_den) * 100) : 0;
   const cod_perc = editForm.coding_den > 0 ? Math.round((editForm.coding_num / editForm.coding_den) * 100) : 0;
 
+  const studentId = editForm.student_id || id.replace(/^msp_/, '');
+
   await executeWithRetry(
-    `UPDATE manager_student_progress SET 
-      course_progress_num = ?, course_progress_den = ?, course_progress_percentage = ?,
-      attendance_num = ?, attendance_den = ?, attendance_score = ?,
-      quiz_num = ?, quiz_den = ?, quiz_score = ?,
-      interview_num = ?, interview_den = ?, interview_score = ?,
-      coding_num = ?, coding_den = ?, coding_test_score = ?,
-      coins_spent = ?, leaderboard_rank = ?,
-      last_updated = CURRENT_TIMESTAMP
-      WHERE id = ?`,
+    `INSERT INTO manager_student_progress (
+      id, student_id,
+      course_progress_num, course_progress_den, course_progress_percentage,
+      attendance_num, attendance_den, attendance_score,
+      quiz_num, quiz_den, quiz_score,
+      interview_num, interview_den, interview_score,
+      coding_num, coding_den, coding_test_score,
+      coins_spent, leaderboard_rank,
+      last_updated
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+    ON CONFLICT(id) DO UPDATE SET 
+      course_progress_num = excluded.course_progress_num,
+      course_progress_den = excluded.course_progress_den,
+      course_progress_percentage = excluded.course_progress_percentage,
+      attendance_num = excluded.attendance_num,
+      attendance_den = excluded.attendance_den,
+      attendance_score = excluded.attendance_score,
+      quiz_num = excluded.quiz_num,
+      quiz_den = excluded.quiz_den,
+      quiz_score = excluded.quiz_score,
+      interview_num = excluded.interview_num,
+      interview_den = excluded.interview_den,
+      interview_score = excluded.interview_score,
+      coding_num = excluded.coding_num,
+      coding_den = excluded.coding_den,
+      coding_test_score = excluded.coding_test_score,
+      coins_spent = excluded.coins_spent,
+      leaderboard_rank = excluded.leaderboard_rank,
+      last_updated = CURRENT_TIMESTAMP`,
     [
+      id, studentId,
       Number(editForm.course_progress_num), Number(editForm.course_progress_den), course_perc,
       Number(editForm.attendance_num), Number(editForm.attendance_den), att_perc,
       Number(editForm.quiz_num), Number(editForm.quiz_den), quiz_perc,
       Number(editForm.interview_num), Number(editForm.interview_den), int_perc,
       Number(editForm.coding_num), Number(editForm.coding_den), cod_perc,
-      Number(editForm.coins_spent), Number(editForm.leaderboard_rank),
-      id
+      Number(editForm.coins_spent), Number(editForm.leaderboard_rank)
     ]
   );
+
+  // If batch reallocation is passed, update students table
+  if (editForm.batch_number !== undefined || editForm.batch_name !== undefined) {
+    const rawBatch = String(editForm.batch_number || editForm.batch_name || '').trim();
+    const cleanNum = rawBatch.replace(/^Batch\s*/i, '');
+    try {
+      await executeWithRetry(
+        `UPDATE students SET batch_number = ? WHERE id = ? OR id = (SELECT student_id FROM manager_student_progress WHERE id = ?)`,
+        [cleanNum, studentId, id]
+      );
+    } catch (e) {
+      console.warn("Failed to update student batch allocation:", e);
+    }
+  }
+
   return true;
 }
 
