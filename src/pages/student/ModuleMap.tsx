@@ -432,8 +432,10 @@ export default function ModuleMap() {
               const isTeacherUnlocked = node.classItem.status === 'unlocked' || node.classItem.status === 'in_progress' || node.classItem.status === 'active' || node.classItem.status === 'completed';
               const isPreviousCompleted = i === 0 || virtualNodes[i - 1].isCompleted;
               let isLockedByBatch = false;
-              if (moduleData?.title && batchProgress && batchProgress[moduleData.title] !== undefined) {
-                 if (i + 1 > batchProgress[moduleData.title]) {
+              if (moduleData?.title && batchProgress) {
+                 const modTitle = moduleData.title.trim();
+                 const batchLimit = batchProgress[modTitle] ?? batchProgress[modTitle.toLowerCase()];
+                 if (batchLimit !== undefined && i + 1 > batchLimit) {
                     isLockedByBatch = true;
                  }
               }

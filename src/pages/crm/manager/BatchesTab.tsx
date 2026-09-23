@@ -1,14 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { client } from '../../../lib/turso';
 import { Button } from '../../../components/ui/erp/Button';
-import { Loader2, Plus, Edit2, X, Save, Trash2 } from 'lucide-react';
+import { Loader2, Plus, Edit2, X, Save, Trash2, Minus, Code2, BookOpen } from 'lucide-react';
 import { DataTable } from '../../../components/ui/erp/DataTable';
+import { parseBatchSubjectProgress, SubjectClassProgress, DEFAULT_DIAGRAM_SUBJECTS } from '../../../lib/api/batches';
 
 interface Batch {
   id: string;
   name: string;
   course_id: string;
   module_progress_json: string; // e.g. {"Python": 5, "SQL": 2}
+  subject_progress_json?: string;
   primary_teacher_id?: string;
 }
 
@@ -25,6 +27,8 @@ export function BatchesTab({ onBatchChange }: BatchesTabProps) {
   const [editId, setEditId] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [courseId, setCourseId] = useState('');
+  const [subjects, setSubjects] = useState<SubjectClassProgress[]>([]);
+  const [showRawJson, setShowRawJson] = useState(false);
   const [progressJson, setProgressJson] = useState('{}');
   const [saving, setSaving] = useState(false);
 
@@ -36,7 +40,7 @@ export function BatchesTab({ onBatchChange }: BatchesTabProps) {
     setLoading(true);
     try {
       if (!client) return;
-      const bRes = await client.execute("SELECT id, name, course_id, module_progress_json, primary_teacher_id FROM batches ORDER BY created_at DESC");
+      const bRes = await client.execute("SELECT id, name, course_id, module_progress_json, subject_progress_json, primary_teacher_id FROM batches ORDER BY created_at DESC");
       setBatches(bRes.rows as unknown as Batch[]);
       
       const cRes = await client.execute("SELECT id, title FROM courses ORDER BY title");
@@ -53,38 +57,84 @@ export function BatchesTab({ onBatchChange }: BatchesTabProps) {
       setEditId(batch.id);
       setName(batch.name || '');
       setCourseId(batch.course_id || '');
+      const parsedSubs = parseBatchSubjectProgress(batch as any);
+      setSubjects(parsedSubs);
       setProgressJson(batch.module_progress_json || '{}');
     } else {
       setEditId(null);
       setName('');
       setCourseId('');
+      setSubjects(DEFAULT_DIAGRAM_SUBJECTS.map(s => ({ ...s })));
       setProgressJson('{}');
     }
+    setShowRawJson(false);
     setIsModalOpen(true);
+  };
+
+  const handleAdjustSubject = (index: number, delta: number) => {
+    setSubjects(prev => prev.map((item, idx) => {
+      if (idx === index) {
+        return { ...item, completed: Math.max(0, item.completed + delta) };
+      }
+      return item;
+    }));
+  };
+
+  const handleAddSubject = () => {
+    const newName = prompt("Enter new subject or module name (e.g. React, Node.js, Generative AI):");
+    if (!newName || !newName.trim()) return;
+    if (subjects.some(s => s.subject.toLowerCase() === newName.trim().toLowerCase())) {
+      alert("Subject already exists in this batch");
+      return;
+    }
+    setSubjects(prev => [...prev, { subject: newName.trim(), completed: 0, total: 10 }]);
+  };
+
+  const handleRemoveSubject = (index: number) => {
+    setSubjects(prev => prev.filter((_, idx) => idx !== index));
   };
 
   const handleSave = async () => {
     if (!name || !courseId) return alert('Name and Course are required');
     
-    // Validate JSON
-    try {
-      JSON.parse(progressJson);
-    } catch {
-      return alert('Invalid JSON in Module Progress');
+    let finalSubjects = subjects;
+    let finalModuleMap: Record<string, number> = {};
+
+    if (showRawJson) {
+      try {
+        finalModuleMap = JSON.parse(progressJson);
+        finalSubjects = Object.entries(finalModuleMap).map(([k, v]) => ({
+          subject: k,
+          completed: Number(v) || 0,
+          total: 10
+        }));
+      } catch {
+        return alert('Invalid JSON in Module Progress');
+      }
+    } else {
+      finalSubjects.forEach(s => {
+        if (s.subject) finalModuleMap[s.subject] = s.completed;
+      });
     }
+
+    const moduleJson = JSON.stringify(finalModuleMap);
+    const subjectJson = JSON.stringify(finalSubjects);
+    const totalCompleted = finalSubjects.reduce((acc, s) => acc + (s.completed || 0), 0);
+    const totalClasses = finalSubjects.reduce((acc, s) => acc + (s.total || 10), 0);
+    const pct = totalClasses > 0 ? Math.min(100, Math.round((totalCompleted / totalClasses) * 100)) : 0;
 
     setSaving(true);
     try {
       if (editId) {
         await client!.execute({
-          sql: "UPDATE batches SET name = ?, course_id = ?, module_progress_json = ? WHERE id = ?",
-          args: [name, courseId, progressJson, editId]
+          sql: "UPDATE batches SET name = ?, course_id = ?, module_progress_json = ?, subject_progress_json = ?, completion_percentage = ? WHERE id = ?",
+          args: [name, courseId, moduleJson, subjectJson, pct, editId]
         });
       } else {
         const newId = `batch_${Date.now()}`;
         await client!.execute({
-          sql: "INSERT INTO batches (id, name, course_id, module_progress_json, created_at) VALUES (?, ?, ?, ?, ?)",
-          args: [newId, name, courseId, progressJson, new Date().toISOString()]
+          sql: "INSERT INTO batches (id, name, course_id, module_progress_json, subject_progress_json, completion_percentage, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+          args: [newId, name, courseId, moduleJson, subjectJson, pct, new Date().toISOString()]
         });
       }
       setIsModalOpen(false);
@@ -130,7 +180,27 @@ export function BatchesTab({ onBatchChange }: BatchesTabProps) {
           columns={[
             { key: 'name', header: 'Batch Name' },
             { key: 'course_id', header: 'Course', render: (r) => courses.find(c => c.id === r.course_id || c.title === r.course_id)?.title || r.course_id },
-            { key: 'module_progress_json', header: 'Module Progress (JSON)', render: (r) => <pre className="text-xs text-erp-text/70">{r.module_progress_json}</pre> },
+            { 
+              key: 'module_progress_json', 
+              header: 'Module Progress & Pacing', 
+              render: (r) => {
+                const list = parseBatchSubjectProgress(r as any);
+                return (
+                  <div className="flex flex-wrap gap-1.5 items-center max-w-md py-1">
+                    {list.map(s => (
+                      <span 
+                        key={s.subject} 
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20"
+                      >
+                        <span>{s.subject}:</span>
+                        <span className="font-black">{s.completed}</span>
+                        <span className="text-[10px] text-erp-text/40">/{s.total || 10}</span>
+                      </span>
+                    ))}
+                  </div>
+                );
+              } 
+            },
             { key: 'actions', header: 'Actions', render: (r) => (
               <div className="flex items-center gap-1">
                 <Button variant="ghost" className="p-1.5 h-auto text-indigo-400 hover:text-indigo-300" onClick={() => openModal(r as Batch)} title="Edit Batch">
@@ -148,10 +218,10 @@ export function BatchesTab({ onBatchChange }: BatchesTabProps) {
 
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-erp-surface border border-erp-border rounded-2xl w-full max-w-lg shadow-2xl p-5">
+          <div className="bg-erp-surface border border-erp-border rounded-2xl w-full max-w-lg shadow-2xl p-5 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
               <h2 className="font-bold text-xl">{editId ? 'Edit Batch' : 'Create Batch'}</h2>
-              <button onClick={() => setIsModalOpen(false)}><X className="w-6 h-6" /></button>
+              <button onClick={() => setIsModalOpen(false)} className="p-1 rounded-lg hover:bg-erp-border text-erp-text/60"><X className="w-5 h-5" /></button>
             </div>
             <div className="space-y-4">
               <div>
@@ -165,16 +235,90 @@ export function BatchesTab({ onBatchChange }: BatchesTabProps) {
                   {courses.map(c => <option key={c.id} value={c.title}>{c.title}</option>)}
                 </select>
               </div>
-              <div>
-                <label className="block text-xs font-bold mb-1">Module Progress (JSON)</label>
-                <textarea 
-                  value={progressJson} 
-                  onChange={e => setProgressJson(e.target.value)} 
-                  className={inputCls + " font-mono text-xs"} 
-                  rows={5}
-                  placeholder='{"Python": 5, "SQL": 2}'
-                />
-                <p className="text-[10px] text-erp-text/50 mt-1">Defines the current live class number for each module to lock future content.</p>
+
+              {/* Module Progress Visual Stepper List */}
+              <div className="space-y-2 pt-2 border-t border-erp-border">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <BookOpen className="w-4 h-4 text-blue-500" />
+                    <label className="text-xs font-bold text-erp-text">Module Progress & Class Pacing</label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowRawJson(!showRawJson)}
+                      className="text-[11px] font-bold text-erp-text/60 hover:text-erp-primary flex items-center gap-1"
+                    >
+                      <Code2 className="w-3 h-3" /> {showRawJson ? 'Visual Mode' : 'Raw JSON'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleAddSubject}
+                      className="text-[11px] font-bold px-2 py-0.5 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 hover:bg-blue-500/20 flex items-center gap-1"
+                    >
+                      <Plus className="w-3 h-3" /> Add Module
+                    </button>
+                  </div>
+                </div>
+
+                {showRawJson ? (
+                  <div>
+                    <textarea 
+                      value={progressJson} 
+                      onChange={e => setProgressJson(e.target.value)} 
+                      className={inputCls + " font-mono text-xs"} 
+                      rows={5}
+                      placeholder='{"Python": 5, "SQL": 2}'
+                    />
+                    <p className="text-[10px] text-erp-text/50 mt-1">JSON dictionary mapping subject titles to completed class numbers.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                    {subjects.map((s, idx) => (
+                      <div 
+                        key={idx} 
+                        className="flex items-center justify-between p-2.5 rounded-xl bg-erp-background border border-erp-border"
+                      >
+                        <div className="min-w-0 pr-2">
+                          <span className="text-xs font-bold text-erp-text block truncate">{s.subject}</span>
+                          <span className="text-[10px] text-erp-text/50">Total classes: {s.total || 10}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1 bg-erp-surface border border-erp-border rounded-lg p-0.5">
+                            <button
+                              type="button"
+                              onClick={() => handleAdjustSubject(idx, -1)}
+                              disabled={s.completed <= 0}
+                              className="w-6 h-6 rounded bg-erp-background hover:bg-red-500/10 hover:text-red-500 disabled:opacity-40 flex items-center justify-center font-bold text-xs"
+                            >
+                              <Minus className="w-3 h-3" />
+                            </button>
+                            <span className="text-xs font-black px-2 min-w-[20px] text-center text-erp-text">{s.completed}</span>
+                            <button
+                              type="button"
+                              onClick={() => handleAdjustSubject(idx, 1)}
+                              className="w-6 h-6 rounded bg-erp-background hover:bg-emerald-500/10 hover:text-emerald-500 flex items-center justify-center font-bold text-xs"
+                            >
+                              <Plus className="w-3 h-3" />
+                            </button>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveSubject(idx)}
+                            className="p-1 text-red-400 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors"
+                            title="Remove subject"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                    {subjects.length === 0 && (
+                      <p className="text-xs text-erp-text/50 text-center py-3">No modules configured for this batch yet.</p>
+                    )}
+                  </div>
+                )}
+                <p className="text-[10px] text-erp-text/50">Defines current live class pace. Unlocks corresponding classes in student portals.</p>
               </div>
             </div>
             <div className="mt-6 flex justify-end gap-2">

@@ -1,10 +1,11 @@
 import { useState, useEffect, useMemo } from 'react';
 import { getManagerStudentProgress, updateManagerStudentProgress } from '../../../lib/api/student';
-import { getAllBatches, BatchItem } from '../../../lib/api/batches';
+import { getAllBatches, BatchItem, parseBatchSubjectProgress, updateBatchSubjectProgress, DEFAULT_DIAGRAM_SUBJECTS } from '../../../lib/api/batches';
 import {
   TrendingUp, Users, BookOpen, Award, Edit2, Save, X, Search,
   Filter, Sparkles, Trophy, Coins, CheckCircle, RefreshCw, ChevronDown,
-  Layers, Check, AlertCircle, ArrowUpDown, GraduationCap, LayoutGrid
+  Layers, Check, AlertCircle, ArrowUpDown, GraduationCap, LayoutGrid,
+  Plus, Minus, BookMarked, PlayCircle, BarChart3, Zap
 } from 'lucide-react';
 import studentSeedData from '../../../../students_seed.json';
 
@@ -203,6 +204,121 @@ export default function StudentProgress() {
 
     return list;
   }, [progressData, dbBatches]);
+
+  // Active batch object matching the selectedBatch filter
+  const activeBatchRecord = useMemo(() => {
+    if (selectedBatch === 'all') return null;
+    const clean = selectedBatch.trim().toLowerCase();
+    const cleanNum = clean.replace(/^batch\s*/i, '');
+    const found = dbBatches.find(b => {
+      const bName = (b.name || '').trim().toLowerCase();
+      const bClean = bName.replace(/^batch\s*/i, '');
+      return b.id === selectedBatch || bName === clean || bClean === cleanNum || bName === `batch ${cleanNum}`;
+    });
+    if (found) return found;
+
+    const initialMap: Record<string, number> = {};
+    DEFAULT_DIAGRAM_SUBJECTS.forEach(s => { initialMap[s.subject] = s.completed; });
+
+    // Fallback batch representation if not yet registered in batches table
+    return {
+      id: `batch_${cleanNum || selectedBatch.toLowerCase().replace(/\s+/g, '_')}`,
+      name: selectedBatch,
+      status: 'Active' as const,
+      subject_progress_json: JSON.stringify(DEFAULT_DIAGRAM_SUBJECTS),
+      module_progress_json: JSON.stringify(initialMap),
+      completion_percentage: 42
+    };
+  }, [selectedBatch, dbBatches]);
+
+  const handleAdjustBatchSubject = async (batchItem: BatchItem, subjectName: string, delta: number) => {
+    const currentList = parseBatchSubjectProgress(batchItem);
+    const updated = currentList.map(s => {
+      if (s.subject === subjectName) {
+        const newCount = Math.max(0, s.completed + delta);
+        return { ...s, completed: newCount };
+      }
+      return s;
+    });
+
+    const totalCompleted = updated.reduce((acc, item) => acc + item.completed, 0);
+    const totalClasses = updated.reduce((acc, item) => acc + (item.total || 10), 0);
+    const pct = totalClasses > 0 ? Math.min(100, Math.round((totalCompleted / totalClasses) * 100)) : 0;
+    
+    const moduleMap: Record<string, number> = {};
+    updated.forEach(s => { moduleMap[s.subject] = s.completed; });
+
+    // Optimistic local state update in dbBatches
+    setDbBatches(prev => {
+      const exists = prev.some(b => b.id === batchItem.id || b.name === batchItem.name);
+      if (exists) {
+        return prev.map(b => {
+          if (b.id === batchItem.id || b.name === batchItem.name) {
+            return {
+              ...b,
+              subject_progress_json: JSON.stringify(updated),
+              module_progress_json: JSON.stringify(moduleMap),
+              completion_percentage: pct
+            };
+          }
+          return b;
+        });
+      } else {
+        return [...prev, {
+          ...batchItem,
+          subject_progress_json: JSON.stringify(updated),
+          module_progress_json: JSON.stringify(moduleMap),
+          completion_percentage: pct
+        }];
+      }
+    });
+
+    await updateBatchSubjectProgress(batchItem.id, updated);
+  };
+
+  const handleAddSubjectToBatch = async (batchItem: BatchItem) => {
+    const subjectName = prompt(`Enter new module or subject name for ${batchItem.name} (e.g. React, Node.js, Generative AI):`);
+    if (!subjectName || !subjectName.trim()) return;
+    const currentList = parseBatchSubjectProgress(batchItem);
+    if (currentList.some(s => s.subject.toLowerCase().trim() === subjectName.toLowerCase().trim())) {
+      alert("This subject already exists for this batch.");
+      return;
+    }
+    const updated = [...currentList, { subject: subjectName.trim(), completed: 0, total: 10 }];
+
+    const totalCompleted = updated.reduce((acc, item) => acc + item.completed, 0);
+    const totalClasses = updated.reduce((acc, item) => acc + (item.total || 10), 0);
+    const pct = totalClasses > 0 ? Math.min(100, Math.round((totalCompleted / totalClasses) * 100)) : 0;
+    
+    const moduleMap: Record<string, number> = {};
+    updated.forEach(s => { moduleMap[s.subject] = s.completed; });
+
+    setDbBatches(prev => {
+      const exists = prev.some(b => b.id === batchItem.id || b.name === batchItem.name);
+      if (exists) {
+        return prev.map(b => {
+          if (b.id === batchItem.id || b.name === batchItem.name) {
+            return {
+              ...b,
+              subject_progress_json: JSON.stringify(updated),
+              module_progress_json: JSON.stringify(moduleMap),
+              completion_percentage: pct
+            };
+          }
+          return b;
+        });
+      } else {
+        return [...prev, {
+          ...batchItem,
+          subject_progress_json: JSON.stringify(updated),
+          module_progress_json: JSON.stringify(moduleMap),
+          completion_percentage: pct
+        }];
+      }
+    });
+
+    await updateBatchSubjectProgress(batchItem.id, updated);
+  };
 
   // Distinct courses for course filter
   const availableCourses = useMemo(() => {
@@ -510,6 +626,109 @@ export default function StudentProgress() {
           })}
         </div>
       </div>
+
+      {/* ── Batch Module Progress & Live Class Pacing Section ───────────────── */}
+      {selectedBatch !== 'all' && activeBatchRecord && (
+        <div className="bg-white dark:bg-black border-2 border-erp-border rounded-2xl p-4 sm:p-5 shadow-sm space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-erp-border/60">
+            <div className="flex items-center gap-3 flex-wrap">
+              <div className="p-2 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                <BookMarked className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-sm sm:text-base font-black text-erp-text">
+                    {selectedBatch} — Module Progress & Class Pacing
+                  </h3>
+                  <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/30">
+                    Live Pacing
+                  </span>
+                </div>
+                <p className="text-xs text-erp-text/60 mt-0.5 flex items-center gap-1.5">
+                  <Zap className="w-3.5 h-3.5 text-amber-500 inline shrink-0" />
+                  <span>Advancing classes here instantly unlocks lessons and materials in student portals for <strong>{selectedBatch}</strong>.</span>
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 self-start sm:self-auto">
+              <button
+                onClick={() => handleAddSubjectToBatch(activeBatchRecord)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-500/30 text-xs font-bold transition-all shadow-xs"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Add Module</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Modules Stepper Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {parseBatchSubjectProgress(activeBatchRecord).map((subjectItem) => {
+              const comp = subjectItem.completed || 0;
+              const total = subjectItem.total || 10;
+              const pct = total > 0 ? Math.min(100, Math.round((comp / total) * 100)) : 0;
+
+              return (
+                <div
+                  key={subjectItem.subject}
+                  className="p-3.5 bg-erp-surface/60 hover:bg-erp-surface border border-erp-border rounded-xl flex flex-col justify-between gap-2.5 transition-all group hover:border-blue-500/40"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-black text-erp-text truncate group-hover:text-blue-500 transition-colors" title={subjectItem.subject}>
+                      {subjectItem.subject}
+                    </span>
+                    <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+                      Class {comp} / {total}
+                    </span>
+                  </div>
+
+                  {/* Stepper Controls */}
+                  <div className="flex items-center justify-between bg-erp-background border border-erp-border/80 rounded-lg p-1">
+                    <button
+                      onClick={() => handleAdjustBatchSubject(activeBatchRecord, subjectItem.subject, -1)}
+                      disabled={comp <= 0}
+                      className="w-7 h-7 rounded-md bg-erp-surface hover:bg-red-500/10 hover:text-red-500 disabled:opacity-40 disabled:hover:bg-erp-surface disabled:hover:text-inherit flex items-center justify-center font-bold text-xs text-erp-text transition-all"
+                      title={`Roll back class for ${subjectItem.subject}`}
+                    >
+                      <Minus className="w-3.5 h-3.5" />
+                    </button>
+
+                    <div className="flex flex-col items-center">
+                      <span className="text-xs font-black text-erp-text leading-tight">{comp}</span>
+                      <span className="text-[9px] font-semibold text-erp-text/40">completed</span>
+                    </div>
+
+                    <button
+                      onClick={() => handleAdjustBatchSubject(activeBatchRecord, subjectItem.subject, 1)}
+                      className="w-7 h-7 rounded-md bg-erp-surface hover:bg-emerald-500/10 hover:text-emerald-500 flex items-center justify-center font-bold text-xs text-erp-text transition-all"
+                      title={`Advance completed class for ${subjectItem.subject}`}
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+
+                  {/* Mini progress track */}
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-[10px] font-bold text-erp-text/50">
+                      <span>Pacing</span>
+                      <span>{pct}%</span>
+                    </div>
+                    <div className="h-1.5 w-full bg-erp-border/60 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all duration-300 ${
+                          pct >= 100 ? 'bg-emerald-500' : pct >= 50 ? 'bg-blue-500' : 'bg-indigo-500'
+                        }`}
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* ── Stats Cards Grid (4 Columns, Scoped to Selected Batch) ─────────── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

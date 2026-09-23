@@ -23,6 +23,7 @@ import {
   findUserIdByEmail, updateStudentLeadStatus
 } from '../../../lib/api/student';
 import studentSeedData from '../../../../students_seed.json';
+import { useSearchParams } from 'react-router-dom';
 
 
 
@@ -44,10 +45,13 @@ function Badge({ color, children }: { color: string; children: React.ReactNode }
 }
 
 export default function StudentsPage() {
+  const [searchParams] = useSearchParams();
+  const tabParam = searchParams.get('tab');
+  const initialTab = tabParam === 'batches' ? 'batches' : (tabParam === 'pending' ? 'pending' : 'students');
   const me = getCurrentUser();
   const isReadOnly = me ? getModuleAccess(me, 'students') === 'view' : false;
 
-  const [activeTab, setActiveTab] = useState<'students' | 'pending' | 'batches'>('students');
+  const [activeTab, setActiveTab] = useState<'students' | 'pending' | 'batches'>(initialTab);
 
   // Students Data
   const [students, setStudents] = useState<StudentStat[]>([]);

@@ -23,6 +23,7 @@ export interface BatchItem {
   mode?: 'Online' | 'Offline' | 'Hybrid';
   created_at?: string;
   subject_progress_json?: string;
+  module_progress_json?: string;
   completion_percentage?: number;
 }
 
@@ -93,6 +94,7 @@ export async function ensureBatchesTable() {
     await safeAddColumn('status', "TEXT DEFAULT 'Active'");
     await safeAddColumn('mode', "TEXT DEFAULT 'Hybrid'");
     await safeAddColumn('subject_progress_json', 'TEXT');
+    await safeAddColumn('module_progress_json', 'TEXT');
     await safeAddColumn('completion_percentage', 'INTEGER DEFAULT 0');
   } catch (e) {
     console.error("Error ensuring batches table:", e);
@@ -121,11 +123,33 @@ export function parseBatchSubjectProgress(batch: BatchItem): SubjectClassProgres
       console.error("Failed to parse subject_progress_json", e);
     }
   }
+
+  // Fallback to module_progress_json if subject_progress_json is absent or empty
+  if (batch.module_progress_json) {
+    try {
+      const parsed = JSON.parse(batch.module_progress_json);
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        const keys = Object.keys(parsed);
+        if (keys.length > 0) {
+          return keys.map(k => ({
+            subject: k,
+            completed: Math.max(0, Number(parsed[k]) || 0),
+            total: 10
+          }));
+        }
+      }
+    } catch (e) {
+      console.error("Failed to parse module_progress_json in parseBatchSubjectProgress", e);
+    }
+  }
+
   return DEFAULT_DIAGRAM_SUBJECTS.map(s => ({ ...s }));
 }
 
 /**
  * Updates batch subject progress and completion percentage in Turso DB.
+ * Synchronizes BOTH subject_progress_json (array) and module_progress_json (map)
+ * to maintain complete compatibility across all student and manager views.
  */
 export async function updateBatchSubjectProgress(batchId: string, subjectProgress: SubjectClassProgress[]): Promise<boolean> {
   if (!isTursoConfigured || !client) return false;
@@ -138,12 +162,22 @@ export async function updateBatchSubjectProgress(batchId: string, subjectProgres
     const completionPercentage = totalClasses > 0 ? Math.min(100, Math.round((totalCompleted / totalClasses) * 100)) : 0;
     const jsonStr = JSON.stringify(subjectProgress);
 
+    // Build key-value dictionary for module_progress_json
+    const moduleMap: Record<string, number> = {};
+    subjectProgress.forEach(s => {
+      if (s.subject) {
+        moduleMap[s.subject] = s.completed;
+      }
+    });
+    const moduleProgressJson = JSON.stringify(moduleMap);
+
     await executeWithRetry(`
       UPDATE batches SET
         subject_progress_json = ?,
+        module_progress_json = ?,
         completion_percentage = ?
       WHERE id = ?
-    `, [jsonStr, completionPercentage, batchId]);
+    `, [jsonStr, moduleProgressJson, completionPercentage, batchId]);
 
     // Also update matching module classes status to 'completed' so student portal shows "Watch Class"
     for (const sp of subjectProgress) {
@@ -205,6 +239,7 @@ export async function getAllBatches(): Promise<BatchItem[]> {
           b.mode,
           b.created_at,
           b.subject_progress_json,
+          b.module_progress_json,
           b.completion_percentage,
           u.name as primary_teacher_name,
           c.title as course_name
@@ -258,6 +293,7 @@ export async function getAllBatches(): Promise<BatchItem[]> {
           mode: (row.mode as any) || 'Hybrid',
           created_at: row.created_at ? String(row.created_at) : undefined,
           subject_progress_json: row.subject_progress_json ? String(row.subject_progress_json) : undefined,
+          module_progress_json: row.module_progress_json ? String(row.module_progress_json) : undefined,
           completion_percentage: row.completion_percentage !== undefined && row.completion_percentage !== null ? Number(row.completion_percentage) : undefined,
         };
       });
@@ -279,11 +315,16 @@ export async function createBatch(data: Partial<BatchItem>): Promise<BatchItem |
   const id = data.id || `batch_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
   const now = new Date().toISOString();
 
+  const initialSubjects = data.subject_progress_json || JSON.stringify(DEFAULT_DIAGRAM_SUBJECTS);
+  const initialMap: Record<string, number> = {};
+  DEFAULT_DIAGRAM_SUBJECTS.forEach(s => { initialMap[s.subject] = s.completed; });
+  const initialModuleMap = data.module_progress_json || JSON.stringify(initialMap);
+
   try {
     await executeWithRetry(`
       INSERT INTO batches (
-        id, name, course_id, primary_teacher_id, start_date, timing, schedule_pattern, max_students, current_enrolled, status, mode, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        id, name, course_id, primary_teacher_id, start_date, timing, schedule_pattern, max_students, current_enrolled, status, mode, created_at, subject_progress_json, module_progress_json, completion_percentage
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, [
       id,
       data.name || 'New Batch',
@@ -296,7 +337,10 @@ export async function createBatch(data: Partial<BatchItem>): Promise<BatchItem |
       Number(data.current_enrolled) || 0,
       data.status || 'Active',
       data.mode || 'Hybrid',
-      now
+      now,
+      initialSubjects,
+      initialModuleMap,
+      data.completion_percentage || 0
     ]);
 
     invalidateQueryCache('batches_all');
@@ -312,7 +356,10 @@ export async function createBatch(data: Partial<BatchItem>): Promise<BatchItem |
       current_enrolled: Number(data.current_enrolled) || 0,
       status: (data.status as any) || 'Active',
       mode: (data.mode as any) || 'Hybrid',
-      created_at: now
+      created_at: now,
+      subject_progress_json: initialSubjects,
+      module_progress_json: initialModuleMap,
+      completion_percentage: data.completion_percentage || 0
     };
   } catch (e) {
     console.error("Error creating batch:", e);
@@ -337,7 +384,9 @@ export async function updateBatch(id: string, data: Partial<BatchItem>): Promise
         schedule_pattern = ?,
         max_students = ?,
         status = ?,
-        mode = ?
+        mode = ?,
+        subject_progress_json = COALESCE(?, subject_progress_json),
+        module_progress_json = COALESCE(?, module_progress_json)
       WHERE id = ?
     `, [
       data.name,
@@ -349,6 +398,8 @@ export async function updateBatch(id: string, data: Partial<BatchItem>): Promise
       Number(data.max_students) || 30,
       data.status || 'Active',
       data.mode || 'Hybrid',
+      data.subject_progress_json || null,
+      data.module_progress_json || null,
       id
     ]);
     invalidateQueryCache('batches_all');

@@ -531,14 +531,50 @@ export async function getModuleMapData(moduleId: string, studentId: string) {
     });
 
     const studentRes = await executeWithRetry("SELECT batch_number FROM students WHERE id = ? OR portal_login_email = (SELECT email FROM users WHERE id = ?) LIMIT 1", [studentId, studentId]);
-    let batchProgress = null;
+    let batchProgress: Record<string, number> | null = null;
     if (studentRes.rows.length > 0 && studentRes.rows[0].batch_number) {
-        const batchNum = studentRes.rows[0].batch_number;
-        const batchRes = await executeWithRetry("SELECT module_progress_json FROM batches WHERE id = ? OR name = ? LIMIT 1", [batchNum, batchNum]);
-        if (batchRes.rows.length > 0 && batchRes.rows[0].module_progress_json) {
-           try {
-             batchProgress = JSON.parse(batchRes.rows[0].module_progress_json as string);
-           } catch(e) {}
+        const batchNum = String(studentRes.rows[0].batch_number).trim();
+        const batchRes = await executeWithRetry(
+          "SELECT module_progress_json, subject_progress_json FROM batches WHERE id = ? OR name = ? OR LOWER(name) = LOWER(?) OR ('Batch ' || id) = ? OR ('Batch ' || name) = ? LIMIT 1",
+          [batchNum, batchNum, batchNum, batchNum, batchNum]
+        );
+        if (batchRes.rows.length > 0) {
+           const row = batchRes.rows[0];
+           const progressMap: Record<string, number> = {};
+
+           // Parse module_progress_json (dictionary)
+           if (row.module_progress_json) {
+              try {
+                const parsed = JSON.parse(row.module_progress_json as string);
+                if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+                  Object.entries(parsed).forEach(([k, v]) => {
+                    const num = Number(v) || 0;
+                    progressMap[k] = num;
+                    progressMap[k.toLowerCase().trim()] = num;
+                  });
+                }
+              } catch(e) {}
+           }
+
+           // Parse subject_progress_json (array)
+           if (row.subject_progress_json) {
+              try {
+                const parsed = JSON.parse(row.subject_progress_json as string);
+                if (Array.isArray(parsed)) {
+                  parsed.forEach((item: any) => {
+                    if (item && item.subject) {
+                      const num = Number(item.completed) || 0;
+                      progressMap[item.subject] = num;
+                      progressMap[item.subject.toLowerCase().trim()] = num;
+                    }
+                  });
+                }
+              } catch(e) {}
+           }
+
+           if (Object.keys(progressMap).length > 0) {
+             batchProgress = progressMap;
+           }
         }
     }
 
