@@ -23,8 +23,21 @@ export const getCoursesFull = async () => {
     const coursesRes = await executeWithRetry('SELECT * FROM courses ORDER BY created_at DESC');
     const modulesRes = await executeWithRetry('SELECT m.*, cmm.course_id, cmm.order_index FROM modules m JOIN course_module_mapping cmm ON m.id = cmm.module_id ORDER BY cmm.order_index ASC');
     const classesRes = await executeWithRetry('SELECT * FROM classes ORDER BY order_index ASC');
-    return { courses: coursesRes.rows, modules: modulesRes.rows, classes: classesRes.rows };
-  }, 5 * 60 * 1000); // 5 minutes TTL
+    const completionStatsRes = await executeWithRetry(`
+      SELECT c.module_id, COUNT(DISTINCT sp.student_id) as active_students, COUNT(sp.id) as total_completions
+      FROM student_progress sp
+      JOIN classes c ON c.id = sp.lesson_id
+      WHERE sp.completed = 1
+      GROUP BY c.module_id
+    `).catch(() => ({ rows: [] }));
+
+    return { 
+      courses: coursesRes.rows, 
+      modules: modulesRes.rows, 
+      classes: classesRes.rows,
+      completionStats: completionStatsRes.rows 
+    };
+  }, 2 * 60 * 1000); // 2 minutes TTL
 };
 
 export const createCourse = async (id: string, title: string, description: string, instructorId: string, status: string) => {
@@ -134,6 +147,9 @@ export const updateClassOrder = async (classList: { id: string; order_index: num
 
 export const updateClassAccessStatus = async (classId: string, status: string) => {
   await executeWithRetry('UPDATE classes SET status = ? WHERE id = ?', [status, classId]);
+  cacheInvalidate('module_details_');
+  cacheInvalidate('cms_courses');
+  cacheInvalidate(`class_${classId}`);
 };
 
 // ---- Class Editor ----

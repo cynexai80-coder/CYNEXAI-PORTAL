@@ -7,7 +7,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { getCurrentUser } from '../../lib/auth';
 import { client } from '../../lib/turso';
 import { getCoursesFull, createCourse, createModule, updateCoursePitch, getAllModules, mapExistingModuleToCourse, deleteCourse, removeModuleFromCourse, updateModuleInstructor, getTeachersList } from '../../lib/api/cms';
-import { getAllBatches } from '../../lib/api/batches';
+import { getAllBatches, parseBatchSubjectProgress } from '../../lib/api/batches';
 
 export default function CourseManagement() {
   const navigate = useNavigate();
@@ -84,10 +84,18 @@ export default function CourseManagement() {
       return;
     }
     try {
-      const [{ courses: cRows, modules: mRows, classes: clsRows }, allBatchesList] = await Promise.all([
+      const [{ courses: cRows, modules: mRows, classes: clsRows, completionStats }, allBatchesList] = await Promise.all([
         getCoursesFull(),
         getAllBatches().catch(() => [])
       ]);
+
+      const completionStatsMap = new Map<string, { active_students: number; total_completions: number }>();
+      (completionStats || []).forEach((st: any) => {
+        completionStatsMap.set(st.module_id, {
+          active_students: Number(st.active_students) || 0,
+          total_completions: Number(st.total_completions) || 0
+        });
+      });
 
       const courseMap = new Map();
       
@@ -106,11 +114,24 @@ export default function CourseManagement() {
           sales_pitch_script: c.sales_pitch_script || '',
           studentsEnrolled: totalEnrolledInCourse,
           modules: [],
-          batches: matchingBatches.map(b => ({
-            name: b.name,
-            students: b.current_enrolled || 0,
-            progress: b.status === 'Completed' ? 100 : b.status === 'Active' ? 50 : 0
-          }))
+          batches: matchingBatches.map(b => {
+            let prog = 0;
+            if (b.status === 'Completed') {
+              prog = 100;
+            } else if (typeof b.completion_percentage === 'number' && b.completion_percentage > 0) {
+              prog = b.completion_percentage;
+            } else {
+              const subs = parseBatchSubjectProgress(b);
+              const comp = subs.reduce((acc, s) => acc + (s.completed || 0), 0);
+              const tot = subs.reduce((acc, s) => acc + (s.total || 0), 0);
+              prog = tot > 0 ? Math.round((comp / tot) * 100) : 0;
+            }
+            return {
+              name: b.name,
+              students: b.current_enrolled || 0,
+              progress: prog
+            };
+          })
         });
       });
 
@@ -127,16 +148,39 @@ export default function CourseManagement() {
       });
 
       mRows.forEach((m: any) => {
+        const modClasses = classesByModuleId.get(m.id) || [];
+        const course = courseMap.get(m.course_id as string);
+        const enrolled = (course?.studentsEnrolled && course.studentsEnrolled > 0) ? course.studentsEnrolled : 1;
+        const stats = completionStatsMap.get(m.id);
+
+        let completedBy = 0;
+        if (modClasses.length > 0) {
+          if (stats && stats.total_completions > 0) {
+            completedBy = Math.min(100, Math.round((stats.total_completions / (enrolled * modClasses.length)) * 100));
+          } else if (course && course.batches && course.batches.length > 0) {
+            const matchingBatches = allBatchesList.filter(b => b.course_id === m.course_id);
+            const batchPaces = matchingBatches.map(b => {
+              const subs = parseBatchSubjectProgress(b);
+              const found = subs.find(s => s.subject.toLowerCase() === (m.title || '').toLowerCase());
+              return found ? found.completed : 0;
+            }).filter(p => p > 0);
+            if (batchPaces.length > 0) {
+              const avgPace = batchPaces.reduce((a, b) => a + b, 0) / batchPaces.length;
+              completedBy = Math.min(100, Math.round((avgPace / modClasses.length) * 100));
+            }
+          }
+        }
+
         const mod = {
           id: m.id,
           course_id: m.course_id,
           name: m.title,
           instructor_id: m.instructor_id,
-          classes: classesByModuleId.get(m.id) || [],
-          completedBy: 0
+          classes: modClasses,
+          completedBy
         };
-        if (courseMap.has(m.course_id as string)) {
-          courseMap.get(m.course_id as string).modules.push(mod);
+        if (course) {
+          course.modules.push(mod);
         }
       });
 

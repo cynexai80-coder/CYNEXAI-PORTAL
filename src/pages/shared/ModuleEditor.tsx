@@ -4,6 +4,7 @@ import { Button } from '../../components/ui/erp/Button';
 import { FolderOpen, Plus, ArrowRight, Video, FileText, ArrowLeft, X, Edit, Trash2, ArrowUp, ArrowDown, HelpCircle, Link as LinkIcon, Lock, Unlock } from 'lucide-react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { getModuleDetails, createClassForModule, deleteClass, updateModuleCoding, updateClassOrder, updateClassAccessStatus } from '../../lib/api/cms';
+import { getAllBatches, parseBatchSubjectProgress } from '../../lib/api/batches';
 import { ConfirmModal } from '../../components/ui/erp/ConfirmModal';
 
 export default function ModuleEditor() {
@@ -18,6 +19,7 @@ export default function ModuleEditor() {
 
   const [moduleData, setModuleData] = useState<any>(null);
   const [classes, setClasses] = useState<any[]>([]);
+  const [batchPaces, setBatchPaces] = useState<{ batchName: string; completed: number }[]>([]);
   const [loading, setLoading] = useState(true);
 
   // New Class Modal
@@ -47,6 +49,17 @@ export default function ModuleEditor() {
       const data = await getModuleDetails(moduleId as string);
       if (data.module) {
         setModuleData(data.module);
+        const modTitle = (data.module.title || '').trim().toLowerCase();
+        const allBatches = await getAllBatches().catch(() => []);
+        const paces: { batchName: string; completed: number }[] = [];
+        allBatches.forEach(b => {
+          const subs = parseBatchSubjectProgress(b);
+          const found = subs.find(s => s.subject.toLowerCase() === modTitle);
+          if (found && found.completed > 0) {
+            paces.push({ batchName: b.name, completed: found.completed });
+          }
+        });
+        setBatchPaces(paces);
       }
       setClasses(data.classes as any);
     } catch (e) {
@@ -124,6 +137,31 @@ export default function ModuleEditor() {
     }
   };
 
+  const handleUnlockUpToBatchPace = async () => {
+    const maxPace = Math.max(0, ...batchPaces.map(bp => bp.completed));
+    if (maxPace <= 0) return alert('No active batch pacing recorded for this module.');
+    try {
+      for (let i = 0; i < Math.min(classes.length, maxPace); i++) {
+        await updateClassAccessStatus(classes[i].id, 'unlocked');
+      }
+      await fetchModuleData();
+    } catch (e) {
+      console.error("Failed to unlock classes up to batch pace", e);
+    }
+  };
+
+  const handleUnlockAll = async () => {
+    if (!confirm('Unlock student access to all classes in this module?')) return;
+    try {
+      for (const cls of classes) {
+        await updateClassAccessStatus(cls.id, 'unlocked');
+      }
+      await fetchModuleData();
+    } catch (e) {
+      console.error("Failed to unlock all classes", e);
+    }
+  };
+
   const handleToggleItModule = async () => {
     if (!moduleData) return;
     const newVal = !(moduleData.is_it_module === 1);
@@ -172,7 +210,7 @@ export default function ModuleEditor() {
 
   return (
     <div className="flex-1 flex flex-col min-w-0 overflow-y-auto pb-16 sm:pb-24 p-4 md:p-8 bg-erp-background">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <div>
           <button 
             onClick={() => navigate(`${basePath}/courses`)} 
@@ -196,10 +234,36 @@ export default function ModuleEditor() {
             </div>
           )}
         </div>
-        <Button onClick={() => setIsClassModalOpen(true)} className="flex items-center gap-2">
-          <Plus className="w-4 h-4" /> Add Class
-        </Button>
+        <div className="flex items-center gap-2">
+          {classes.length > 0 && (
+            <Button variant="outline" onClick={handleUnlockAll} className="flex items-center gap-1.5 text-xs">
+              <Unlock className="w-3.5 h-3.5 text-emerald-500" /> Unlock All
+            </Button>
+          )}
+          <Button onClick={() => setIsClassModalOpen(true)} className="flex items-center gap-2">
+            <Plus className="w-4 h-4" /> Add Class
+          </Button>
+        </div>
       </div>
+
+      {batchPaces.length > 0 && (
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3 p-3.5 rounded-xl bg-blue-500/10 border border-blue-500/20 max-w-4xl">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-bold text-blue-600 dark:text-blue-400">⚡ Active Batch Progress:</span>
+            {batchPaces.map(bp => (
+              <span key={bp.batchName} className="text-xs px-2.5 py-0.5 rounded-lg bg-blue-500/20 text-blue-700 dark:text-blue-300 font-bold">
+                {bp.batchName}: Class {bp.completed}
+              </span>
+            ))}
+          </div>
+          <button
+            onClick={handleUnlockUpToBatchPace}
+            className="text-xs font-bold px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-500 transition-colors shadow-sm cursor-pointer"
+          >
+            Unlock Classes Up to Batch Pace
+          </button>
+        </div>
+      )}
 
       <div className="space-y-4 max-w-4xl">
         {classes.length === 0 ? (

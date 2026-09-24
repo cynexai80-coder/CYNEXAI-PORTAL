@@ -101,6 +101,12 @@ export async function ensureBatchesTable() {
   }
 }
 
+export interface CourseModuleWithClasses {
+  id: string;
+  title: string;
+  class_count: number;
+}
+
 export const DEFAULT_DIAGRAM_SUBJECTS: SubjectClassProgress[] = [
   { subject: 'SQL', completed: 5, total: 10 },
   { subject: 'Python', completed: 3, total: 10 },
@@ -108,7 +114,89 @@ export const DEFAULT_DIAGRAM_SUBJECTS: SubjectClassProgress[] = [
   { subject: 'ML', completed: 5, total: 10 }
 ];
 
-export function parseBatchSubjectProgress(batch: BatchItem): SubjectClassProgress[] {
+/**
+ * Fetches actual modules mapped to a course along with their real class counts.
+ */
+export async function getCourseModulesWithClassCounts(courseId: string): Promise<CourseModuleWithClasses[]> {
+  if (!isTursoConfigured || !client || !courseId) return [];
+
+  return cachedQuery(`course_modules_classes_${courseId}`, 60000, async () => {
+    try {
+      const res = await executeWithRetry(`
+        SELECT m.id, m.title, COUNT(c.id) as class_count
+        FROM course_module_mapping cmm
+        JOIN modules m ON m.id = cmm.module_id
+        LEFT JOIN classes c ON c.module_id = m.id
+        WHERE cmm.course_id = ? OR cmm.course_id = (SELECT id FROM courses WHERE title = ? LIMIT 1)
+        GROUP BY m.id, m.title, cmm.order_index
+        ORDER BY cmm.order_index ASC
+      `, [courseId, courseId]);
+
+      return res.rows.map((r: any) => ({
+        id: String(r.id),
+        title: String(r.title),
+        class_count: Number(r.class_count) || 0
+      }));
+    } catch (e) {
+      console.error("Failed to get course modules with class counts:", e);
+      return [];
+    }
+  });
+}
+
+export function parseBatchSubjectProgress(
+  batch: BatchItem, 
+  courseModules?: CourseModuleWithClasses[]
+): SubjectClassProgress[] {
+  const existingMap: Record<string, { completed: number; total?: number }> = {};
+
+  if (batch.subject_progress_json) {
+    try {
+      const parsed = JSON.parse(batch.subject_progress_json);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        parsed.forEach(item => {
+          if (item && item.subject) {
+            existingMap[item.subject.toLowerCase().trim()] = {
+              completed: Math.max(0, Number(item.completed) || 0),
+              total: Math.max(0, Number(item.total) || 0)
+            };
+          }
+        });
+      }
+    } catch (e) {
+      console.error("Failed to parse subject_progress_json", e);
+    }
+  }
+
+  // Fallback to module_progress_json if existingMap is empty
+  if (Object.keys(existingMap).length === 0 && batch.module_progress_json) {
+    try {
+      const parsed = JSON.parse(batch.module_progress_json);
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        Object.entries(parsed).forEach(([k, v]) => {
+          existingMap[k.toLowerCase().trim()] = {
+            completed: Math.max(0, Number(v) || 0)
+          };
+        });
+      }
+    } catch (e) {
+      console.error("Failed to parse module_progress_json in parseBatchSubjectProgress", e);
+    }
+  }
+
+  // If actual courseModules were provided from the curriculum, build directly against that course's real modules
+  if (courseModules && courseModules.length > 0) {
+    return courseModules.map(cm => {
+      const found = existingMap[cm.title.toLowerCase().trim()] || existingMap[cm.id.toLowerCase().trim()];
+      return {
+        subject: cm.title,
+        completed: found ? found.completed : 0,
+        total: cm.class_count
+      };
+    });
+  }
+
+  // Fallback to parsed subject items if available
   if (batch.subject_progress_json) {
     try {
       const parsed = JSON.parse(batch.subject_progress_json);
@@ -119,28 +207,15 @@ export function parseBatchSubjectProgress(batch: BatchItem): SubjectClassProgres
           total: Math.max(1, Number(item.total) || 10)
         }));
       }
-    } catch (e) {
-      console.error("Failed to parse subject_progress_json", e);
-    }
+    } catch (e) {}
   }
 
-  // Fallback to module_progress_json if subject_progress_json is absent or empty
-  if (batch.module_progress_json) {
-    try {
-      const parsed = JSON.parse(batch.module_progress_json);
-      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-        const keys = Object.keys(parsed);
-        if (keys.length > 0) {
-          return keys.map(k => ({
-            subject: k,
-            completed: Math.max(0, Number(parsed[k]) || 0),
-            total: 10
-          }));
-        }
-      }
-    } catch (e) {
-      console.error("Failed to parse module_progress_json in parseBatchSubjectProgress", e);
-    }
+  if (Object.keys(existingMap).length > 0) {
+    return Object.entries(existingMap).map(([k, v]) => ({
+      subject: k.charAt(0).toUpperCase() + k.slice(1),
+      completed: v.completed,
+      total: v.total || 10
+    }));
   }
 
   return DEFAULT_DIAGRAM_SUBJECTS.map(s => ({ ...s }));
@@ -149,16 +224,21 @@ export function parseBatchSubjectProgress(batch: BatchItem): SubjectClassProgres
 /**
  * Updates batch subject progress and completion percentage in Turso DB.
  * Synchronizes BOTH subject_progress_json (array) and module_progress_json (map)
- * to maintain complete compatibility across all student and manager views.
+ * and marks classes up to the batch pace as 'unlocked'.
  */
-export async function updateBatchSubjectProgress(batchId: string, subjectProgress: SubjectClassProgress[]): Promise<boolean> {
+export async function updateBatchSubjectProgress(
+  batchId: string, 
+  subjectProgress: SubjectClassProgress[],
+  courseId?: string,
+  batchName?: string
+): Promise<boolean> {
   if (!isTursoConfigured || !client) return false;
 
   await ensureBatchesTable();
 
   try {
     const totalCompleted = subjectProgress.reduce((acc, s) => acc + (s.completed || 0), 0);
-    const totalClasses = subjectProgress.reduce((acc, s) => acc + (s.total || 10), 0);
+    const totalClasses = subjectProgress.reduce((acc, s) => acc + (s.total || 0), 0);
     const completionPercentage = totalClasses > 0 ? Math.min(100, Math.round((totalCompleted / totalClasses) * 100)) : 0;
     const jsonStr = JSON.stringify(subjectProgress);
 
@@ -171,21 +251,34 @@ export async function updateBatchSubjectProgress(batchId: string, subjectProgres
     });
     const moduleProgressJson = JSON.stringify(moduleMap);
 
-    await executeWithRetry(`
+    let query = `
       UPDATE batches SET
         subject_progress_json = ?,
         module_progress_json = ?,
         completion_percentage = ?
-      WHERE id = ?
-    `, [jsonStr, moduleProgressJson, completionPercentage, batchId]);
+    `;
+    const args: any[] = [jsonStr, moduleProgressJson, completionPercentage];
 
-    // Also update matching module classes status to 'completed' so student portal shows "Watch Class"
+    if (courseId) {
+      query += `, course_id = ?`;
+      args.push(courseId);
+    }
+    if (batchName) {
+      query += `, name = ?`;
+      args.push(batchName);
+    }
+    query += ` WHERE id = ?`;
+    args.push(batchId);
+
+    await executeWithRetry(query, args);
+
+    // Also update matching module classes status to 'unlocked' so both students & teacher see unlocked access
     for (const sp of subjectProgress) {
       if (sp.completed > 0 && sp.subject) {
         try {
           const modRes = await executeWithRetry(
-            `SELECT id FROM modules WHERE LOWER(title) LIKE ? LIMIT 1`,
-            [`%${sp.subject.toLowerCase().trim()}%`]
+            `SELECT id FROM modules WHERE LOWER(title) = ? OR LOWER(title) LIKE ? LIMIT 1`,
+            [sp.subject.toLowerCase().trim(), `%${sp.subject.toLowerCase().trim()}%`]
           );
           if (modRes.rows.length > 0) {
             const modId = modRes.rows[0].id;
@@ -195,7 +288,7 @@ export async function updateBatchSubjectProgress(batchId: string, subjectProgres
             );
             for (const cRow of clsRes.rows) {
               await executeWithRetry(
-                `UPDATE classes SET status = 'completed' WHERE id = ? AND (status IS NULL OR status = 'upcoming' OR status = 'in_progress' OR status = 'draft')`,
+                `UPDATE classes SET status = 'unlocked' WHERE id = ? AND (status IS NULL OR status = 'upcoming' OR status = 'locked' OR status = 'draft')`,
                 [cRow.id]
               );
             }
@@ -207,6 +300,7 @@ export async function updateBatchSubjectProgress(batchId: string, subjectProgres
     }
 
     invalidateQueryCache('batches_all');
+    invalidateQueryCache('cms_courses_full');
     return true;
   } catch (e) {
     console.error("Error updating batch subject progress:", e);

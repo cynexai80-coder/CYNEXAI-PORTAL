@@ -3,7 +3,13 @@ import { client } from '../../../lib/turso';
 import { Button } from '../../../components/ui/erp/Button';
 import { Loader2, Plus, Edit2, X, Save, Trash2, Minus, Code2, BookOpen } from 'lucide-react';
 import { DataTable } from '../../../components/ui/erp/DataTable';
-import { parseBatchSubjectProgress, SubjectClassProgress, DEFAULT_DIAGRAM_SUBJECTS } from '../../../lib/api/batches';
+import { 
+  parseBatchSubjectProgress, 
+  SubjectClassProgress, 
+  DEFAULT_DIAGRAM_SUBJECTS, 
+  getCourseModulesWithClassCounts, 
+  updateBatchSubjectProgress 
+} from '../../../lib/api/batches';
 
 interface Batch {
   id: string;
@@ -12,6 +18,7 @@ interface Batch {
   module_progress_json: string; // e.g. {"Python": 5, "SQL": 2}
   subject_progress_json?: string;
   primary_teacher_id?: string;
+  completion_percentage?: number;
 }
 
 interface BatchesTabProps {
@@ -40,7 +47,7 @@ export function BatchesTab({ onBatchChange }: BatchesTabProps) {
     setLoading(true);
     try {
       if (!client) return;
-      const bRes = await client.execute("SELECT id, name, course_id, module_progress_json, subject_progress_json, primary_teacher_id FROM batches ORDER BY created_at DESC");
+      const bRes = await client.execute("SELECT id, name, course_id, module_progress_json, subject_progress_json, completion_percentage, primary_teacher_id FROM batches ORDER BY created_at DESC");
       setBatches(bRes.rows as unknown as Batch[]);
       
       const cRes = await client.execute("SELECT id, title FROM courses ORDER BY title");
@@ -52,29 +59,52 @@ export function BatchesTab({ onBatchChange }: BatchesTabProps) {
     }
   };
 
-  const openModal = (batch?: Batch) => {
+  const openModal = async (batch?: Batch) => {
     if (batch) {
       setEditId(batch.id);
       setName(batch.name || '');
-      setCourseId(batch.course_id || '');
-      const parsedSubs = parseBatchSubjectProgress(batch as any);
+      // Match course id or fallback to title/first
+      const matchedCourse = courses.find(c => c.id === batch.course_id || c.title === batch.course_id);
+      const selectedCId = matchedCourse ? matchedCourse.id : (batch.course_id || (courses[0]?.id || ''));
+      setCourseId(selectedCId);
+
+      const cModules = await getCourseModulesWithClassCounts(selectedCId);
+      const parsedSubs = parseBatchSubjectProgress(batch as any, cModules);
       setSubjects(parsedSubs);
       setProgressJson(batch.module_progress_json || '{}');
     } else {
       setEditId(null);
       setName('');
-      setCourseId('');
-      setSubjects(DEFAULT_DIAGRAM_SUBJECTS.map(s => ({ ...s })));
+      const defaultCourseId = courses[0]?.id || '';
+      setCourseId(defaultCourseId);
+      const cModules = defaultCourseId ? await getCourseModulesWithClassCounts(defaultCourseId) : [];
+      const parsedSubs = parseBatchSubjectProgress({} as any, cModules);
+      setSubjects(parsedSubs);
       setProgressJson('{}');
     }
     setShowRawJson(false);
     setIsModalOpen(true);
   };
 
+  const handleCourseSelectChange = async (newCId: string) => {
+    setCourseId(newCId);
+    try {
+      const cModules = await getCourseModulesWithClassCounts(newCId);
+      if (cModules.length > 0) {
+        setSubjects(prev => {
+          return parseBatchSubjectProgress({ subject_progress_json: JSON.stringify(prev) } as any, cModules);
+        });
+      }
+    } catch (e) {
+      console.error("Failed to load modules for course", e);
+    }
+  };
+
   const handleAdjustSubject = (index: number, delta: number) => {
     setSubjects(prev => prev.map((item, idx) => {
       if (idx === index) {
-        return { ...item, completed: Math.max(0, item.completed + delta) };
+        const maxLimit = item.total && item.total > 0 ? item.total : 999;
+        return { ...item, completed: Math.min(maxLimit, Math.max(0, item.completed + delta)) };
       }
       return item;
     }));
@@ -87,7 +117,9 @@ export function BatchesTab({ onBatchChange }: BatchesTabProps) {
       alert("Subject already exists in this batch");
       return;
     }
-    setSubjects(prev => [...prev, { subject: newName.trim(), completed: 0, total: 10 }]);
+    const countStr = prompt("Total classes in this module (optional, default 10):", "10");
+    const totalCount = Math.max(1, parseInt(countStr || '10', 10) || 10);
+    setSubjects(prev => [...prev, { subject: newName.trim(), completed: 0, total: totalCount }]);
   };
 
   const handleRemoveSubject = (index: number) => {
@@ -106,7 +138,7 @@ export function BatchesTab({ onBatchChange }: BatchesTabProps) {
         finalSubjects = Object.entries(finalModuleMap).map(([k, v]) => ({
           subject: k,
           completed: Number(v) || 0,
-          total: 10
+          total: subjects.find(s => s.subject.toLowerCase() === k.toLowerCase())?.total || 10
         }));
       } catch {
         return alert('Invalid JSON in Module Progress');
@@ -117,26 +149,18 @@ export function BatchesTab({ onBatchChange }: BatchesTabProps) {
       });
     }
 
-    const moduleJson = JSON.stringify(finalModuleMap);
-    const subjectJson = JSON.stringify(finalSubjects);
-    const totalCompleted = finalSubjects.reduce((acc, s) => acc + (s.completed || 0), 0);
-    const totalClasses = finalSubjects.reduce((acc, s) => acc + (s.total || 10), 0);
-    const pct = totalClasses > 0 ? Math.min(100, Math.round((totalCompleted / totalClasses) * 100)) : 0;
-
     setSaving(true);
     try {
-      if (editId) {
+      const targetId = editId || `batch_${Date.now()}`;
+      if (!editId) {
         await client!.execute({
-          sql: "UPDATE batches SET name = ?, course_id = ?, module_progress_json = ?, subject_progress_json = ?, completion_percentage = ? WHERE id = ?",
-          args: [name, courseId, moduleJson, subjectJson, pct, editId]
-        });
-      } else {
-        const newId = `batch_${Date.now()}`;
-        await client!.execute({
-          sql: "INSERT INTO batches (id, name, course_id, module_progress_json, subject_progress_json, completion_percentage, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
-          args: [newId, name, courseId, moduleJson, subjectJson, pct, new Date().toISOString()]
+          sql: "INSERT INTO batches (id, name, course_id, status, created_at) VALUES (?, ?, ?, 'Active', ?)",
+          args: [targetId, name, courseId, new Date().toISOString()]
         });
       }
+
+      await updateBatchSubjectProgress(targetId, finalSubjects, courseId, name);
+
       setIsModalOpen(false);
       await loadData();
       onBatchChange?.();
@@ -220,7 +244,18 @@ export function BatchesTab({ onBatchChange }: BatchesTabProps) {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <div className="bg-erp-surface border border-erp-border rounded-2xl w-full max-w-lg shadow-2xl p-5 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="font-bold text-xl">{editId ? 'Edit Batch' : 'Create Batch'}</h2>
+              <div className="flex items-center gap-2">
+                <h2 className="font-bold text-xl">{editId ? 'Edit Batch' : 'Create Batch'}</h2>
+                {subjects.length > 0 && (
+                  <span className="text-xs px-2.5 py-0.5 rounded-full font-bold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                    {(() => {
+                      const totalCompleted = subjects.reduce((acc, s) => acc + (s.completed || 0), 0);
+                      const totalClasses = subjects.reduce((acc, s) => acc + (s.total || 0), 0);
+                      return totalClasses > 0 ? Math.min(100, Math.round((totalCompleted / totalClasses) * 100)) : 0;
+                    })()}% Completed
+                  </span>
+                )}
+              </div>
               <button onClick={() => setIsModalOpen(false)} className="p-1 rounded-lg hover:bg-erp-border text-erp-text/60"><X className="w-5 h-5" /></button>
             </div>
             <div className="space-y-4">
@@ -230,9 +265,13 @@ export function BatchesTab({ onBatchChange }: BatchesTabProps) {
               </div>
               <div>
                 <label className="block text-xs font-bold mb-1">Course *</label>
-                <select value={courseId} onChange={e => setCourseId(e.target.value)} className={inputCls}>
+                <select 
+                  value={courses.find(c => c.id === courseId || c.title === courseId)?.id || courseId} 
+                  onChange={e => handleCourseSelectChange(e.target.value)} 
+                  className={inputCls}
+                >
                   <option value="">Select Course</option>
-                  {courses.map(c => <option key={c.id} value={c.title}>{c.title}</option>)}
+                  {courses.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
                 </select>
               </div>
 
