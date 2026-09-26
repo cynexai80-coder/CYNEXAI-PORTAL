@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import { Users, DollarSign, CheckSquare, MessageCircle, User, LogOut, LayoutDashboard, Settings, BookOpen, Calendar, Video, Zap, Bot, Loader2, BarChart2, History, GraduationCap, TrendingUp, ChevronLeft } from 'lucide-react';
+import { Users, DollarSign, CheckSquare, MessageCircle, User, LogOut, LayoutDashboard, Settings, BookOpen, Calendar, Video, Zap, Bot, Loader2, BarChart2, History, GraduationCap, TrendingUp, ChevronLeft, Award } from 'lucide-react';
 import { getCurrentUser, logout, getModuleAccess } from '../../lib/auth';
 import { checkTeacherAssignment } from '../../lib/api/manager';
 import { computeAccessiblePortals } from '../../lib/authUtils';
@@ -61,6 +61,7 @@ export const Sidebar: React.FC<{ onNavClick?: () => void, isMobile?: boolean, on
       { to: '/sales/history',            icon: DollarSign,      label: 'Sales History',    section: 'Manager' },
       { to: '/manager/timetable',        icon: Calendar,        label: 'Timetable',        section: 'Manager' },
       { to: '/manager/students',         icon: GraduationCap,   label: 'Students',         section: 'Manager' },
+      { to: '/manager/certificates',     icon: Award,           label: 'Certificates',     section: 'Manager' },
       { to: '/manager/attendance',       icon: Users,           label: 'Attendance',       section: 'Manager' },
       { to: '/manager/student-progress', icon: TrendingUp,      label: 'Student Progress', section: 'Manager' },
       { to: '/manager/users',            icon: Users,           label: 'Staff Mgmt',       section: 'Manager' },
@@ -110,6 +111,7 @@ export const Sidebar: React.FC<{ onNavClick?: () => void, isMobile?: boolean, on
       { to: '/ceo/tasks',            icon: CheckSquare,     label: 'Tasks',             section: 'CEO' },
       { to: '/ceo/users',            icon: Users,           label: 'User Admin',        section: 'CEO' },
       { to: '/ceo/students',         icon: GraduationCap,   label: 'Students',          section: 'CEO' },
+      { to: '/ceo/certificates',     icon: Award,           label: 'Certificates',      section: 'CEO' },
       { to: '/ceo/attendance',       icon: Users,           label: 'Attendance',        section: 'CEO' },
       { to: '/ceo/student-progress', icon: TrendingUp,      label: 'Student Progress',  section: 'CEO' },
       { to: '/ceo/courses',          icon: BookOpen,        label: 'Course CMS',        section: 'CEO' },
@@ -137,6 +139,7 @@ export const Sidebar: React.FC<{ onNavClick?: () => void, isMobile?: boolean, on
     sales_history: { label: 'Sales & Master History', icon: History, section: 'Sales & Growth', getRoute: (r) => r === 'Sales/HR' ? '/sales/history' : '/ceo/history' },
     users: { label: 'User Admin & Staff Mgmt', icon: Users, section: 'Administration', getRoute: (r) => r === 'Manager' ? '/manager/users' : '/ceo/users' },
     students: { label: 'Students & Progress', icon: GraduationCap, section: 'Academic', getRoute: (r) => r === 'Manager' ? '/manager/students' : '/ceo/students' },
+    certificates: { label: 'Certificates & QR Engine', icon: Award, section: 'Academic', getRoute: (r) => r === 'Manager' ? '/manager/certificates' : '/ceo/certificates' },
     attendance: { label: 'Attendance & Matrix', icon: Users, section: 'Academic', getRoute: (r) => r === 'CEO' ? '/ceo/attendance' : r === 'Manager' ? '/manager/attendance' : '/teacher/attendance' },
     courses: { label: 'Courses & Curriculum CMS', icon: BookOpen, section: 'Academic', getRoute: (r) => r === 'Manager' ? '/manager/courses' : r === 'Teacher' ? '/teacher/courses' : r === 'DM' ? '/dm/courses' : r === 'Sales/HR' ? '/sales/courses' : '/ceo/courses' },
     timetable: { label: 'Timetable & Scheduling', icon: Calendar, section: 'Academic', getRoute: (r) => r === 'Manager' ? '/manager/timetable' : r === 'Teacher' ? '/teacher/timetable' : '/ceo/timetable' },

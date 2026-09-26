@@ -15,6 +15,7 @@ export const SYSTEM_MODULES: ModuleDefinition[] = [
   { id: 'sales_history', label: 'Sales & Master History',    category: 'Sales & Growth',  description: 'Sales transactions, payment history, and master logs' },
   { id: 'users',         label: 'User Admin & Staff Mgmt',   category: 'Administration',  description: 'Manage staff, roles, salaries, and access controls' },
   { id: 'students',      label: 'Students & Progress',       category: 'Academic',        description: 'Student directory, batch management, and progress logs' },
+  { id: 'certificates',  label: 'Certificates & QR Engine',  category: 'Academic',        description: 'Issue certificates, permanent non-expiring QR code stamping & registry' },
   { id: 'attendance',    label: 'Attendance & Matrix System', category: 'Academic',       description: 'Batch attendance matrix, QR check-ins, and student attendance logs' },
   { id: 'courses',       label: 'Courses & Curriculum CMS',  category: 'Academic',        description: 'Course builder, module/class editor, and sales pitches' },
   { id: 'timetable',     label: 'Timetable & Scheduling',    category: 'Academic',        description: 'Class schedules, timetable slots, and instructor timing' },
@@ -63,6 +64,10 @@ export const ROUTE_MODULE_MAP: Record<string, string> = {
   '/manager/students': 'students',
   '/manager/student-progress': 'students',
   '/teacher/student-progress': 'students',
+
+  // Certificates
+  '/ceo/certificates': 'certificates',
+  '/manager/certificates': 'certificates',
 
   // Courses & Curriculum CMS
   '/ceo/courses': 'courses',

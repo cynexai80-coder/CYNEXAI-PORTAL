@@ -46,6 +46,8 @@ import StudentProgress from './pages/crm/manager/StudentProgress';
 
 import TimetableManager from './pages/crm/manager/TimetableManager';
 import StudentPortalSettings from './pages/crm/manager/StudentPortalSettings';
+import CertificatesManager from './pages/crm/manager/CertificatesManager';
+import CertificateVerifyPage from './pages/CertificateVerifyPage';
 
 // Admin & Student Imports
 import AdminDashboard from './pages/admin/AdminDashboard';
@@ -221,6 +223,8 @@ function App() {
         <Route path="/apply/:courseId" element={<MainLayout><ApplicationForm /></MainLayout>} />
         <Route path="/webinar" element={<MainLayout><WebinarPortal /></MainLayout>} />
         <Route path="/gallery" element={<MainLayout><GalleryPage /></MainLayout>} />
+        <Route path="/certificates/:id" element={<CertificateVerifyPage />} />
+        <Route path="/certificate/:id" element={<CertificateVerifyPage />} />
         <Route path="/admin" element={<RequireAuth allowedRoles={['Admin', 'CEO']}><MainLayout><AdminPanel /></MainLayout></RequireAuth>} />
         <Route path="/pay" element={<MainLayout><PaymentPage /></MainLayout>} />
         <Route path="/blog" element={<MainLayout><BlogPage /></MainLayout>} />
@@ -261,6 +265,7 @@ function App() {
         <Route path="/manager/approvals/:id" element={<RequireAuth allowedRoles={['Manager', 'CEO']}><ManagerLayout><ApprovalDetail /></ManagerLayout></RequireAuth>} />
         <Route path="/manager/student-settings" element={<RequireAuth allowedRoles={['Manager', 'CEO']}><ManagerLayout><StudentPortalSettings /></ManagerLayout></RequireAuth>} />
         <Route path="/manager/students" element={<RequireAuth allowedRoles={['Manager', 'CEO']}><ManagerLayout><StudentsPage /></ManagerLayout></RequireAuth>} />
+        <Route path="/manager/certificates" element={<RequireAuth allowedRoles={['Manager', 'CEO']}><ManagerLayout><CertificatesManager /></ManagerLayout></RequireAuth>} />
         <Route path="/manager/attendance" element={<RequireAuth allowedRoles={['Manager', 'CEO']}><ManagerLayout><AttendanceSystem /></ManagerLayout></RequireAuth>} />
         <Route path="/manager/student-progress" element={<RequireAuth allowedRoles={['Manager', 'CEO']}><ManagerLayout><StudentProgress /></ManagerLayout></RequireAuth>} />
         
@@ -295,6 +300,7 @@ function App() {
         <Route path="/ceo/gamification" element={<RequireAuth allowedRoles={['CEO']}><CEOLayout><GamificationSettings /></CEOLayout></RequireAuth>} />
         <Route path="/ceo/reports" element={<RequireAuth allowedRoles={['CEO', 'Manager']}><CEOLayout><ReportsPage /></CEOLayout></RequireAuth>} />
         <Route path="/ceo/students" element={<RequireAuth allowedRoles={['CEO']}><CEOLayout><StudentsPage /></CEOLayout></RequireAuth>} />
+        <Route path="/ceo/certificates" element={<RequireAuth allowedRoles={['CEO']}><CEOLayout><CertificatesManager /></CEOLayout></RequireAuth>} />
         <Route path="/ceo/attendance" element={<RequireAuth allowedRoles={['CEO']}><CEOLayout><AttendanceSystem /></CEOLayout></RequireAuth>} />
         <Route path="/ceo/student-progress" element={<RequireAuth allowedRoles={['CEO']}><CEOLayout><StudentProgress /></CEOLayout></RequireAuth>} />
 

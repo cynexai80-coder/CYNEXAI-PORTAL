@@ -1,7 +1,7 @@
 import {
   LayoutDashboard, BookOpen, Users, DollarSign, Calendar, GraduationCap,
   TrendingUp, Settings, Zap, BarChart2, CheckSquare, Video, MessageCircle,
-  Bot, History, type LucideIcon
+  Bot, History, Award, type LucideIcon
 } from 'lucide-react';
 
 export interface PageDef {
@@ -19,6 +19,7 @@ export const ALL_PAGES: PageDef[] = [
   { key: 'manager/courses',   to: '/manager/courses',          label: 'Course CMS',        icon: BookOpen,        section: 'Manager',    defaultRoles: ['Manager'] },
   { key: 'manager/timetable', to: '/manager/timetable',        label: 'Timetable',         icon: Calendar,        section: 'Manager',    defaultRoles: ['Manager'] },
   { key: 'manager/students',   to: '/manager/students',         label: 'Students',          icon: GraduationCap,   section: 'Manager',    defaultRoles: ['Manager'] },
+  { key: 'manager/certificates', to: '/manager/certificates', label: 'Certificates',        icon: Award,           section: 'Manager',    defaultRoles: ['Manager', 'CEO'] },
   { key: 'manager/attendance', to: '/manager/attendance',       label: 'Attendance',        icon: Users,           section: 'Manager',    defaultRoles: ['Manager', 'CEO'] },
   { key: 'manager/progress',   to: '/manager/student-progress', label: 'Student Progress',  icon: TrendingUp,      section: 'Manager',    defaultRoles: ['Manager'] },
   { key: 'manager/users',      to: '/manager/users',            label: 'Staff Mgmt',        icon: Users,           section: 'Manager',    defaultRoles: ['Manager'] },
@@ -54,6 +55,7 @@ export const ALL_PAGES: PageDef[] = [
   { key: 'ceo/tasks',          to: '/ceo/tasks',            label: 'Tasks',             icon: CheckSquare,     section: 'CEO', defaultRoles: ['CEO'] },
   { key: 'ceo/users',          to: '/ceo/users',            label: 'User Admin',        icon: Users,           section: 'CEO', defaultRoles: ['CEO'] },
   { key: 'ceo/students',       to: '/ceo/students',         label: 'Students',          icon: GraduationCap,   section: 'CEO', defaultRoles: ['CEO'] },
+  { key: 'ceo/certificates',   to: '/ceo/certificates',     label: 'Certificates',      icon: Award,           section: 'CEO', defaultRoles: ['CEO'] },
   { key: 'ceo/attendance',     to: '/ceo/attendance',       label: 'Attendance',        icon: Users,           section: 'CEO', defaultRoles: ['CEO'] },
   { key: 'ceo/progress',       to: '/ceo/student-progress', label: 'Student Progress',  icon: TrendingUp,      section: 'CEO', defaultRoles: ['CEO'] },
   { key: 'ceo/courses',       to: '/ceo/courses',          label: 'Course CMS',        icon: BookOpen,        section: 'CEO', defaultRoles: ['CEO'] },
