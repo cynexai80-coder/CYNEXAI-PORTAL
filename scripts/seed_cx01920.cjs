@@ -88,17 +88,13 @@ async function generateStampedCertificateBase64() {
   return stampedBase64;
 }
 
-async function run() {
-  const stampedBase64 = await generateStampedCertificateBase64();
+const PROD_URL = 'libsql://cynexai-portal-cynexai-new.aws-ap-south-1.turso.io';
+const PROD_TOKEN = 'eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3ODQxOTUyNjcsImlkIjoiMDE5ZjZhNTItN2IwMS03Mzc2LWExMGUtNTViZGRiMzAwZTdlIiwia2lkIjoieUdPOElXY1J5RC1VX2J3UFlHWUJJMmlKZEp1R21CSDY5QzJQZzJUWmZhQSIsInJpZCI6IjcxYmEzODM5LTAyZDEtNDJiNS1hNDM5LTVlOWM4MGJkNGRhNSJ9.O2do8U63KLbS_pXwqivQRIYK1SncnMa1VRuePw6UFagpIIFodykzhY2cr6C_iYE83O86fUXhErbRPKfBMZtUAA';
 
-  if (!url || !token) {
-    console.error('Turso credentials not configured in .env');
-    return;
-  }
-
-  const client = createClient({ url, authToken: token });
-
-  console.log('Connecting to Turso LibSQL...');
+async function seedTargetDb(dbUrl, dbToken, dbLabel, stampedBase64) {
+  if (!dbUrl || !dbToken) return;
+  console.log(`Connecting to ${dbLabel} (${dbUrl.substring(0, 35)}...)...`);
+  const client = createClient({ url: dbUrl, authToken: dbToken });
   const now = new Date().toISOString();
 
   // Insert or update CX01920
@@ -171,7 +167,19 @@ async function run() {
     ]
   });
 
-  console.log('Successfully seeded CX01920 and C102028 into Turso LibSQL database!');
+  console.log(`✓ Successfully seeded CX01920 and C102028 into ${dbLabel}!`);
+}
+
+async function run() {
+  const stampedBase64 = await generateStampedCertificateBase64();
+
+  // 1. Seed Real Production Database
+  await seedTargetDb(PROD_URL, PROD_TOKEN, 'REAL PRODUCTION DATABASE (cynexai-portal-cynexai-new)', stampedBase64);
+
+  // 2. Also seed .env database if different
+  if (url && url !== PROD_URL) {
+    await seedTargetDb(url, token, 'ENV DATABASE (' + url + ')', stampedBase64);
+  }
 }
 
 run().catch(console.error);
