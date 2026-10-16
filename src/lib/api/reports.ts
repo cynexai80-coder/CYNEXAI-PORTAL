@@ -126,10 +126,43 @@ export interface EmployeeAttendance {
   login_time: string | null;
   logout_time: string | null;
   duration_minutes: number | null;
+  status?: string; // 'Present' | 'Half-day' | 'Leave' | 'Work From Home' | 'Absent' | 'Official Duty'
+  notes?: string;
+  marked_by?: string;
 }
+
+let staffAttendanceSchemaEnsured = false;
+export const ensureStaffAttendanceSchema = async () => {
+  if (!isTursoConfigured || !client || staffAttendanceSchemaEnsured) return;
+  try {
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS employee_attendance (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        date TEXT NOT NULL,
+        login_time TEXT,
+        logout_time TEXT,
+        duration_minutes INTEGER,
+        status TEXT DEFAULT 'Present',
+        notes TEXT,
+        marked_by TEXT
+      )
+    `);
+    const safeAdd = async (col: string, def: string) => {
+      try { await client!.execute(`ALTER TABLE employee_attendance ADD COLUMN ${col} ${def}`); } catch {}
+    };
+    await safeAdd('status', "TEXT DEFAULT 'Present'");
+    await safeAdd('notes', 'TEXT');
+    await safeAdd('marked_by', 'TEXT');
+    staffAttendanceSchemaEnsured = true;
+  } catch (e) {
+    console.error('Failed ensuring employee_attendance schema', e);
+  }
+};
 
 export const getTodayAttendance = async (userId: string): Promise<EmployeeAttendance | null> => {
   if (!isTursoConfigured || !client) return null;
+  await ensureStaffAttendanceSchema();
   const today = new Date().toISOString().split('T')[0];
   try {
     const res = await client.execute({
@@ -141,6 +174,112 @@ export const getTodayAttendance = async (userId: string): Promise<EmployeeAttend
   } catch (e) {
     console.error('Failed to get today attendance', e);
     return null;
+  }
+};
+
+export const getEmployeeMonthlyAttendance = async (userId: string, year: number, month: number): Promise<EmployeeAttendance[]> => {
+  if (!isTursoConfigured || !client) return [];
+  await ensureStaffAttendanceSchema();
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const startDate = `${year}-${pad(month)}-01`;
+  const nextMonthYear = month === 12 ? year + 1 : year;
+  const nextMonthVal = month === 12 ? 1 : month + 1;
+  const endDate = `${nextMonthYear}-${pad(nextMonthVal)}-01`; // exclusive upper bound
+
+  try {
+    const res = await client.execute({
+      sql: `SELECT * FROM employee_attendance WHERE user_id = ? AND date >= ? AND date < ? ORDER BY date ASC`,
+      args: [userId, startDate, endDate]
+    });
+    return (res.rows || []) as unknown as EmployeeAttendance[];
+  } catch (e) {
+    console.error('Failed to get monthly employee attendance', e);
+    return [];
+  }
+};
+
+export const saveManualStaffAttendance = async (data: {
+  userId: string;
+  date: string;
+  loginTime?: string | null;
+  logoutTime?: string | null;
+  durationMinutes?: number | null;
+  status?: string;
+  notes?: string;
+  markedBy?: string;
+}): Promise<boolean> => {
+  if (!isTursoConfigured || !client) return false;
+  await ensureStaffAttendanceSchema();
+  try {
+    const check = await client.execute({
+      sql: `SELECT id FROM employee_attendance WHERE user_id = ? AND date = ? LIMIT 1`,
+      args: [data.userId, data.date]
+    });
+
+    const status = data.status || 'Present';
+    let duration = data.durationMinutes ?? null;
+
+    if (duration === null && data.loginTime && data.logoutTime) {
+      const start = new Date(data.loginTime).getTime();
+      const end = new Date(data.logoutTime).getTime();
+      if (!isNaN(start) && !isNaN(end) && end >= start) {
+        duration = Math.round((end - start) / 60000);
+      }
+    }
+
+    if (check.rows.length > 0) {
+      const existingId = check.rows[0].id;
+      await client.execute({
+        sql: `UPDATE employee_attendance 
+              SET login_time = ?, logout_time = ?, duration_minutes = ?, status = ?, notes = ?, marked_by = ? 
+              WHERE id = ?`,
+        args: [
+          data.loginTime || null,
+          data.logoutTime || null,
+          duration,
+          status,
+          data.notes || null,
+          data.markedBy || 'manual',
+          existingId
+        ]
+      });
+    } else {
+      const id = 'att_man_' + Date.now().toString(36) + Math.random().toString(36).substring(2, 6);
+      await client.execute({
+        sql: `INSERT INTO employee_attendance (id, user_id, date, login_time, logout_time, duration_minutes, status, notes, marked_by) 
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        args: [
+          id,
+          data.userId,
+          data.date,
+          data.loginTime || null,
+          data.logoutTime || null,
+          duration,
+          status,
+          data.notes || null,
+          data.markedBy || 'manual'
+        ]
+      });
+    }
+    return true;
+  } catch (e) {
+    console.error('Failed to save manual staff attendance', e);
+    return false;
+  }
+};
+
+export const deleteStaffAttendance = async (userId: string, date: string): Promise<boolean> => {
+  if (!isTursoConfigured || !client) return false;
+  await ensureStaffAttendanceSchema();
+  try {
+    await client.execute({
+      sql: `DELETE FROM employee_attendance WHERE user_id = ? AND date = ?`,
+      args: [userId, date]
+    });
+    return true;
+  } catch (e) {
+    console.error('Failed to delete staff attendance', e);
+    return false;
   }
 };
 
@@ -170,6 +309,7 @@ const autoCleanupAttendance = async () => {
 
 export const logOfficeAttendance = async (userId: string, action: 'login' | 'logout'): Promise<boolean> => {
   if (!isTursoConfigured || !client) return false;
+  await ensureStaffAttendanceSchema();
   const today = new Date().toISOString().split('T')[0];
   const now = new Date().toISOString();
   
@@ -180,7 +320,7 @@ export const logOfficeAttendance = async (userId: string, action: 'login' | 'log
         // If user logged out earlier today and is logging back in, clear logout_time to mark them active again
         if (existing.logout_time) {
           await client.execute({
-            sql: `UPDATE employee_attendance SET logout_time = NULL, duration_minutes = NULL WHERE id = ?`,
+            sql: `UPDATE employee_attendance SET logout_time = NULL, duration_minutes = NULL, status = 'Present' WHERE id = ?`,
             args: [existing.id]
           });
         }
@@ -188,7 +328,7 @@ export const logOfficeAttendance = async (userId: string, action: 'login' | 'log
       }
       const id = 'att_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
       await client.execute({
-        sql: `INSERT INTO employee_attendance (id, user_id, date, login_time) VALUES (?, ?, ?, ?)`,
+        sql: `INSERT INTO employee_attendance (id, user_id, date, login_time, status) VALUES (?, ?, ?, ?, 'Present')`,
         args: [id, userId, today, now]
       });
       return true;
@@ -197,7 +337,7 @@ export const logOfficeAttendance = async (userId: string, action: 'login' | 'log
       const start = new Date(existing.login_time);
       const duration = Math.max(0, Math.round((new Date(now).getTime() - start.getTime()) / 60000));
       await client.execute({
-        sql: `UPDATE employee_attendance SET logout_time = ?, duration_minutes = ? WHERE id = ?`,
+        sql: `UPDATE employee_attendance SET logout_time = ?, duration_minutes = ?, status = 'Present' WHERE id = ?`,
         args: [now, duration, existing.id]
       });
       return true;

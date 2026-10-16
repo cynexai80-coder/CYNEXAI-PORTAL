@@ -302,6 +302,16 @@ export default function TeacherTimetable() {
                                     >
                                       <AlarmClock className="w-3 h-3" /> Postpone
                                     </button>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        navigate(`/teacher/attendance?batch=${encodeURIComponent(classItem.batch_id || '')}&view=calendar`);
+                                      }}
+                                      className="w-full py-1 text-[10px] font-bold text-erp-text/80 bg-erp-surface hover:bg-erp-background border border-erp-border rounded-lg flex items-center justify-center gap-1 transition-colors"
+                                      title="Mark attendance in calendar"
+                                    >
+                                      <Calendar className="w-3 h-3 text-blue-500" /> Mark Attendance
+                                    </button>
                                   </div>
                                 )}
                               </div>

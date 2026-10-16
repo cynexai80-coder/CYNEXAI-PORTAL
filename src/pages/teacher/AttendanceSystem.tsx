@@ -5,9 +5,9 @@ import {
   QrCode, Video, Users, CheckCircle, Copy, ExternalLink, 
   RefreshCw, Search, UserCheck, UserX, Clock, Sparkles, ShieldCheck, 
   Laptop, MapPin, Layers, Download, Grid, Table, FileSpreadsheet,
-  BookOpen, Filter, Check, X, ChevronLeft, ChevronRight
+  BookOpen, Filter, Check, X, ChevronLeft, ChevronRight, Calendar as CalendarIcon
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { getCurrentUser } from '../../lib/auth';
 import { 
   getActiveLiveClass, 
@@ -15,7 +15,10 @@ import {
   logAttendance, 
   removeAttendance, 
   getLiveAttendance,
-  getAllAttendanceLogsMatrix
+  getAllAttendanceLogsMatrix,
+  logStudentAttendanceForDate,
+  bulkLogAttendanceForDate,
+  removeStudentAttendanceForDate
 } from '../../lib/api/teacher';
 import { getAllBatches, BatchItem } from '../../lib/api/batches';
 import { getCoursesFull } from '../../lib/api/cms';
@@ -23,6 +26,7 @@ import { getManagerStudents } from '../../lib/api/student';
 import { getUsers } from '../../lib/api/users';
 import { generateQRAttendance, QRCodeResult } from '../../lib/api/ux';
 import { QRCodeSVG } from 'qrcode.react';
+import { StaffAttendanceModal } from '../../components/crm/attendance/StaffAttendanceModal';
 
 const DEFAULT_DEMO_STUDENTS = [
   { id: 'stu_1', name: 'Aarav Sharma', email: 'aarav.sharma@cynexai.com', student_code: 'CNX-STU-001', batch_number: 'Batch 1', role: 'Student' },
@@ -37,16 +41,36 @@ const DEFAULT_DEMO_STUDENTS = [
   { id: 'stu_10', name: 'Kavya Singh', email: 'kavya.s@cynexai.com', student_code: 'CNX-STU-010', batch_number: 'Batch 1', role: 'Student' },
 ];
 
+const MONTH_NAMES = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December'
+];
+
+const CALENDAR_WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
 export default function AttendanceSystem() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const user = useMemo(() => getCurrentUser(), []);
   const userId = user?.id;
 
-  // View state: 'matrix' (Spreadsheet Grid like Image 2) or 'roster' (Live Roster & QR Session)
-  const [viewMode, setViewMode] = useState<'matrix' | 'roster'>('matrix');
+  const today = useMemo(() => new Date(), []);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const todayDateStr = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
+
+  // View state: 'matrix' (Spreadsheet Grid) | 'roster' (Live Roster & QR) | 'calendar' (Class Calendar)
+  const initialView = searchParams.get('view') === 'calendar' ? 'calendar' : 'matrix';
+  const [viewMode, setViewMode] = useState<'matrix' | 'roster' | 'calendar'>(initialView);
+
+  // Calendar View State
+  const [calYear, setCalYear] = useState<number>(today.getFullYear());
+  const [calMonth, setCalMonth] = useState<number>(today.getMonth() + 1); // 1-12
+  const [calendarSelectedDate, setCalendarSelectedDate] = useState<string>(searchParams.get('date') || todayDateStr);
+  const [calendarSelectedClassId, setCalendarSelectedClassId] = useState<string>('default');
+  const [showStaffModal, setShowStaffModal] = useState<boolean>(false);
 
   const [batches, setBatches] = useState<BatchItem[]>([]);
-  const [selectedBatchId, setSelectedBatchId] = useState<string>('all');
+  const [selectedBatchId, setSelectedBatchId] = useState<string>(searchParams.get('batch') || 'all');
   const [activeClass, setActiveClass] = useState<any>(null);
   const [availableClasses, setAvailableClasses] = useState<any[]>([]);
   const [students, setStudents] = useState<any[]>([]);
@@ -461,6 +485,270 @@ export default function AttendanceSystem() {
     return groups;
   }, [visibleClasses]);
 
+  // ── DATE-BASED CALENDAR ATTENDANCE HELPERS ──
+  const getStudentDateStatus = useCallback((studentId: string, studentEmail: string | undefined, classId: string, dateStr: string) => {
+    const match = matrixLogs.find(l => {
+      const isStudentMatch = l.student_id === studentId || 
+                             (studentEmail && l.student_id?.toLowerCase() === studentEmail.toLowerCase());
+      if (!isStudentMatch) return false;
+      const isClassMatch = !classId || classId === 'default' || l.class_id === classId || l.batch_id === classId;
+      if (!isClassMatch) return false;
+      const logDate = l.date || (l.join_time ? l.join_time.substring(0, 10) : '');
+      return logDate === dateStr;
+    });
+
+    if (!match) return 'Unmarked';
+    const duration = Number(match.duration_minutes) || 0;
+    const isPresent = duration >= 5 || match.status === 'Present' || match.attendance_type === 'Offline_QR' || match.attendance_type === 'Manual';
+    return isPresent ? 'Present' : 'Absent';
+  }, [matrixLogs]);
+
+  const handleToggleDateStudent = async (studentId: string, classId: string, dateStr: string, targetStatus: 'Present' | 'Absent') => {
+    const currentStatus = getStudentDateStatus(studentId, undefined, classId, dateStr);
+    const newStatus = currentStatus === targetStatus ? 'Unmarked' : targetStatus;
+    
+    // Optimistic update
+    setMatrixLogs(prev => {
+      const filtered = prev.filter(l => {
+        const isStudentMatch = l.student_id === studentId;
+        const isClassMatch = !classId || classId === 'default' || l.class_id === classId || l.batch_id === classId;
+        const logDate = l.date || (l.join_time ? l.join_time.substring(0, 10) : '');
+        return !(isStudentMatch && isClassMatch && logDate === dateStr);
+      });
+      if (newStatus === 'Unmarked') return filtered;
+      return [
+        ...filtered,
+        {
+          id: `opt_date_${Date.now()}_${Math.random()}`,
+          student_id: studentId,
+          class_id: classId,
+          batch_id: classId,
+          date: dateStr,
+          join_time: `${dateStr}T10:00:00.000Z`,
+          duration_minutes: newStatus === 'Present' ? 60 : 0,
+          status: newStatus,
+          attendance_type: 'Manual'
+        }
+      ];
+    });
+
+    try {
+      if (newStatus === 'Unmarked') {
+        await removeStudentAttendanceForDate(studentId, classId, dateStr);
+      } else {
+        await logStudentAttendanceForDate(studentId, classId, dateStr, newStatus, 'Manual');
+      }
+      syncAttendanceFromDB(classId, selectedBatch?.name);
+    } catch (e) {
+      console.error('Error updating student date attendance:', e);
+      syncAttendanceFromDB(classId, selectedBatch?.name);
+    }
+  };
+
+  const handleBulkMarkDatePresent = async (classId: string, dateStr: string) => {
+    if (batchStudents.length === 0) return;
+    setSyncing(true);
+    try {
+      const records = batchStudents.map(s => ({
+        studentId: s.id,
+        classId,
+        date: dateStr,
+        status: 'Present' as const
+      }));
+      setMatrixLogs(prev => {
+        const studentIds = new Set(batchStudents.map(s => s.id));
+        const filtered = prev.filter(l => {
+          const isTarget = studentIds.has(l.student_id) && (!classId || classId === 'default' || l.class_id === classId || l.batch_id === classId) && (l.date === dateStr || l.join_time?.startsWith(dateStr));
+          return !isTarget;
+        });
+        const newEntries = batchStudents.map(s => ({
+          id: `opt_bulk_${Date.now()}_${s.id}`,
+          student_id: s.id,
+          class_id: classId,
+          batch_id: classId,
+          date: dateStr,
+          join_time: `${dateStr}T10:00:00.000Z`,
+          duration_minutes: 60,
+          status: 'Present',
+          attendance_type: 'Manual'
+        }));
+        return [...filtered, ...newEntries];
+      });
+
+      await bulkLogAttendanceForDate(records);
+      await syncAttendanceFromDB(classId, selectedBatch?.name);
+    } catch (e) {
+      console.error('Error bulk marking date present:', e);
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  const handleBulkMarkDateAbsent = async (classId: string, dateStr: string) => {
+    if (batchStudents.length === 0) return;
+    setSyncing(true);
+    try {
+      const records = batchStudents.map(s => ({
+        studentId: s.id,
+        classId,
+        date: dateStr,
+        status: 'Absent' as const
+      }));
+      setMatrixLogs(prev => {
+        const studentIds = new Set(batchStudents.map(s => s.id));
+        const filtered = prev.filter(l => {
+          const isTarget = studentIds.has(l.student_id) && (!classId || classId === 'default' || l.class_id === classId || l.batch_id === classId) && (l.date === dateStr || l.join_time?.startsWith(dateStr));
+          return !isTarget;
+        });
+        const newEntries = batchStudents.map(s => ({
+          id: `opt_bulk_${Date.now()}_${s.id}`,
+          student_id: s.id,
+          class_id: classId,
+          batch_id: classId,
+          date: dateStr,
+          join_time: `${dateStr}T10:00:00.000Z`,
+          duration_minutes: 0,
+          status: 'Absent',
+          attendance_type: 'Manual'
+        }));
+        return [...filtered, ...newEntries];
+      });
+
+      await bulkLogAttendanceForDate(records);
+      await syncAttendanceFromDB(classId, selectedBatch?.name);
+    } catch (e) {
+      console.error('Error bulk marking date absent:', e);
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  const handleClearDateAttendance = async (classId: string, dateStr: string) => {
+    if (batchStudents.length === 0) return;
+    setSyncing(true);
+    try {
+      setMatrixLogs(prev => {
+        const studentIds = new Set(batchStudents.map(s => s.id));
+        return prev.filter(l => {
+          const isTarget = studentIds.has(l.student_id) && (!classId || classId === 'default' || l.class_id === classId || l.batch_id === classId) && (l.date === dateStr || l.join_time?.startsWith(dateStr));
+          return !isTarget;
+        });
+      });
+      for (const s of batchStudents) {
+        await removeStudentAttendanceForDate(s.id, classId, dateStr);
+      }
+      await syncAttendanceFromDB(classId, selectedBatch?.name);
+    } catch (e) {
+      console.error('Error clearing date attendance:', e);
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  // Calendar dates matrix for the selected month (calYear, calMonth)
+  const classCalendarDays = useMemo(() => {
+    const daysInMonth = new Date(calYear, calMonth, 0).getDate();
+    const firstDayIndex = new Date(calYear, calMonth - 1, 1).getDay(); // 0 is Sun
+
+    const days: Array<{
+      dateStr: string;
+      dayNum: number;
+      isCurrentMonth: boolean;
+      isToday: boolean;
+      isWeekend: boolean;
+      isFuture: boolean;
+      presentCount: number;
+      absentCount: number;
+      totalMarked: number;
+    }> = [];
+
+    const padZero = (n: number) => String(n).padStart(2, '0');
+    const todayStr = `${today.getFullYear()}-${padZero(today.getMonth() + 1)}-${padZero(today.getDate())}`;
+
+    // Prev month padding
+    const prevMonthDays = new Date(calYear, calMonth - 1, 0).getDate();
+    for (let i = firstDayIndex - 1; i >= 0; i--) {
+      const dNum = prevMonthDays - i;
+      const prevM = calMonth === 1 ? 12 : calMonth - 1;
+      const prevY = calMonth === 1 ? calYear - 1 : calYear;
+      const dStr = `${prevY}-${padZero(prevM)}-${padZero(dNum)}`;
+      days.push({
+        dateStr: dStr,
+        dayNum: dNum,
+        isCurrentMonth: false,
+        isToday: dStr === todayStr,
+        isWeekend: false,
+        isFuture: dStr > todayStr,
+        presentCount: 0,
+        absentCount: 0,
+        totalMarked: 0
+      });
+    }
+
+    // Current month days
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dStr = `${calYear}-${padZero(calMonth)}-${padZero(d)}`;
+      const dayOfWeek = new Date(calYear, calMonth - 1, d).getDay();
+      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+
+      // Count attendance for this date in batchStudents
+      let presentCount = 0;
+      let absentCount = 0;
+
+      batchStudents.forEach(s => {
+        const st = getStudentDateStatus(s.id, s.email, calendarSelectedClassId, dStr);
+        if (st === 'Present') presentCount++;
+        else if (st === 'Absent') absentCount++;
+      });
+
+      days.push({
+        dateStr: dStr,
+        dayNum: d,
+        isCurrentMonth: true,
+        isToday: dStr === todayStr,
+        isWeekend,
+        isFuture: dStr > todayStr,
+        presentCount,
+        absentCount,
+        totalMarked: presentCount + absentCount
+      });
+    }
+
+    // Next month padding to 42 cells
+    const remaining = 42 - days.length;
+    for (let d = 1; d <= remaining; d++) {
+      const nextM = calMonth === 12 ? 1 : calMonth + 1;
+      const nextY = calMonth === 12 ? calYear + 1 : calYear;
+      const dStr = `${nextY}-${padZero(nextM)}-${padZero(d)}`;
+      days.push({
+        dateStr: dStr,
+        dayNum: d,
+        isCurrentMonth: false,
+        isToday: dStr === todayStr,
+        isWeekend: false,
+        isFuture: dStr > todayStr,
+        presentCount: 0,
+        absentCount: 0,
+        totalMarked: 0
+      });
+    }
+
+  }, [calYear, calMonth, today, batchStudents, getStudentDateStatus, calendarSelectedClassId]);
+
+  // Statistics for the selected calendar date
+  const selectedDateStats = useMemo(() => {
+    let present = 0;
+    let absent = 0;
+    batchStudents.forEach(s => {
+      const st = getStudentDateStatus(s.id, s.email, calendarSelectedClassId, calendarSelectedDate);
+      if (st === 'Present') present++;
+      else if (st === 'Absent') absent++;
+    });
+    const total = batchStudents.length;
+    const rate = total > 0 ? Math.round((present / total) * 100) : 0;
+    return { present, absent, total, rate };
+  }, [batchStudents, getStudentDateStatus, calendarSelectedClassId, calendarSelectedDate]);
+
   // List of all course titles for filter dropdown
   const availableCourseNames = useMemo(() => {
     const set = new Set<string>();
@@ -562,12 +850,22 @@ export default function AttendanceSystem() {
             Real-time batch matrix across all 28+ classes, column navigation, P/A badges, and automated 5-minute stay tracking.
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button
+            onClick={() => setShowStaffModal(true)}
+            variant="secondary"
+            size="md"
+            className="flex items-center gap-2 font-bold shadow-xs text-blue-600 dark:text-blue-400 border-blue-500/30 hover:bg-blue-500/10 cursor-pointer"
+          >
+            <CalendarIcon className="w-4 h-4 text-blue-500" />
+            Staff Office Attendance Calendar
+          </Button>
+
           <Button 
             onClick={handleExportCSV} 
             variant="primary" 
             size="md"
-            className="flex items-center gap-2 font-bold shadow-md bg-emerald-600 hover:bg-emerald-700 text-white"
+            className="flex items-center gap-2 font-bold shadow-md bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer"
           >
             <Download className="w-4 h-4" />
             Export All Classes (CSV)
@@ -578,11 +876,11 @@ export default function AttendanceSystem() {
         </div>
       </div>
 
-      {/* View Mode Tabs: 'matrix' (Spreadsheet Grid like Image 2) vs 'roster' (Live Roster & QR Session) */}
-      <div className="flex items-center gap-2 bg-erp-surface border border-erp-border p-1.5 rounded-2xl mb-6 shadow-xs w-fit">
+      {/* View Mode Tabs: 'matrix' vs 'roster' vs 'calendar' */}
+      <div className="flex items-center gap-2 bg-erp-surface border border-erp-border p-1.5 rounded-2xl mb-6 shadow-xs w-fit flex-wrap">
         <button
           onClick={() => setViewMode('matrix')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-xs transition-all ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-xs transition-all cursor-pointer ${
             viewMode === 'matrix' 
               ? 'bg-blue-600 text-white shadow-sm' 
               : 'text-erp-text/70 hover:text-erp-text hover:bg-erp-background'
@@ -592,8 +890,19 @@ export default function AttendanceSystem() {
           Batch & Course Attendance Matrix (Grid)
         </button>
         <button
+          onClick={() => setViewMode('calendar')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-xs transition-all cursor-pointer ${
+            viewMode === 'calendar' 
+              ? 'bg-blue-600 text-white shadow-sm' 
+              : 'text-erp-text/70 hover:text-erp-text hover:bg-erp-background'
+          }`}
+        >
+          <CalendarIcon className="w-4 h-4" />
+          Interactive Class Calendar
+        </button>
+        <button
           onClick={() => setViewMode('roster')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-xs transition-all ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-xs transition-all cursor-pointer ${
             viewMode === 'roster' 
               ? 'bg-blue-600 text-white shadow-sm' 
               : 'text-erp-text/70 hover:text-erp-text hover:bg-erp-background'
@@ -1281,6 +1590,369 @@ export default function AttendanceSystem() {
             </Card>
           </div>
         </>
+      )}
+
+      {/* ── VIEW MODE 3: INTERACTIVE CLASS CALENDAR & ROLL CALL ── */}
+      {viewMode === 'calendar' && (
+        <div className="space-y-8 animate-fadeIn">
+          {/* Calendar Master Card */}
+          <Card className="bg-erp-surface border-erp-border p-6 shadow-sm">
+            {/* Calendar Header Controls */}
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6">
+              <div>
+                <h2 className="text-xl font-bold font-display text-erp-text flex items-center gap-2">
+                  <CalendarIcon className="w-5 h-5 text-blue-500" />
+                  Interactive Class Calendar & Roll Call
+                  <span className="text-xs bg-blue-500/10 text-blue-500 border border-blue-500/20 px-2.5 py-0.5 rounded-full font-mono font-bold">
+                    {batchStudents.length} Students in Batch
+                  </span>
+                </h2>
+                <p className="text-xs text-erp-text/60 mt-1">
+                  Click on any day in the monthly calendar to view and manually take or adjust student attendance for that date.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3">
+                {/* Class / Curriculum Session Selector */}
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-bold text-erp-text/60 hidden sm:inline">Session:</span>
+                  <select
+                    value={calendarSelectedClassId}
+                    onChange={(e) => setCalendarSelectedClassId(e.target.value)}
+                    className="bg-erp-background border border-erp-border text-erp-text font-bold rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 max-w-[200px] truncate"
+                  >
+                    <option value="default">General Batch Session</option>
+                    {allFlatClasses.map(cls => (
+                      <option key={cls.id} value={cls.id}>
+                        {cls.courseName ? `${cls.courseName}: ` : ''}{cls.title || `Class ${cls.classNum}`}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Month Navigator */}
+                <div className="flex items-center bg-erp-background border border-erp-border rounded-xl p-1 shadow-xs">
+                  <button
+                    onClick={() => {
+                      if (calMonth === 1) {
+                        setCalMonth(12);
+                        setCalYear(prev => prev - 1);
+                      } else {
+                        setCalMonth(prev => prev - 1);
+                      }
+                    }}
+                    className="p-1.5 rounded-lg hover:bg-erp-surface text-erp-text/70 hover:text-erp-text transition-colors"
+                    title="Previous Month"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  <span className="text-xs font-black text-erp-text px-3 py-1 min-w-[120px] text-center">
+                    {MONTH_NAMES[calMonth - 1]} {calYear}
+                  </span>
+                  <button
+                    onClick={() => {
+                      if (calMonth === 12) {
+                        setCalMonth(1);
+                        setCalYear(prev => prev + 1);
+                      } else {
+                        setCalMonth(prev => prev + 1);
+                      }
+                    }}
+                    className="p-1.5 rounded-lg hover:bg-erp-surface text-erp-text/70 hover:text-erp-text transition-colors"
+                    title="Next Month"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {/* Today Button */}
+                <Button
+                  onClick={() => {
+                    setCalMonth(today.getMonth() + 1);
+                    setCalYear(today.getFullYear());
+                    setCalendarSelectedDate(todayDateStr);
+                  }}
+                  variant="secondary"
+                  size="sm"
+                  className="font-bold text-xs"
+                >
+                  Today
+                </Button>
+              </div>
+            </div>
+
+            {/* Calendar Table Grid */}
+            <div className="bg-erp-background border border-erp-border rounded-2xl overflow-hidden shadow-xs mb-8">
+              {/* Day names header */}
+              <div className="grid grid-cols-7 border-b border-erp-border bg-slate-100 dark:bg-zinc-900/80 text-center font-bold text-xs text-erp-text/70 py-2.5">
+                {CALENDAR_WEEKDAYS.map(w => (
+                  <div key={w} className={w === 'Sun' || w === 'Sat' ? 'text-amber-600 dark:text-amber-400' : ''}>
+                    {w}
+                  </div>
+                ))}
+              </div>
+
+              {/* Day cells */}
+              <div className="grid grid-cols-7 divide-x divide-y divide-erp-border">
+                {classCalendarDays.map((day, idx) => {
+                  const isSelected = calendarSelectedDate === day.dateStr;
+                  const hasAttendance = day.totalMarked > 0;
+                  const rate = day.presentCount > 0 && batchStudents.length > 0
+                    ? Math.round((day.presentCount / batchStudents.length) * 100)
+                    : 0;
+
+                  return (
+                    <div
+                      key={day.dateStr + '_' + idx}
+                      onClick={() => setCalendarSelectedDate(day.dateStr)}
+                      className={`min-h-[85px] p-2 flex flex-col justify-between cursor-pointer transition-all relative select-none group ${
+                        !day.isCurrentMonth 
+                          ? 'bg-slate-50/50 dark:bg-zinc-950/30 opacity-40 hover:opacity-75' 
+                          : day.isWeekend 
+                          ? 'bg-slate-50/20 dark:bg-zinc-900/20' 
+                          : 'bg-erp-surface hover:bg-erp-background'
+                      } ${
+                        isSelected 
+                          ? 'ring-2 ring-blue-500 bg-blue-500/10 z-10 shadow-xs' 
+                          : ''
+                      } ${
+                        day.isToday 
+                          ? 'border-2 border-blue-500' 
+                          : ''
+                      }`}
+                    >
+                      {/* Top Day row */}
+                      <div className="flex items-center justify-between">
+                        <span className={`text-xs font-black rounded-full w-5 h-5 flex items-center justify-center ${
+                          day.isToday 
+                            ? 'bg-blue-600 text-white' 
+                            : isSelected
+                            ? 'bg-blue-500/20 text-blue-600 dark:text-blue-400'
+                            : 'text-erp-text'
+                        }`}>
+                          {day.dayNum}
+                        </span>
+
+                        {hasAttendance && (
+                          <span className={`w-2 h-2 rounded-full ${day.presentCount > 0 ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+                        )}
+                      </div>
+
+                      {/* Bottom status badge */}
+                      <div className="mt-1">
+                        {hasAttendance ? (
+                          <div className="space-y-0.5">
+                            {day.presentCount > 0 && (
+                              <div className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 truncate">
+                                ✓ {day.presentCount} Present ({rate}%)
+                              </div>
+                            )}
+                            {day.absentCount > 0 && (
+                              <div className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30 truncate">
+                                ✗ {day.absentCount} Absent
+                              </div>
+                            )}
+                          </div>
+                        ) : day.isCurrentMonth && !day.isWeekend && !day.isFuture ? (
+                          <div className="text-[9px] font-bold text-erp-text/30 group-hover:text-blue-500 group-hover:font-extrabold transition-colors">
+                            + Take Attendance
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* ── SELECTED DATE ROLL CALL ACTION PANEL ── */}
+            <div className="bg-erp-background border-2 border-erp-border rounded-2xl p-5 shadow-sm">
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-erp-border">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-blue-500/10 text-blue-500 flex items-center justify-center font-bold">
+                    <CalendarIcon className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-black uppercase tracking-wider text-erp-text/50">
+                      Selected Session Date
+                    </span>
+                    <h3 className="text-lg font-black text-erp-text">
+                      {new Date(calendarSelectedDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+                    </h3>
+                  </div>
+                </div>
+
+                {/* Date Stats Chips */}
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="bg-erp-surface border border-erp-border px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5">
+                    <Users className="w-3.5 h-3.5 text-blue-500" />
+                    <span>Enrolled: <strong className="text-erp-text">{selectedDateStats.total}</strong></span>
+                  </div>
+                  <div className="bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 rounded-xl text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+                    <UserCheck className="w-3.5 h-3.5" />
+                    <span>Present: <strong>{selectedDateStats.present}</strong> ({selectedDateStats.rate}%)</span>
+                  </div>
+                  <div className="bg-rose-500/10 border border-rose-500/20 px-3 py-1.5 rounded-xl text-xs font-bold text-rose-600 dark:text-rose-400 flex items-center gap-1.5">
+                    <UserX className="w-3.5 h-3.5" />
+                    <span>Absent: <strong>{selectedDateStats.absent}</strong></span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Toolbar */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-4 mb-4">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Button
+                    onClick={() => handleBulkMarkDatePresent(calendarSelectedClassId, calendarSelectedDate)}
+                    variant="primary"
+                    size="sm"
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs"
+                    disabled={syncing}
+                  >
+                    <CheckCircle className="w-3.5 h-3.5" />
+                    Mark All Present
+                  </Button>
+
+                  <Button
+                    onClick={() => handleBulkMarkDateAbsent(calendarSelectedClassId, calendarSelectedDate)}
+                    variant="secondary"
+                    size="sm"
+                    className="border-rose-500/30 text-rose-600 hover:bg-rose-500/10 font-bold text-xs flex items-center gap-1.5 shadow-xs"
+                    disabled={syncing}
+                  >
+                    <UserX className="w-3.5 h-3.5" />
+                    Mark All Absent
+                  </Button>
+
+                  <Button
+                    onClick={() => handleClearDateAttendance(calendarSelectedClassId, calendarSelectedDate)}
+                    variant="ghost"
+                    size="sm"
+                    className="text-erp-text/60 hover:text-erp-text font-bold text-xs"
+                    disabled={syncing}
+                  >
+                    Clear Attendance
+                  </Button>
+                </div>
+
+                {/* Student search input */}
+                <div className="relative min-w-[200px]">
+                  <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-erp-text/40" />
+                  <input
+                    type="text"
+                    placeholder="Search student..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-8 pr-3 py-1.5 text-xs bg-erp-surface border border-erp-border rounded-xl text-erp-text focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+
+              {/* Student Roll Call List */}
+              <div className="overflow-x-auto border border-erp-border rounded-xl bg-erp-surface">
+                <table className="w-full text-left border-collapse min-w-[600px]">
+                  <thead>
+                    <tr className="bg-slate-100 dark:bg-zinc-900 border-b border-erp-border text-[11px] font-black uppercase text-erp-text/70 tracking-wider">
+                      <th className="py-2.5 px-3 w-10 text-center">#</th>
+                      <th className="py-2.5 px-4 text-left">Student</th>
+                      <th className="py-2.5 px-4 text-left">Batch</th>
+                      <th className="py-2.5 px-4 text-center">Status on {calendarSelectedDate}</th>
+                      <th className="py-2.5 px-4 text-right">Click to Log</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-erp-border text-xs">
+                    {filteredStudents.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="py-8 text-center text-erp-text/50 font-bold">
+                          No students found matching current filters.
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredStudents.map((student, idx) => {
+                        const status = getStudentDateStatus(student.id, student.email, calendarSelectedClassId, calendarSelectedDate);
+                        const isPresent = status === 'Present';
+                        const isAbsent = status === 'Absent';
+
+                        return (
+                          <tr key={student.id} className="hover:bg-erp-background/50 transition-colors">
+                            <td className="py-2.5 px-3 text-center font-mono text-erp-text/50 font-bold">
+                              {idx + 1}
+                            </td>
+                            <td className="py-2.5 px-4">
+                              <div className="font-bold text-erp-text">{student.name || 'Unnamed Student'}</div>
+                              <div className="text-[10px] text-erp-text/50">{student.student_code || student.email || ''}</div>
+                            </td>
+                            <td className="py-2.5 px-4">
+                              <span className="px-2 py-0.5 rounded bg-blue-500/10 text-blue-500 font-bold text-[10px]">
+                                {student.batch_number || selectedBatch?.name || 'Batch'}
+                              </span>
+                            </td>
+                            <td className="py-2.5 px-4 text-center">
+                              {isPresent ? (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-black bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
+                                  <Check className="w-3 h-3" /> Present
+                                </span>
+                              ) : isAbsent ? (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-black bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/30">
+                                  <X className="w-3 h-3" /> Absent
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 dark:bg-zinc-800 text-slate-500">
+                                  Unmarked
+                                </span>
+                              )}
+                            </td>
+                            <td className="py-2.5 px-4 text-right">
+                              <div className="flex items-center justify-end gap-1.5">
+                                <button
+                                  onClick={() => handleToggleDateStudent(student.id, calendarSelectedClassId, calendarSelectedDate, 'Present')}
+                                  className={`px-3 py-1 rounded-lg text-xs font-black transition-all cursor-pointer ${
+                                    isPresent
+                                      ? 'bg-emerald-600 text-white shadow-xs scale-105'
+                                      : 'bg-erp-background border border-erp-border text-emerald-600 hover:bg-emerald-500/10'
+                                  }`}
+                                  title="Mark Present"
+                                >
+                                  P
+                                </button>
+                                <button
+                                  onClick={() => handleToggleDateStudent(student.id, calendarSelectedClassId, calendarSelectedDate, 'Absent')}
+                                  className={`px-3 py-1 rounded-lg text-xs font-black transition-all cursor-pointer ${
+                                    isAbsent
+                                      ? 'bg-rose-600 text-white shadow-xs scale-105'
+                                      : 'bg-erp-background border border-erp-border text-rose-600 hover:bg-rose-500/10'
+                                  }`}
+                                  title="Mark Absent"
+                                >
+                                  A
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* Staff Attendance Calendar Modal */}
+      {showStaffModal && (
+        <StaffAttendanceModal
+          isOpen={showStaffModal}
+          onClose={() => setShowStaffModal(false)}
+          targetUser={user ? {
+            id: user.id,
+            name: user.name,
+            role: user.role,
+            email: user.email
+          } : undefined}
+          onAttendanceUpdated={() => syncAttendanceFromDB(activeClass?.id || 'default', selectedBatch?.name)}
+        />
       )}
     </div>
   );

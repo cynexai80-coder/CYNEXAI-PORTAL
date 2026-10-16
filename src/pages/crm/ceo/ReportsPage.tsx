@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { getEmployeeReports, getProjectHierarchyReport, EmployeeReport } from '../../../lib/api/reports';
 import { getAllTasks, Task } from '../../../lib/api/tasks';
+import { StaffAttendanceModal } from '../../../components/crm/attendance/StaffAttendanceModal';
 import {
   Users, Phone, CheckSquare, TrendingUp, Award,
   ChevronDown, ChevronRight, Calendar, Filter, RefreshCw,
@@ -83,7 +84,7 @@ function TaskMiniCard({ task }: { task: Task }) {
 }
 
 // ── Employee Row ───────────────────────────────────────────────────────────────
-function EmployeeRow({ report, rank, allTasks, dateFrom, dateTo }: { report: EmployeeReport; rank: number; allTasks: Task[]; dateFrom: string; dateTo: string; }) {
+function EmployeeRow({ report, rank, allTasks, dateFrom, dateTo, onOpenCalendar }: { report: EmployeeReport; rank: number; allTasks: Task[]; dateFrom: string; dateTo: string; onOpenCalendar?: (report: EmployeeReport) => void; }) {
   const [expanded, setExpanded] = useState(false);
 
   // Filter tasks to match the date range (same as the report stats)
@@ -142,6 +143,20 @@ function EmployeeRow({ report, rank, allTasks, dateFrom, dateTo }: { report: Emp
             ) : report.login_time ? (
               <span className="text-[9px] font-black text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 rounded-full mt-0.5 inline-block">Active</span>
             ) : null}
+            {onOpenCalendar && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onOpenCalendar(report);
+                }}
+                className="mt-1 flex items-center gap-1 text-[10px] font-bold text-blue-600 hover:text-blue-700 bg-blue-500/10 hover:bg-blue-500/20 px-2 py-0.5 rounded-md transition-colors cursor-pointer"
+                title="Open Staff Attendance Calendar"
+              >
+                <Calendar className="w-2.5 h-2.5" />
+                Calendar
+              </button>
+            )}
           </div>
         </td>
         <td className="px-4 py-3.5 text-center">
@@ -333,6 +348,7 @@ export default function ReportsPage() {
   const [dateTo, setDateTo] = useState('');
   const [sortBy, setSortBy] = useState<keyof EmployeeReport>('completion_rate');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+  const [calendarEmployee, setCalendarEmployee] = useState<EmployeeReport | null>(null);
   const [roleFilter, setRoleFilter] = useState('');
 
   const loadReports = async () => {
@@ -505,7 +521,7 @@ export default function ReportsPage() {
                     </thead>
                     <tbody>
                       {filteredReports.map((r, i) => (
-                        <EmployeeRow key={r.user_id} report={r} rank={i + 1} allTasks={allTasks} dateFrom={dateFrom} dateTo={dateTo} />
+                        <EmployeeRow key={r.user_id} report={r} rank={i + 1} allTasks={allTasks} dateFrom={dateFrom} dateTo={dateTo} onOpenCalendar={setCalendarEmployee} />
                       ))}
                     </tbody>
                   </table>
@@ -535,6 +551,20 @@ export default function ReportsPage() {
           </div>
         )}
       </div>
+
+      {/* Staff Attendance Calendar Modal for CEO/Manager */}
+      {calendarEmployee && (
+        <StaffAttendanceModal
+          isOpen={Boolean(calendarEmployee)}
+          onClose={() => setCalendarEmployee(null)}
+          targetUser={{
+            id: calendarEmployee.user_id,
+            name: calendarEmployee.user_name,
+            role: calendarEmployee.user_role
+          }}
+          onAttendanceUpdated={loadReports}
+        />
+      )}
     </div>
   );
 }

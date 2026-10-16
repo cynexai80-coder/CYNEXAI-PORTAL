@@ -20,6 +20,7 @@ import AdminPanel from './components/AdminPanel';
 import PaymentPage from './components/PaymentPage';
 import BlogPage from './components/BlogPage';
 import BlogPostDetail from './components/BlogPostDetail';
+import PlacementDashboard from './pages/PlacementDashboard';
 
 // CRM Imports
 import { MobileNavigation } from './components/layout/MobileNavigation';
@@ -144,8 +145,8 @@ const HomePage = () => (
   </>
 );
 
-const MainLayout = ({ children }: { children: React.ReactNode }) => (
-  <div className="min-h-screen bg-primary-900">
+const MainLayout = ({ children, isLight }: { children: React.ReactNode; isLight?: boolean }) => (
+  <div className={`min-h-screen ${isLight ? 'bg-[#F8FAFC]' : 'bg-primary-900'}`}>
     <Header />
     {children}
     <PageAnswers />
@@ -229,6 +230,11 @@ function App() {
         <Route path="/pay" element={<MainLayout><PaymentPage /></MainLayout>} />
         <Route path="/blog" element={<MainLayout><BlogPage /></MainLayout>} />
         <Route path="/blog/:id" element={<MainLayout><BlogPostDetail /></MainLayout>} />
+        
+        {/* Placement Dashboard Routes */}
+        <Route path="/placemnetdashboard" element={<MainLayout isLight><PlacementDashboard /></MainLayout>} />
+        <Route path="/placementdashboard" element={<MainLayout isLight><PlacementDashboard /></MainLayout>} />
+        <Route path="/placement-dashboard" element={<MainLayout isLight><PlacementDashboard /></MainLayout>} />
         <Route path="/sales/pitch" element={<SalesLayout><SalesPitchPage /></SalesLayout>} />
         <Route path="/sales/pipeline" element={<SalesLayout><LeadPipeline /></SalesLayout>} />
         <Route path="/sales/leads/new" element={<SalesLayout><LeadCapture /></SalesLayout>} />

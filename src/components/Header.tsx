@@ -13,8 +13,8 @@ const navItems = [
   { name: 'Contact', href: '#contact' },
   { name: 'Gallery', href: '/gallery' },
   { name: 'Blog', href: '/blog' },
-  // 'Pay Now' has been removed as requested.
-  { name: 'About Us', href: '/about' }, // Added 'About Us' link
+  { name: 'Placements', href: '/placementdashboard' },
+  { name: 'About Us', href: '/about' },
 ];
 
 export default function Header() {

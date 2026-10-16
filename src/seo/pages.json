@@ -79,6 +79,18 @@
       ]
     },
     {
+      "path": "/placementdashboard",
+      "title": "Placement Dashboard | CynexAI Campus Intelligence & Placed Students",
+      "description": "Explore CynexAI placement statistics, 54+ collaborated colleges, 1840+ placed students, and 248+ available opportunities across CEC, ECE, and Non-IT streams.",
+      "ogImage": "https://cynexai.in/assets/cynexai-banner.jpg"
+    },
+    {
+      "path": "/placemnetdashboard",
+      "title": "Placement Dashboard | CynexAI Campus Intelligence & Placed Students",
+      "description": "Explore CynexAI placement statistics, 54+ collaborated colleges, 1840+ placed students, and 248+ available opportunities across CEC, ECE, and Non-IT streams.",
+      "ogImage": "https://cynexai.in/assets/cynexai-banner.jpg"
+    },
+    {
       "path": "/courses/pre-registration",
       "title": "Pre Registration for AI Tools Course | CynexAI",
       "description": "Reserve a token to lock in a seat and receive instant lifetime access to CynexAI tools, including the AI Resume Builder, via a self‑paced English course.",
