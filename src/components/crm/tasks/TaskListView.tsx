@@ -1,7 +1,10 @@
 import React from 'react';
 import { Task, updateTaskStatus, deleteTask } from '../../../lib/api/tasks';
-import { CheckCircle, Circle, MoreVertical, Clock, AlertTriangle, Trash2 } from 'lucide-react';
+import { CheckCircle, Circle, Clock, AlertTriangle, Trash2 } from 'lucide-react';
 import { getCurrentUser } from '../../../lib/auth';
+import { keyboardActivate, FOCUS_RING } from '../../../lib/a11y';
+import { notify, confirmDialog } from '../../../lib/feedback';
+import { todayIST } from '../../../lib/dateUtils';
 
 interface Props {
   tasks: Task[];
@@ -22,12 +25,12 @@ export const TaskListView: React.FC<Props> = ({ tasks, users, onTaskClick, onUpd
 
   const handleDelete = async (e: React.MouseEvent, task: Task) => {
     e.stopPropagation();
-    if (confirm(`Are you sure you want to delete "${task.title}"?`)) {
+    if (await confirmDialog({ title: 'Delete task', message: `Are you sure you want to delete "${task.title}"?`, confirmLabel: 'Delete', danger: true })) {
       const res = await deleteTask(task.id);
       if (res.success) {
         onUpdate();
       } else {
-        alert(res.error || 'Failed to delete task');
+        notify(res.error || 'Failed to delete task');
       }
     }
   };
@@ -40,12 +43,12 @@ export const TaskListView: React.FC<Props> = ({ tasks, users, onTaskClick, onUpd
 
   const handleDeleteTask = async (e: React.MouseEvent, task: Task) => {
     e.stopPropagation();
-    if (confirm(`Delete "${task.title}"?`)) {
+    if (await confirmDialog({ title: 'Delete task', message: `Delete "${task.title}"?`, confirmLabel: 'Delete', danger: true })) {
       const res = await deleteTask(task.id);
       if (res.success) {
         onUpdate();
       } else {
-        alert(res.error || 'Failed to delete task');
+        notify(res.error || 'Failed to delete task');
       }
     }
   };
@@ -57,9 +60,9 @@ export const TaskListView: React.FC<Props> = ({ tasks, users, onTaskClick, onUpd
 
   const getPriorityColor = (priority: string) => {
     switch(priority) {
-      case 'Urgent': return 'text-red-600 bg-red-100 border-red-200';
-      case 'High': return 'text-orange-600 bg-orange-100 border-orange-200';
-      case 'Medium': return 'text-blue-600 bg-blue-100 border-blue-200';
+      case 'Urgent': return 'text-red-700 bg-red-100 border-red-200';
+      case 'High': return 'text-orange-700 bg-orange-100 border-orange-200';
+      case 'Medium': return 'text-blue-700 bg-blue-100 border-blue-200';
       case 'Low': return 'text-gray-600 bg-gray-100 dark:bg-zinc-900/50 border-gray-200 dark:border-white/10';
       default: return 'text-gray-600 bg-gray-100 dark:bg-zinc-900/50 border-gray-200 dark:border-white/10';
     }
@@ -77,7 +80,7 @@ export const TaskListView: React.FC<Props> = ({ tasks, users, onTaskClick, onUpd
     );
   }
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = todayIST();
   const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
 
   return (
@@ -105,14 +108,18 @@ export const TaskListView: React.FC<Props> = ({ tasks, users, onTaskClick, onUpd
             <tr 
               key={task.id} 
               onClick={() => onTaskClick(task)}
-              className={`group transition-colors cursor-pointer ${
+              {...keyboardActivate(() => onTaskClick(task))}
+              className={`group transition-colors cursor-pointer ${FOCUS_RING} ${
                 isYesterdayMissed
                   ? 'bg-orange-50 dark:bg-orange-950/20 hover:bg-orange-100 dark:hover:bg-orange-950/30 border-l-4 border-l-orange-500'
                   : 'hover:bg-erp-background'
               }`}
             >
               <td className="p-3 text-center align-middle" onClick={(e) => handleToggleStatus(e, task)}>
-                <button className="text-erp-text/30 hover:text-erp-primary transition-colors focus:outline-none">
+                <button
+                  aria-label={task.status === 'Done' ? `Mark "${task.title}" as not done` : `Mark "${task.title}" as done`}
+                  className="text-erp-text/30 hover:text-erp-primary transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-erp-primary rounded-full"
+                >
                   {task.status === 'Done' ? (
                     <CheckCircle className="w-5 h-5 text-green-500" />
                   ) : task.status === 'Excused' ? (
@@ -128,7 +135,7 @@ export const TaskListView: React.FC<Props> = ({ tasks, users, onTaskClick, onUpd
                 <div className={`font-bold text-sm ${task.status === 'Done' || task.status === 'Excused' ? 'text-erp-text/50 line-through' : isMissed ? 'text-orange-700 dark:text-orange-400' : 'text-erp-text'}`}>
                   {task.title}
                   {isYesterdayMissed && (
-                    <span className="ml-2 inline-flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-full bg-orange-500 text-white animate-pulse">
+                    <span className="ml-2 inline-flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-full bg-orange-700 text-white animate-pulse">
                       <AlertTriangle className="w-2.5 h-2.5" /> MISSED YESTERDAY
                     </span>
                   )}
@@ -177,8 +184,8 @@ export const TaskListView: React.FC<Props> = ({ tasks, users, onTaskClick, onUpd
               </td>
               <td className="p-3">
                 <span className={`text-xs font-medium px-2 py-1 rounded-full ${
-                  task.status === 'Done'        ? 'bg-green-100 text-green-700 dark:text-white' :
-                  task.status === 'In Progress' ? 'bg-blue-100 text-blue-700 dark:text-white' :
+                  task.status === 'Done'        ? 'bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-white' :
+                  task.status === 'In Progress' ? 'bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-white' :
                   task.status === 'Review'      ? 'bg-purple-100 text-purple-700' :
                   task.status === 'Missed'      ? 'bg-orange-100 text-orange-700 font-black animate-pulse' :
                   'bg-gray-100 dark:bg-zinc-900/50 text-gray-700 dark:text-white'
@@ -192,13 +199,11 @@ export const TaskListView: React.FC<Props> = ({ tasks, users, onTaskClick, onUpd
                     onClick={(e) => handleDelete(e, task)}
                     className="opacity-0 group-hover:opacity-100 p-1 text-red-500 hover:text-red-700 dark:text-red-400 transition-all rounded hover:bg-red-500/10"
                     title="Delete Task"
+                    aria-label={`Delete task "${task.title}"`}
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
                 )}
-                <button className="opacity-0 group-hover:opacity-100 p-1 text-erp-text/40 hover:text-erp-text transition-all rounded hover:bg-erp-surface">
-                  <MoreVertical className="w-4 h-4" />
-                </button>
               </td>
             </tr>
             );

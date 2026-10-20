@@ -230,7 +230,7 @@ export default function JitsiMeet({ roomName, displayName = 'Student', classId, 
             <div className="flex flex-col gap-3 w-full max-w-xs">
               <button
                 onClick={rejoin}
-                className="flex items-center justify-center gap-2 bg-white dark:bg-black/10 hover:bg-white dark:bg-black/20 text-white font-bold px-6 py-3 rounded-xl transition-colors"
+                className="flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 text-white font-bold px-6 py-3 rounded-xl transition-colors"
               >
                 <RefreshCw className="w-4 h-4" /> Try Again
               </button>
@@ -238,7 +238,7 @@ export default function JitsiMeet({ roomName, displayName = 'Student', classId, 
                 href={directUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="flex items-center justify-center gap-2 bg-red-500 hover:bg-red-400 text-white font-bold px-6 py-3 rounded-xl transition-colors"
+                className="flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white font-bold px-6 py-3 rounded-xl transition-colors"
               >
                 <ExternalLink className="w-4 h-4" /> Open in Browser
               </a>
@@ -253,13 +253,13 @@ export default function JitsiMeet({ roomName, displayName = 'Student', classId, 
         <div className="shrink-0 flex items-center justify-center gap-4 p-3 bg-black/60 backdrop-blur">
           <button
             onClick={() => { if (apiRef.current) { try { apiRef.current.executeCommand('hangup'); } catch {} } }}
-            className="flex items-center gap-2 bg-red-600 hover:bg-red-500 text-white font-bold px-5 py-2 rounded-xl text-sm transition-colors"
+            className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white font-bold px-5 py-2 rounded-xl text-sm transition-colors"
           >
             <PhoneOff className="w-4 h-4" /> Leave Meeting
           </button>
           <button
             onClick={onClassEnded}
-            className="flex items-center gap-2 text-slate-400 hover:text-white font-bold px-5 py-2 rounded-xl text-sm transition-colors bg-white dark:bg-black/5 hover:bg-white dark:bg-black/10"
+            className="flex items-center gap-2 text-slate-400 hover:text-white font-bold px-5 py-2 rounded-xl text-sm transition-colors bg-white/5 hover:bg-white/10"
           >
             Skip to Quiz <ArrowRight className="w-4 h-4" />
           </button>

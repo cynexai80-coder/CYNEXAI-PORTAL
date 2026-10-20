@@ -58,22 +58,22 @@ export function TaskAppSidebar({ currentView, onViewChange, projects, onNewProje
 
         {/* Projects */}
         <div>
-          <div 
-            className="flex items-center justify-between px-3 py-2 text-xs font-bold text-erp-text/50 uppercase tracking-wider cursor-pointer hover:text-erp-text transition-colors group"
-            onClick={() => setProjectsOpen(!projectsOpen)}
-          >
-            <div className="flex items-center gap-1">
-              {projectsOpen ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
-              Projects
-            </div>
-            <button 
-              onClick={(e) => {
-                e.stopPropagation();
-                onNewProject();
-              }}
-              className="opacity-0 group-hover:opacity-100 p-1 hover:bg-erp-surface rounded transition-all"
+          <div className="flex items-center justify-between px-3 py-2 text-xs font-bold text-erp-text/50 uppercase tracking-wider hover:text-erp-text transition-colors group">
+            <button
+              type="button"
+              onClick={() => setProjectsOpen(!projectsOpen)}
+              aria-expanded={projectsOpen}
+              className="flex flex-1 items-center gap-1 min-h-[24px] uppercase tracking-wider text-left rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-erp-primary"
             >
-              <Plus className="w-3.5 h-3.5" />
+              {projectsOpen ? <ChevronDown className="w-3.5 h-3.5" aria-hidden="true" /> : <ChevronRight className="w-3.5 h-3.5" aria-hidden="true" />}
+              Projects
+            </button>
+            <button
+              onClick={onNewProject}
+              aria-label="New project"
+              className="inline-flex min-h-[24px] min-w-[24px] items-center justify-center opacity-0 group-hover:opacity-100 focus-visible:opacity-100 p-1.5 hover:bg-erp-surface rounded transition-all"
+            >
+              <Plus className="w-3.5 h-3.5" aria-hidden="true" />
             </button>
           </div>
           

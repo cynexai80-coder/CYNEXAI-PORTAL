@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { subscribeNewsletter } from '../lib/api/crm';
 import {
   Facebook,
   Instagram,
@@ -28,6 +30,21 @@ const XIcon = ({ className }: { className?: string }) => (
 const Footer = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const [newsletterEmail, setNewsletterEmail] = useState('');
+  const [newsletterStatus, setNewsletterStatus] = useState<{ state: 'idle' | 'loading' | 'success' | 'error'; message?: string }>({ state: 'idle' });
+
+  const handleSubscribe = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newsletterStatus.state === 'loading') return;
+    setNewsletterStatus({ state: 'loading' });
+    const result = await subscribeNewsletter(newsletterEmail);
+    if (!result.success) {
+      setNewsletterStatus({ state: 'error', message: result.error || 'Could not subscribe. Please try again.' });
+      return;
+    }
+    setNewsletterEmail('');
+    setNewsletterStatus({ state: 'success', message: "Thanks for subscribing! We'll keep you posted." });
+  };
 
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -75,11 +92,11 @@ const Footer = () => {
   };
 
   const socialLinks = [
-    { icon: Facebook, href: 'https://www.facebook.com/profile.php?id=61577768308585', hoverColor: 'hover:text-[#1877F2]' },
-    { icon: XIcon, href: 'https://x.com/CynexAi?t=5k9RLyNOu_3lxItwPwoeNA&s=08', hoverColor: 'hover:text-cyan-500' },
-    { icon: Instagram, href: 'https://www.instagram.com/cynexai.in?igsh=MWk5YWhlOHN5a2lqdw==', hoverColor: 'hover:text-cyan-500' },
-    { icon: Linkedin, href: 'https://www.linkedin.com/company/cynexai/posts/?feedView=all', hoverColor: 'hover:text-[#0077b5]' },
-    { icon: Youtube, href: 'https://www.youtube.com/@CynexAI', hoverColor: 'hover:text-[#FF0000]' },
+    { label: 'Facebook', icon: Facebook, href: 'https://www.facebook.com/profile.php?id=61577768308585', hoverColor: 'hover:text-[#1877F2]' },
+    { label: 'X (Twitter)', icon: XIcon, href: 'https://x.com/CynexAi?t=5k9RLyNOu_3lxItwPwoeNA&s=08', hoverColor: 'hover:text-cyan-500' },
+    { label: 'Instagram', icon: Instagram, href: 'https://www.instagram.com/cynexai.in?igsh=MWk5YWhlOHN5a2lqdw==', hoverColor: 'hover:text-cyan-500' },
+    { label: 'LinkedIn', icon: Linkedin, href: 'https://www.linkedin.com/company/cynexai/posts/?feedView=all', hoverColor: 'hover:text-[#0077b5]' },
+    { label: 'YouTube', icon: Youtube, href: 'https://www.youtube.com/@CynexAI', hoverColor: 'hover:text-[#FF0000]' },
   ];
 
   return (
@@ -119,10 +136,11 @@ const Footer = () => {
                       href={social.href}
                       target="_blank"
                       rel="noopener noreferrer"
+                      aria-label={`CynexAI on ${social.label} (opens in a new tab)`}
                       whileHover={{ scale: 1.2, y: -2 }}
-                      className={`transition-colors duration-200 text-muted-foreground ${social.hoverColor}`}
+                      className={`-m-1 rounded-md p-1 transition-colors duration-200 text-muted-foreground ${social.hoverColor}`}
                     >
-                      <IconComponent className="w-5 h-5" />
+                      <IconComponent className="w-5 h-5" aria-hidden="true" />
                     </motion.a>
                   );
                 })}
@@ -155,7 +173,7 @@ const Footer = () => {
                   <li key={index}>
                     <Link
                       to={link.href}
-                      className="text-muted-foreground hover:text-cyan-500 transition-colors duration-200 text-sm font-medium"
+                      className="inline-flex items-center min-h-[24px] text-muted-foreground hover:text-cyan-500 transition-colors duration-200 text-sm font-medium"
                     >
                       {link.name}
                     </Link>
@@ -173,7 +191,7 @@ const Footer = () => {
                     <Link
                       to={link.href}
                       onClick={(e) => handleNavClick(link.href, e)}
-                      className="text-muted-foreground hover:text-cyan-500 transition-colors duration-200 text-sm font-medium"
+                      className="inline-flex items-center min-h-[24px] text-muted-foreground hover:text-cyan-500 transition-colors duration-200 text-sm font-medium"
                     >
                       {link.name}
                     </Link>
@@ -194,19 +212,35 @@ const Footer = () => {
                 Get the latest updates on new courses and tech trends
               </p>
             </div>
-            <div className="flex w-full md:w-auto flex-nowrap">
-              <input
-                type="email"
-                placeholder="Enter your email"
-                className="flex-1 min-w-0 px-4 py-3 bg-background border border-border rounded-l-lg text-foreground placeholder-muted-foreground focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20 transition-all shadow-sm"
-              />
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                className="px-6 py-3 bg-cyan-500 text-white hover:bg-cyan-600 rounded-r-lg font-medium transition-all duration-300 flex-shrink-0 shadow-sm"
+            <div className="w-full md:w-auto">
+              <form onSubmit={handleSubscribe} noValidate className="flex w-full flex-nowrap">
+                <input
+                  type="email"
+                  name="newsletter-email"
+                  autoComplete="email"
+                  aria-label="Email address for newsletter"
+                  value={newsletterEmail}
+                  onChange={(e) => setNewsletterEmail(e.target.value)}
+                  placeholder="Enter your email"
+                  className="flex-1 min-w-0 px-4 py-3 bg-background border border-border rounded-l-lg text-foreground placeholder-muted-foreground focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20 transition-all shadow-sm"
+                />
+                <motion.button
+                  type="submit"
+                  disabled={newsletterStatus.state === 'loading'}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  className="px-6 py-3 bg-cyan-700 text-white hover:bg-cyan-800 rounded-r-lg font-medium transition-all duration-300 flex-shrink-0 shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {newsletterStatus.state === 'loading' ? 'Subscribing…' : 'Subscribe'}
+                </motion.button>
+              </form>
+              <p
+                role="status"
+                aria-live="polite"
+                className={`mt-2 min-h-[1.25rem] text-sm ${newsletterStatus.state === 'error' ? 'text-red-500' : 'text-emerald-500'}`}
               >
-                Subscribe
-              </motion.button>
+                {newsletterStatus.message}
+              </p>
             </div>
           </div>
         </div>
@@ -224,11 +258,12 @@ const Footer = () => {
       {/* Scroll to Top Button */}
       <motion.button
         onClick={scrollToTop}
+        aria-label="Scroll to top"
         whileHover={{ scale: 1.1 }}
         whileTap={{ scale: 0.9 }}
-        className="fixed bottom-4 right-4 z-50 bg-cyan-500 text-white p-3 rounded-full shadow-lg hover:bg-cyan-600 transition-colors duration-300"
+        className="fixed bottom-4 right-4 z-50 bg-cyan-700 text-white p-3 rounded-full shadow-lg hover:bg-cyan-800 transition-colors duration-300"
       >
-        <ArrowUp className="w-5 h-5" />
+        <ArrowUp className="w-5 h-5" aria-hidden="true" />
       </motion.button>
     </footer>
   );

@@ -155,7 +155,7 @@ export const TimeTracker: React.FC<Props> = ({ taskId }) => {
           <button
             onClick={handleStop}
             disabled={loading}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white rounded-lg text-xs font-bold transition-colors disabled:opacity-50"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-bold transition-colors disabled:opacity-50"
           >
             <Square className="w-3 h-3" /> Stop
           </button>
@@ -163,7 +163,7 @@ export const TimeTracker: React.FC<Props> = ({ taskId }) => {
           <button
             onClick={handleStart}
             disabled={loading}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold transition-colors disabled:opacity-50"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-bold transition-colors disabled:opacity-50"
           >
             <Play className="w-3 h-3" /> Start
           </button>

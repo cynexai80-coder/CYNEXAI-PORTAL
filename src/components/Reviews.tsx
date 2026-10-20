@@ -184,7 +184,7 @@ const Reviews = () => {
                         <h4 className="text-xl font-semibold text-foreground mb-1">
                           {reviews[currentReview].name}
                         </h4>
-                        <p className="text-cyan-600 dark:text-cyan-400 font-medium mb-1">
+                        <p className="text-cyan-700 dark:text-cyan-400 font-medium mb-1">
                           {reviews[currentReview].role}
                         </p>
                         <p className="text-sm text-muted-foreground">
@@ -223,11 +223,17 @@ const Reviews = () => {
                 onClick={() => setCurrentReview(index)}
                 aria-label={`Go to review ${index + 1}`}
                 aria-current={index === currentReview ? 'true' : undefined}
-                className={`w-3 h-3 rounded-full transition-all duration-300 ${index === currentReview
-                  ? 'bg-cyan-500 scale-125'
-                  : 'bg-muted-foreground/30 hover:bg-muted-foreground/50'
-                  }`}
-              />
+                // 24px hit area around a 12px dot (WCAG 2.5.8)
+                className="group flex h-[24px] w-[24px] items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
+              >
+                <span
+                  aria-hidden="true"
+                  className={`block h-3 w-3 rounded-full transition-all duration-300 ${index === currentReview
+                    ? 'bg-cyan-500 scale-125'
+                    : 'bg-muted-foreground/30 group-hover:bg-muted-foreground/50'
+                    }`}
+                />
+              </button>
             ))}
           </div>
 
@@ -251,7 +257,7 @@ const Reviews = () => {
                   />
                   <div>
                     <h5 className="text-sm font-bold text-foreground">{review.name}</h5>
-                    <p className="text-xs text-cyan-600 dark:text-cyan-400 font-semibold">{review.role}</p>
+                    <p className="text-xs text-cyan-700 dark:text-cyan-400 font-semibold">{review.role}</p>
                   </div>
                 </div>
                 <div className="flex mb-2">

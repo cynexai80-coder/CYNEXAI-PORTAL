@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { confirmDialog } from '../lib/feedback';
 
 interface DiagResult {
   success?: boolean;
@@ -203,7 +204,7 @@ const AdminPanel = () => {
   };
 
   const handleDeletePost = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this post?')) return;
+    if (!(await confirmDialog({ title: 'Delete post', message: 'Are you sure you want to delete this post?', confirmLabel: 'Delete', danger: true }))) return;
 
     try {
       await deletePost(id);
@@ -239,8 +240,8 @@ const AdminPanel = () => {
     }
   };
 
-  const handleResetLocal = () => {
-    if (window.confirm('This will clear your local backup storage. Cloud data will remain. Continue?')) {
+  const handleResetLocal = async () => {
+    if (await confirmDialog({ title: 'Clear local backup', message: 'This will clear your local backup storage. Cloud data will remain. Continue?', confirmLabel: 'Clear' })) {
       clearLocalFallback();
       setPosts([]);
       setSuccess('Local storage cleared');
@@ -248,7 +249,7 @@ const AdminPanel = () => {
   };
 
   const handlePopulateSample = async () => {
-    if (window.confirm('This will add a sample post to verify Cloud connection. Continue?')) {
+    if (await confirmDialog({ title: 'Add sample post', message: 'This will add a sample post to verify Cloud connection. Continue?', confirmLabel: 'Add' })) {
       setDiagLoading(true);
       try {
         const result = await populateSampleData();
@@ -267,7 +268,7 @@ const AdminPanel = () => {
   };
 
   const handleGenerateAI = async () => {
-    if (window.confirm('This will add 5 advanced AI articles to your database. Continue?')) {
+    if (await confirmDialog({ title: 'Add AI articles', message: 'This will add 5 advanced AI articles to your database. Continue?', confirmLabel: 'Add' })) {
       setDiagLoading(true);
       try {
         let count = 0;
@@ -720,7 +721,7 @@ const AdminPanel = () => {
             </button>
             <button
               onClick={handleResetLocal}
-              className="px-4 py-2 bg-red-500/10 border border-red-500/30 text-red-500 text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-red-500/20 transition-all"
+              className="px-4 py-2 bg-red-500/10 border border-red-500/30 text-red-700 dark:text-red-400 text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-red-500/20 transition-all"
             >
               Reset Local
             </button>

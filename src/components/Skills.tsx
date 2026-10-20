@@ -12,25 +12,25 @@ const Skills = () => {
       icon: Brain,
       title: 'Critical Thinking',
       description: 'Develop analytical skills to solve complex problems and make data-driven decisions in technology.',
-      color: 'bg-cyan-500/10 text-cyan-500 border-cyan-500/20',
+      color: 'bg-cyan-500/10 text-cyan-700 dark:text-cyan-400 border-cyan-500/20',
     },
     {
       icon: Target,
       title: 'Problem Solving',
       description: 'Master systematic approaches to identify, analyze, and resolve technical challenges efficiently.',
-      color: 'bg-purple-500/10 text-purple-500 border-purple-500/20',
+      color: 'bg-purple-500/10 text-purple-700 dark:text-purple-400 border-purple-500/20',
     },
     {
       icon: Lightbulb,
       title: 'Creative Thinking',
       description: 'Foster innovation and creativity to develop unique solutions and breakthrough technologies.',
-      color: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20',
+      color: 'bg-yellow-500/10 text-yellow-800 dark:text-yellow-400 border-yellow-500/20',
     },
     {
       icon: Users,
       title: 'Interpersonal Skills',
       description: 'Build strong communication and collaboration skills essential for team success in tech.',
-      color: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
+      color: 'bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/20',
     },
   ];
 
@@ -121,7 +121,7 @@ const Skills = () => {
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-10 text-left">
               <div className="flex flex-col space-y-3">
-                <h4 className="text-xl font-bold flex items-center text-cyan-600 dark:text-cyan-400">
+                <h4 className="text-xl font-bold flex items-center text-cyan-700 dark:text-cyan-400">
                   <span className="w-8 h-8 rounded-lg bg-cyan-500/10 flex items-center justify-center mr-3 border border-cyan-500/20 text-lg">💼</span>
                   In the Workplace
                 </h4>

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { toWhatsAppNumber } from '../../lib/phoneUtils';
 import { updateLeadStatus, getLeadById, getLeadActivities, addActivity, deleteLead } from '../../lib/api/crm';
 import { Lead, CrmActivity } from '../../lib/types';
 import { Card } from '../ui/erp/Card';
@@ -10,6 +11,7 @@ import { SalesPitchModal } from '../../pages/crm/forms/SalesPitchModal';
 import { getSaleForLead } from '../../lib/api/sales';
 import { getCurrentUser } from '../../lib/auth';
 import { ActivityLog } from './ActivityLog';
+import { notify, confirmDialog, promptDialog } from '../../lib/feedback';
 
 const STATUS_BUCKETS = [
   'New',
@@ -65,7 +67,7 @@ export function LeadDetailPanel({ leadId, onClose, onUpdate, onRequestOnboard }:
       if (onRequestOnboard && lead) {
         onRequestOnboard(lead);
       } else {
-        alert('Onboarding not available from this context.');
+        notify('Onboarding not available from this context.');
       }
       return;
     }
@@ -74,13 +76,13 @@ export function LeadDetailPanel({ leadId, onClose, onUpdate, onRequestOnboard }:
     
     let partialAmount = '';
     if (newStatus === 'Sale Partial Closed') {
-      const amount = prompt("How much was paid for the partial close?");
+      const amount = await promptDialog({ title: 'Partial payment', message: 'How much was paid for the partial close?', inputType: 'number', placeholder: 'Amount in ₹', confirmLabel: 'Save', validate: v => (v.trim() === '' || Number(v) > 0 ? null : 'Enter an amount greater than zero.') });
       if (amount) partialAmount = amount;
     }
 
     const res = await updateLeadStatus(leadId, newStatus as any, user?.id || '');
     if (!res.success) {
-      alert(res.error || 'Failed to update status');
+      notify(res.error || 'Failed to update status');
     } else if (user) {
       let note = `Status changed to: ${newStatus}`;
       if (partialAmount) note += ` (Amount: ${partialAmount})`;
@@ -114,13 +116,13 @@ export function LeadDetailPanel({ leadId, onClose, onUpdate, onRequestOnboard }:
       setIsEditing(false);
       onUpdate();
     } else {
-      alert(res.error || 'Failed to update lead');
+      notify(res.error || 'Failed to update lead');
     }
   };
 
   const handleDeleteLead = async () => {
     if (!lead) return;
-    const confirmDelete = window.confirm(`Are you sure you want to permanently delete lead: ${lead.name}?`);
+    const confirmDelete = await confirmDialog({ title: 'Delete lead', message: `Are you sure you want to permanently delete lead: ${lead.name}?`, confirmLabel: 'Delete', danger: true });
     if (!confirmDelete) return;
 
     const res = await deleteLead(lead.id);
@@ -128,14 +130,14 @@ export function LeadDetailPanel({ leadId, onClose, onUpdate, onRequestOnboard }:
       onClose();
       onUpdate();
     } else {
-      alert(res.error || 'Failed to delete lead');
+      notify(res.error || 'Failed to delete lead');
     }
   };
 
   const handleWhatsApp = () => {
     if (lead) {
       const msg = encodeURIComponent(`Hi ${lead.name}, welcome to CynexAI! I'm reaching out regarding your interest in our ${lead.course_interest} course.`);
-      const phone = lead.phone.replace(/[^0-9]/g, '');
+      const phone = toWhatsAppNumber(lead.phone);
       window.open(`https://wa.me/${phone}?text=${msg}`, '_blank');
     }
   };
@@ -179,11 +181,11 @@ export function LeadDetailPanel({ leadId, onClose, onUpdate, onRequestOnboard }:
               ) : (
                 <Button variant="ghost" onClick={() => { setEditForm({}); setIsEditing(true); }} className="text-xs px-3">Edit Details</Button>
               )}
-              <div className="inline-block bg-erp-secondary/10 text-erp-secondary font-bold px-3 py-1 rounded-xl text-sm text-right h-fit">
+              <div className="inline-block bg-erp-secondary/10 text-sky-700 dark:text-erp-secondary font-bold px-3 py-1 rounded-xl text-sm text-right h-fit">
                 {lead.course_interest}
               </div>
               {(user?.role === 'CEO' || user?.role === 'Manager') && !isEditing && (
-                <Button variant="ghost" onClick={handleDeleteLead} className="text-xs px-3 text-red-500 hover:text-red-700 dark:text-white hover:bg-red-50 mt-1">
+                <Button variant="ghost" onClick={handleDeleteLead} className="text-xs px-3 text-red-700 hover:text-red-800 dark:text-white hover:bg-red-50 mt-1">
                   <Trash2 className="w-3.5 h-3.5 mr-1 inline" /> Delete
                 </Button>
               )}
@@ -204,17 +206,17 @@ export function LeadDetailPanel({ leadId, onClose, onUpdate, onRequestOnboard }:
 
           {!isEditing && (
             <div className="grid grid-cols-2 gap-2 mt-4 text-sm font-medium text-gray-600">
-              {lead.email && <div><span className="text-gray-400 font-bold">Email:</span> {lead.email}</div>}
-              {lead.grad_year && <div><span className="text-gray-400 font-bold">Grad:</span> {lead.grad_year}</div>}
-              {lead.qualification && <div><span className="text-gray-400 font-bold">Qual:</span> {lead.qualification}</div>}
-              {lead.it_background && <div><span className="text-gray-400 font-bold">IT Background:</span> {lead.it_background}</div>}
-              {lead.preferred_mode && <div><span className="text-gray-400 font-bold">Mode:</span> {lead.preferred_mode}</div>}
-              {lead.location && <div><span className="text-gray-400 font-bold">Location:</span> {lead.location}</div>}
+              {lead.email && <div><span className="text-gray-600 dark:text-gray-400 font-bold">Email:</span> {lead.email}</div>}
+              {lead.grad_year && <div><span className="text-gray-600 dark:text-gray-400 font-bold">Grad:</span> {lead.grad_year}</div>}
+              {lead.qualification && <div><span className="text-gray-600 dark:text-gray-400 font-bold">Qual:</span> {lead.qualification}</div>}
+              {lead.it_background && <div><span className="text-gray-600 dark:text-gray-400 font-bold">IT Background:</span> {lead.it_background}</div>}
+              {lead.preferred_mode && <div><span className="text-gray-600 dark:text-gray-400 font-bold">Mode:</span> {lead.preferred_mode}</div>}
+              {lead.location && <div><span className="text-gray-600 dark:text-gray-400 font-bold">Location:</span> {lead.location}</div>}
             </div>
           )}
           
           <div className="mb-4">
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Added By</span>
+            <span className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-widest">Added By</span>
             <p className="text-sm font-bold text-erp-text">{lead.assigned_to || 'Unknown Agent'}</p>
           </div>
           

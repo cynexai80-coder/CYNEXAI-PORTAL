@@ -123,7 +123,7 @@ const Courses = () => {
             {courses.map((course) => (
               <motion.div key={course.id} variants={itemVariants} className="h-full">
                 <div
-                  className="w-full h-full bg-surface rounded-2xl overflow-hidden border border-border shadow-sm hover:shadow-xl hover:border-cyan-500/30 transition-all duration-300 flex flex-col group cursor-pointer"
+                  className="w-full h-full bg-surface rounded-2xl overflow-hidden border border-border shadow-sm hover:shadow-xl hover:border-cyan-500/30 transition-all duration-300 flex flex-col group"
                 >
                   <div className="relative h-48 overflow-hidden">
                     <img
@@ -131,7 +131,7 @@ const Courses = () => {
                       alt={course.title}
                       className="w-full h-full object-cover transform transition-transform duration-700 group-hover:scale-105"
                     />
-                    <div className="absolute top-4 right-4 bg-background/90 backdrop-blur-sm px-3 py-1 rounded-full text-sm font-bold text-cyan-600 dark:text-cyan-400 border border-border shadow-sm">
+                    <div className="absolute top-4 right-4 bg-background/90 backdrop-blur-sm px-3 py-1 rounded-full text-sm font-bold text-cyan-800 dark:text-cyan-400 border border-border shadow-sm">
                       {course.level}
                     </div>
                   </div>
@@ -167,7 +167,7 @@ const Courses = () => {
                       
                       <Link 
                         to={`/course/${course.id}`}
-                        className="text-cyan-600 hover:text-cyan-700 dark:text-cyan-400 dark:hover:text-cyan-300 font-semibold flex items-center text-sm transition-colors"
+                        className="text-cyan-700 hover:text-cyan-800 dark:text-cyan-400 dark:hover:text-cyan-300 font-semibold flex items-center min-h-[24px] py-1 text-sm transition-colors"
                       >
                         Learn More <ArrowRight className="ml-1 w-4 h-4 group-hover:translate-x-1 transition-transform" />
                       </Link>

@@ -25,6 +25,9 @@ import PlacementDashboard from './pages/PlacementDashboard';
 // CRM Imports
 import { MobileNavigation } from './components/layout/MobileNavigation';
 import { Sidebar } from './components/layout/Sidebar';
+import { SkipLink, MAIN_CONTENT_ID } from './components/layout/SkipLink';
+import { installAutoLabels } from './lib/autoLabel';
+import FeedbackHost from './components/ui/FeedbackHost';
 import CrmLogin from './pages/crm/Login';
 import LeadPipeline from './pages/crm/LeadPipeline';
 import LeadCapture from './pages/crm/LeadCapture';
@@ -95,6 +98,7 @@ import TestResults from './pages/test/TestResults';
 
 // Security Imports
 import { RequireAuth } from './components/layout/RequireAuth';
+import NotFoundPage from './pages/NotFoundPage';
 
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
@@ -103,31 +107,37 @@ const CRMLayout = ({ children }: { children: React.ReactNode }) => {
   
   return (
     <div className="h-screen bg-erp-background font-sans selection:bg-erp-primary/30 flex flex-col md:flex-row overflow-hidden relative">
+      <SkipLink />
+
       {/* Desktop Sidebar */}
-      <div 
+      <aside
+        aria-label="Sidebar"
+        // A collapsed sidebar is only visually hidden (w-0); remove it from the tab order too.
+        inert={!isSidebarOpen}
         className={`hidden md:block flex-shrink-0 border-r-2 border-erp-border bg-erp-sidebar-bg transition-all duration-300 relative ${isSidebarOpen ? 'w-64' : 'w-0 overflow-hidden border-r-0'}`}
         style={{ background: 'var(--erp-sidebar-bg)', borderColor: 'var(--erp-sidebar-border)' }}
       >
         <div className="w-64 h-full">
           <Sidebar onToggleSidebar={() => setIsSidebarOpen(false)} />
         </div>
-      </div>
-      
+      </aside>
+
       {/* Expand Button when Sidebar is Collapsed */}
       {!isSidebarOpen && (
-        <button 
+        <button
           onClick={() => setIsSidebarOpen(true)}
           className="hidden md:flex fixed top-4 left-4 z-[200] bg-erp-surface border-2 border-erp-border rounded-xl p-2 shadow-lg hover:bg-erp-background text-erp-text transition-all cursor-pointer items-center gap-1.5 text-xs font-bold"
           title="Expand sidebar"
+          aria-label="Expand sidebar"
         >
-          <ChevronRight className="w-4 h-4 text-erp-primary" />
+          <ChevronRight className="w-4 h-4 text-erp-primary" aria-hidden="true" />
         </button>
       )}
-      
+
       {/* Main Content Area — overflow-y-auto allows each page to scroll */}
-      <div className="flex-1 flex flex-col min-w-0 h-full overflow-y-auto pb-20 md:pb-0 overflow-x-hidden">
+      <main id={MAIN_CONTENT_ID} tabIndex={-1} className="flex-1 flex flex-col min-w-0 h-full overflow-y-auto pb-20 md:pb-0 overflow-x-hidden focus:outline-none">
         {children}
-      </div>
+      </main>
 
       {/* Mobile Bottom Navigation — fixed, rendered here */}
       <MobileNavigation />
@@ -145,10 +155,16 @@ const HomePage = () => (
   </>
 );
 
-const MainLayout = ({ children, isLight }: { children: React.ReactNode; isLight?: boolean }) => (
+// `navy` = pages written for the dark navy shell (course, apply, pay, blog, webinar, gallery). They use the legacy
+// palette tokens (text-secondary = light text, bg-background/NN = dark glass); `.navy-surface` pins those tokens so
+// the page reads the same in the light and dark app themes (see index.css).
+const MainLayout = ({ children, isLight, navy }: { children: React.ReactNode; isLight?: boolean; navy?: boolean }) => (
   <div className={`min-h-screen ${isLight ? 'bg-[#F8FAFC]' : 'bg-primary-900'}`}>
+    <SkipLink />
     <Header />
-    {children}
+    <main id={MAIN_CONTENT_ID} tabIndex={-1} className={`focus:outline-none${navy ? ' navy-surface' : ''}`}>
+      {children}
+    </main>
     <PageAnswers />
     <Footer />
   </div>
@@ -197,18 +213,28 @@ const SharedLayout = ({ children }: { children: React.ReactNode }) => (
   </RequireAuth>
 );
 
+// The Chat Center lists every lead with its phone number and sends WhatsApp messages: staff only (not Student or Admin).
+const ChatLayout = ({ children }: { children: React.ReactNode }) => (
+  <RequireAuth allowedRoles={['CEO', 'Manager', 'Sales/HR', 'DM', 'Teacher']}>
+    <CRMLayout>{children}</CRMLayout>
+  </RequireAuth>
+);
+
 function App() {
+  // Names form controls whose <label>/<span> is not programmatically linked (see lib/autoLabel.ts).
+  React.useEffect(() => installAutoLabels(), []);
+
   React.useEffect(() => {
     const setupDB = async () => {
-      const { initTursoDB, seedCRMData } = await import('./lib/turso');
+      const { initTursoDB } = await import('./lib/turso');
       await initTursoDB();
-      await seedCRMData();
     };
     setupDB();
   }, []);
 
   return (
     <Router>
+      <FeedbackHost />
       <ScrollToTop />
       <RouteMeta />
       <Routes>
@@ -220,16 +246,16 @@ function App() {
         <Route path="/" element={<MainLayout><HomePage /></MainLayout>} />
         <Route path="/courses/pre-registration" element={<MainLayout><PreRegistrationPage /></MainLayout>} />
         <Route path="/pre-registration" element={<MainLayout><PreRegistrationPage /></MainLayout>} />
-        <Route path="/course/:courseId" element={<MainLayout><CourseDetail /></MainLayout>} />
-        <Route path="/apply/:courseId" element={<MainLayout><ApplicationForm /></MainLayout>} />
-        <Route path="/webinar" element={<MainLayout><WebinarPortal /></MainLayout>} />
-        <Route path="/gallery" element={<MainLayout><GalleryPage /></MainLayout>} />
+        <Route path="/course/:courseId" element={<MainLayout navy><CourseDetail /></MainLayout>} />
+        <Route path="/apply/:courseId" element={<MainLayout navy><ApplicationForm /></MainLayout>} />
+        <Route path="/webinar" element={<MainLayout navy><WebinarPortal /></MainLayout>} />
+        <Route path="/gallery" element={<MainLayout navy><GalleryPage /></MainLayout>} />
         <Route path="/certificates/:id" element={<CertificateVerifyPage />} />
         <Route path="/certificate/:id" element={<CertificateVerifyPage />} />
         <Route path="/admin" element={<RequireAuth allowedRoles={['Admin', 'CEO']}><MainLayout><AdminPanel /></MainLayout></RequireAuth>} />
-        <Route path="/pay" element={<MainLayout><PaymentPage /></MainLayout>} />
-        <Route path="/blog" element={<MainLayout><BlogPage /></MainLayout>} />
-        <Route path="/blog/:id" element={<MainLayout><BlogPostDetail /></MainLayout>} />
+        <Route path="/pay" element={<MainLayout navy><PaymentPage /></MainLayout>} />
+        <Route path="/blog" element={<MainLayout navy><BlogPage /></MainLayout>} />
+        <Route path="/blog/:id" element={<MainLayout navy><BlogPostDetail /></MainLayout>} />
         
         {/* Placement Dashboard Routes */}
         <Route path="/placemnetdashboard" element={<MainLayout isLight><PlacementDashboard /></MainLayout>} />
@@ -255,7 +281,7 @@ function App() {
         
         {/* Shared Routes */}
         <Route path="/profile" element={<SharedLayout><Profile /></SharedLayout>} />
-        <Route path="/chat" element={<SharedLayout><ChatPortal /></SharedLayout>} />
+        <Route path="/chat" element={<ChatLayout><ChatPortal /></ChatLayout>} />
         <Route path="/Enroll" element={<EnrollPage />} />
         <Route path="/enroll" element={<EnrollPage />} />
         
@@ -267,6 +293,7 @@ function App() {
         <Route path="/manager/users" element={<RequireAuth allowedRoles={['Manager', 'CEO']}><ManagerLayout><UserManagement /></ManagerLayout></RequireAuth>} />
         <Route path="/manager/gamification" element={<RequireAuth allowedRoles={['Manager', 'CEO']}><ManagerLayout><GamificationSettings /></ManagerLayout></RequireAuth>} />
         <Route path="/manager/tasks" element={<RequireAuth allowedRoles={['Manager', 'CEO']}><ManagerLayout><AsanaTaskApp /></ManagerLayout></RequireAuth>} />
+        <Route path="/manager/reports" element={<RequireAuth allowedRoles={['Manager', 'CEO']}><ManagerLayout><ReportsPage /></ManagerLayout></RequireAuth>} />
         <Route path="/manager/timetable" element={<RequireAuth allowedRoles={['Manager', 'CEO']}><ManagerLayout><TimetableManager /></ManagerLayout></RequireAuth>} />
         <Route path="/manager/approvals/:id" element={<RequireAuth allowedRoles={['Manager', 'CEO']}><ManagerLayout><ApprovalDetail /></ManagerLayout></RequireAuth>} />
         <Route path="/manager/student-settings" element={<RequireAuth allowedRoles={['Manager', 'CEO']}><ManagerLayout><StudentPortalSettings /></ManagerLayout></RequireAuth>} />
@@ -304,7 +331,7 @@ function App() {
         <Route path="/ceo/sales-pitch" element={<RequireAuth allowedRoles={['CEO']}><CEOLayout><SalesPitchPage /></CEOLayout></RequireAuth>} />
         <Route path="/ceo/ai-settings" element={<RequireAuth allowedRoles={['CEO']}><CEOLayout><TeacherSettings /></CEOLayout></RequireAuth>} />
         <Route path="/ceo/gamification" element={<RequireAuth allowedRoles={['CEO']}><CEOLayout><GamificationSettings /></CEOLayout></RequireAuth>} />
-        <Route path="/ceo/reports" element={<RequireAuth allowedRoles={['CEO', 'Manager']}><CEOLayout><ReportsPage /></CEOLayout></RequireAuth>} />
+        <Route path="/ceo/reports" element={<RequireAuth allowedRoles={['CEO']}><CEOLayout><ReportsPage /></CEOLayout></RequireAuth>} />
         <Route path="/ceo/students" element={<RequireAuth allowedRoles={['CEO']}><CEOLayout><StudentsPage /></CEOLayout></RequireAuth>} />
         <Route path="/ceo/certificates" element={<RequireAuth allowedRoles={['CEO']}><CEOLayout><CertificatesManager /></CEOLayout></RequireAuth>} />
         <Route path="/ceo/attendance" element={<RequireAuth allowedRoles={['CEO']}><CEOLayout><AttendanceSystem /></CEOLayout></RequireAuth>} />
@@ -340,6 +367,7 @@ function App() {
         <Route path="/student/career" element={<StudentLayoutWrapper><CareerCenter /></StudentLayoutWrapper>} />
         <Route path="/student/referrals" element={<Navigate to="/student" replace />} />
         <Route path="/student/rewards" element={<Navigate to="/student" replace />} />
+        <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </Router>
   );

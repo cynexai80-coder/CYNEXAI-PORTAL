@@ -84,7 +84,7 @@ const GalleryPage = () => {
                 key={index}
                 variants={itemVariants}
                 whileHover={{ scale: 1.02, y: -5 }}
-                className="relative overflow-hidden rounded-xl shadow-[0_10px_30px_rgba(0,0,0,0.5)] border border-secondary/10 group cursor-pointer w-full sm:w-[calc(50%-1.5rem)] lg:w-[calc(33.333%-1.5rem)]"
+                className="relative overflow-hidden rounded-xl shadow-[0_10px_30px_rgba(0,0,0,0.5)] border border-secondary/10 group w-full sm:w-[calc(50%-1.5rem)] lg:w-[calc(33.333%-1.5rem)]"
               >
                 <img
                   src={imageSrc}

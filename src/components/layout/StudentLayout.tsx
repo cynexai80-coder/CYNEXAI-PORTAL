@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { getCurrentUser } from '../../lib/auth';
+import { getCurrentUser, logout } from '../../lib/auth';
 import { client } from '../../lib/turso';
+import { SkipLink, MAIN_CONTENT_ID } from './SkipLink';
 import {
   Home, BookOpen, ClipboardCheck, Mic2, Briefcase,
   GraduationCap, LogOut, Moon, Sun,
@@ -62,9 +63,9 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
       const [studRow, progRow, badgeRow, notifRow] = await Promise.all([
         client.execute({ sql: 'SELECT streak, coins FROM students WHERE id = ? OR portal_login_email = (SELECT email FROM users WHERE id = ?) LIMIT 1', args: [user!.id, user!.id] })
           .catch(() => ({ rows: [] })),
-        client.execute({ sql: 'SELECT COUNT(*) as done FROM student_progress WHERE student_id = ? AND completed = 1', args: [user!.id] })
+        client.execute({ sql: 'SELECT COUNT(DISTINCT lesson_id) as done FROM student_progress WHERE (student_id = ? OR student_id = (SELECT id FROM students WHERE id = ? OR portal_login_email = (SELECT email FROM users WHERE id = ?) LIMIT 1)) AND completed = 1', args: [user!.id, user!.id, user!.id] })
           .catch(() => ({ rows: [] })),
-        client.execute({ sql: 'SELECT COUNT(*) as cnt FROM badges WHERE student_id = ?', args: [user!.id] })
+        client.execute({ sql: 'SELECT COUNT(*) as cnt FROM badges WHERE student_id = ? OR student_id = (SELECT id FROM students WHERE id = ? OR portal_login_email = (SELECT email FROM users WHERE id = ?) LIMIT 1)', args: [user!.id, user!.id, user!.id] })
           .catch(() => ({ rows: [] })),
         client.execute({ sql: 'SELECT COUNT(*) as cnt FROM announcements WHERE is_active = 1', args: [] })
           .catch(() => ({ rows: [] })),
@@ -133,12 +134,13 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
 
       {/* Navigation Links */}
       <div className="flex-1 overflow-y-auto scrollbar-none px-3 py-4 space-y-4 min-h-0">
-        <nav className="space-y-1">
-          <p className="text-[10px] font-bold uppercase tracking-widest px-3 mb-2 text-slate-400">Navigation</p>
+        <nav aria-label="Student navigation" className="space-y-1">
+          <p className="text-[10px] font-bold uppercase tracking-widest px-3 mb-2 text-slate-600 dark:text-slate-400">Navigation</p>
           {NAV_ITEMS.map(({ to, icon: Icon, label, comingSoon }) => {
             const active = isActive(to);
             return (
               <button key={to}
+                aria-current={active ? 'page' : undefined}
                 onClick={() => { navigate(to); setMobileMenuOpen(false); }}
                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all duration-200 ${
                   active 
@@ -170,7 +172,7 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
           </div>
           <div className="flex-1 min-w-0">
             <p className="font-bold text-xs truncate text-slate-900 dark:text-white leading-tight">{user?.name ?? 'Student'}</p>
-            <p className="text-[10px] text-slate-400 truncate mt-0.5">{user?.email ?? 'student@cynexai.com'}</p>
+            <p className="text-[10px] text-slate-600 dark:text-slate-400 truncate mt-0.5">{user?.email ?? 'student@cynexai.com'}</p>
           </div>
         </div>
 
@@ -181,8 +183,8 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
             {isDark ? 'Light' : 'Dark'}
           </button>
           <button
-            onClick={() => { localStorage.removeItem('cynexai_user'); navigate('/login'); }}
-            className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[11px] font-semibold text-red-500 hover:bg-red-500/10 transition-colors">
+            onClick={() => { logout(); }}
+            className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[11px] font-semibold text-red-600 dark:text-red-400 hover:bg-red-500/10 transition-colors">
             <LogOut className="w-3.5 h-3.5" />
             Sign Out
           </button>
@@ -193,6 +195,7 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
 
   return (
     <div className="flex h-[100dvh] w-full overflow-hidden portal-dot-bg" style={{ background: T.pageBg, color: T.text }}>
+      <SkipLink />
 
       {/* Desktop Sidebar */}
       <aside className="hidden md:flex w-64 flex-shrink-0 flex-col border-r border-slate-200 dark:border-zinc-800 bg-white dark:bg-black z-20 overflow-hidden">
@@ -202,11 +205,12 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
       {/* Mobile overlay menu */}
       {mobileMenuOpen && (
         <div className="md:hidden fixed inset-0 z-[100] flex">
-          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setMobileMenuOpen(false)} />
+          <div aria-hidden="true" className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setMobileMenuOpen(false)} />
           <aside className="relative w-72 flex flex-col z-10 candy-panel !rounded-l-none !border-y-0 !border-l-0 bg-white dark:bg-black shadow-2xl">
             <button onClick={() => setMobileMenuOpen(false)}
+              aria-label="Close menu"
               className="absolute top-4 right-4 candy-btn !min-h-[40px] px-3 py-2 rounded-xl flex items-center justify-center z-50 shadow-md">
-              <X className="w-5 h-5 text-white" strokeWidth={3} />
+              <X className="w-5 h-5 text-white" strokeWidth={3} aria-hidden="true" />
             </button>
             <SidebarContent />
           </aside>
@@ -227,7 +231,7 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
               <span>Menu</span>
             </button>
             <div className="flex items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-500/20">
                 <CheckCircle2 className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                 {data.completedClasses} Classes Done
               </span>
@@ -236,12 +240,13 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
         </div>
 
         {/* Scrollable content container with bottom padding for constant fixed navbar */}
-        <div className="flex-1 overflow-y-auto pb-28 md:pb-8">
+        <main id={MAIN_CONTENT_ID} tabIndex={-1} className="flex-1 overflow-y-auto pb-28 md:pb-8 focus:outline-none">
           {children}
-        </div>
+        </main>
 
         {/* Mobile Constant Fixed Bottom Navigation Bar */}
         <nav
+          aria-label="Primary"
           className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 dark:bg-[#09090b]/95 backdrop-blur-xl border-t border-slate-200/80 dark:border-zinc-800 shadow-[0_-10px_30px_rgba(0,0,0,0.35)] flex items-center justify-around px-1 py-1.5"
           style={{
             height: '66px',
@@ -256,6 +261,7 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
                 onClick={() => { if (!comingSoon) navigate(to); }}
                 disabled={comingSoon}
                 aria-label={label}
+                aria-current={active ? 'page' : undefined}
                 className={`flex flex-col items-center justify-center flex-1 h-full py-1 rounded-xl transition-all relative ${
                   comingSoon 
                     ? 'opacity-40 cursor-not-allowed' 

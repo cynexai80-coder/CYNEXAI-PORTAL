@@ -19,23 +19,24 @@ import {
   ChevronDown, AlertTriangle, CheckCircle2, Circle, Timer, Zap
 } from 'lucide-react';
 import { getErpUsers } from '../../../lib/api/manager';
-import { getActiveTimeLog } from '../../../lib/api/reports';
+import { getActiveTimeLog } from '../../../lib/api/reports';
+import { todayIST } from '../../../lib/dateUtils';
 
 type ViewMode = 'list' | 'board' | 'calendar';
 
 const PRIORITY_COLORS: Record<string, string> = {
-  Urgent: 'text-red-600 bg-red-100 border-red-200',
-  High: 'text-orange-600 bg-orange-100 border-orange-200',
-  Medium: 'text-blue-600 bg-blue-100 border-blue-200',
+  Urgent: 'text-red-700 bg-red-100 border-red-200',
+  High: 'text-orange-700 bg-orange-100 border-orange-200',
+  Medium: 'text-blue-700 bg-blue-100 border-blue-200',
   Low: 'text-slate-600 bg-slate-100 dark:bg-zinc-900/50 border-slate-200 dark:border-white/10',
 };
 
 const STATUS_COLORS: Record<string, string> = {
-  'To Do': 'text-slate-500 bg-slate-50 dark:bg-zinc-900/50 border-slate-200 dark:border-white/10',
+  'To Do': 'text-slate-600 bg-slate-50 dark:bg-zinc-900/50 border-slate-200 dark:border-white/10',
   'In Progress': 'text-blue-600 bg-blue-50 border-blue-200',
   'Review': 'text-purple-600 bg-purple-50 border-purple-200',
-  'Done': 'text-emerald-600 bg-emerald-50 border-emerald-200',
-  'Excused': 'text-yellow-600 bg-yellow-50 border-yellow-200',
+  'Done': 'text-emerald-700 bg-emerald-50 border-emerald-200',
+  'Excused': 'text-yellow-800 bg-yellow-50 border-yellow-200',
 };
 
 // ── Stats Bar ─────────────────────────────────────────────────────────────────
@@ -43,7 +44,7 @@ function StatsBar({ tasks, isManagerOrAbove, onStatClick, activeFilter }: { task
   const total = tasks.length;
   const done = tasks.filter(t => t.status === 'Done').length;
   const inProgress = tasks.filter(t => t.status === 'In Progress').length;
-  const today = new Date().toISOString().split('T')[0];
+  const today = todayIST();
   const overdue = tasks.filter(t => t.due_date && t.due_date < today && t.status !== 'Done' && t.status !== 'Excused' && t.status !== 'Missed').length;
   const missed = tasks.filter(t => t.status === 'Missed').length;
   const urgent = tasks.filter(t => t.priority === 'Urgent' && t.status !== 'Done').length;
@@ -53,11 +54,11 @@ function StatsBar({ tasks, isManagerOrAbove, onStatClick, activeFilter }: { task
     <div className="grid grid-cols-2 sm:grid-cols-6 gap-2 mb-4">
       {[
         { id: 'total',       label: 'Total',       value: total,               icon: <Target className="w-3.5 h-3.5" />,        color: 'text-slate-600 bg-slate-50 dark:bg-zinc-900/50 border-slate-200 dark:border-white/10 hover:bg-slate-100 dark:bg-zinc-900/50' },
-        { id: 'done',        label: 'Done',        value: `${done} (${pct}%)`, icon: <CheckCircle2 className="w-3.5 h-3.5" />, color: 'text-emerald-600 bg-emerald-50 border-emerald-200 hover:bg-emerald-100' },
+        { id: 'done',        label: 'Done',        value: `${done} (${pct}%)`, icon: <CheckCircle2 className="w-3.5 h-3.5" />, color: 'text-emerald-700 bg-emerald-50 border-emerald-200 hover:bg-emerald-100' },
         { id: 'in-progress', label: 'In Progress', value: inProgress,          icon: <Circle className="w-3.5 h-3.5" />,       color: 'text-blue-600 bg-blue-50 border-blue-200 hover:bg-blue-100' },
-        { id: 'overdue',     label: 'Overdue',     value: overdue,             icon: <AlertTriangle className="w-3.5 h-3.5" />, color: overdue > 0 ? 'text-red-600 bg-red-50 border-red-200 hover:bg-red-100' : 'text-slate-400 bg-slate-50 dark:bg-zinc-900/50 border-slate-100' },
-        { id: 'missed',      label: 'Missed',      value: missed,              icon: <AlertTriangle className="w-3.5 h-3.5" />, color: missed > 0 ? 'text-orange-600 bg-orange-50 border-orange-200 hover:bg-orange-100 animate-pulse' : 'text-slate-400 bg-slate-50 dark:bg-zinc-900/50 border-slate-100' },
-        { id: 'urgent',      label: 'Urgent',      value: urgent,              icon: <Zap className="w-3.5 h-3.5" />,           color: urgent > 0 ? 'text-orange-600 bg-orange-50 border-orange-200 hover:bg-orange-100' : 'text-slate-400 bg-slate-50 dark:bg-zinc-900/50 border-slate-100' },
+        { id: 'overdue',     label: 'Overdue',     value: overdue,             icon: <AlertTriangle className="w-3.5 h-3.5" />, color: overdue > 0 ? 'text-red-700 bg-red-50 border-red-200 hover:bg-red-100' : 'text-slate-600 bg-slate-50 dark:bg-zinc-900/50 border-slate-100' },
+        { id: 'missed',      label: 'Missed',      value: missed,              icon: <AlertTriangle className="w-3.5 h-3.5" />, color: missed > 0 ? 'text-orange-700 bg-orange-50 border-orange-200 hover:bg-orange-100 animate-pulse' : 'text-slate-600 bg-slate-50 dark:bg-zinc-900/50 border-slate-100' },
+        { id: 'urgent',      label: 'Urgent',      value: urgent,              icon: <Zap className="w-3.5 h-3.5" />,           color: urgent > 0 ? 'text-orange-700 bg-orange-50 border-orange-200 hover:bg-orange-100' : 'text-slate-600 bg-slate-50 dark:bg-zinc-900/50 border-slate-100' },
       ].map(s => (
         <button
           key={s.label}
@@ -305,7 +306,7 @@ export default function AsanaTaskApp() {
         fetched = await getTasksForUser(user.id);
       }
 
-      const today = new Date().toISOString().split('T')[0];
+      const today = todayIST();
       const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
 
       // ── Daily task smart filtering for My Tasks view ──
@@ -366,7 +367,7 @@ export default function AsanaTaskApp() {
     .filter(t => !filterStatus || t.status === filterStatus);
 
   if (customFilter) {
-    const today = new Date().toISOString().split('T')[0];
+    const today = todayIST();
     if (customFilter === 'done') filteredTasks = filteredTasks.filter(t => t.status === 'Done');
     else if (customFilter === 'in-progress') filteredTasks = filteredTasks.filter(t => t.status === 'In Progress');
     else if (customFilter === 'overdue') filteredTasks = filteredTasks.filter(t => t.due_date && t.due_date < today && t.status !== 'Done' && t.status !== 'Missed');
@@ -376,7 +377,7 @@ export default function AsanaTaskApp() {
 
   // Sorting: Overdue first, then Urgent, then due_date
   filteredTasks.sort((a, b) => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = todayIST();
     const aOverdue = a.due_date && a.due_date < today && a.status !== 'Done';
     const bOverdue = b.due_date && b.due_date < today && b.status !== 'Done';
     
@@ -495,17 +496,19 @@ export default function AsanaTaskApp() {
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
                 placeholder="Search..."
+                aria-label="Search tasks"
                 className="bg-white dark:bg-black border-2 border-erp-border rounded-xl pl-9 pr-3 py-2 text-sm w-36 focus:outline-none focus:border-erp-primary font-medium transition-all focus:w-48"
               />
               {searchQuery && (
-                <button onClick={() => setSearchQuery('')} className="absolute right-2 top-2.5 text-erp-text/40 hover:text-erp-text">
-                  <X className="w-3.5 h-3.5" />
+                <button onClick={() => setSearchQuery('')} aria-label="Clear search" className="absolute right-2 top-2.5 text-erp-text/40 hover:text-erp-text">
+                  <X className="w-3.5 h-3.5" aria-hidden="true" />
                 </button>
               )}
             </div>
 
             {/* Priority filter */}
             <select
+              aria-label="Filter by priority"
               value={filterPriority}
               onChange={e => setFilterPriority(e.target.value)}
               className="bg-white dark:bg-black border-2 border-erp-border rounded-xl px-2 py-2 text-xs font-semibold text-erp-text outline-none"
@@ -519,6 +522,7 @@ export default function AsanaTaskApp() {
 
             {/* Status filter */}
             <select
+              aria-label="Filter by status"
               value={filterStatus}
               onChange={e => setFilterStatus(e.target.value)}
               className="bg-white dark:bg-black border-2 border-erp-border rounded-xl px-2 py-2 text-xs font-semibold text-erp-text outline-none"
@@ -533,6 +537,7 @@ export default function AsanaTaskApp() {
             {/* Assignee Filter (Only in Team Tasks) */}
             {currentView === 'all-tasks' && (
               <select
+                aria-label="Filter by employee"
                 value={filterAssignee}
                 onChange={e => setFilterAssignee(e.target.value)}
                 className="bg-white dark:bg-black border-2 border-erp-border rounded-xl px-2 py-2 text-xs font-semibold text-erp-text outline-none"
@@ -546,14 +551,14 @@ export default function AsanaTaskApp() {
 
             {/* View Toggle */}
             <div className="flex bg-erp-surface rounded-xl p-1 border-2 border-erp-border gap-0.5">
-              <button onClick={() => setViewMode('list')} className={viewBtnClass(viewMode === 'list')} title="List">
-                <LayoutList className="w-4 h-4" />
+              <button onClick={() => setViewMode('list')} className={viewBtnClass(viewMode === 'list')} title="List" aria-label="List view" aria-pressed={viewMode === 'list'}>
+                <LayoutList className="w-4 h-4" aria-hidden="true" />
               </button>
-              <button onClick={() => setViewMode('board')} className={viewBtnClass(viewMode === 'board')} title="Board">
-                <LayoutGrid className="w-4 h-4" />
+              <button onClick={() => setViewMode('board')} className={viewBtnClass(viewMode === 'board')} title="Board" aria-label="Board view" aria-pressed={viewMode === 'board'}>
+                <LayoutGrid className="w-4 h-4" aria-hidden="true" />
               </button>
-              <button onClick={() => setViewMode('calendar')} className={viewBtnClass(viewMode === 'calendar')} title="Calendar">
-                <CalendarDays className="w-4 h-4" />
+              <button onClick={() => setViewMode('calendar')} className={viewBtnClass(viewMode === 'calendar')} title="Calendar" aria-label="Calendar view" aria-pressed={viewMode === 'calendar'}>
+                <CalendarDays className="w-4 h-4" aria-hidden="true" />
               </button>
             </div>
 

@@ -167,7 +167,7 @@ export function RescheduleModal({ slot, onClose, onSuccess }: RescheduleModalPro
             <button
               onClick={handleSubmit}
               disabled={saving}
-              className="flex-1 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-sm font-bold flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
+              className="flex-1 py-2.5 rounded-xl bg-orange-700 hover:bg-orange-800 text-white text-sm font-bold flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
             >
               {saving ? <><Loader2 className="w-4 h-4 animate-spin" /> Saving...</> : <><Calendar className="w-4 h-4" /> Reschedule</>}
             </button>

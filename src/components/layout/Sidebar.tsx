@@ -8,7 +8,7 @@ import { ThemeToggle } from '../ui/ThemeToggle';
 import { ALL_PAGES } from '../../lib/pageRegistry';
 import { getRolePages } from '../../lib/api/rolePageAccess';
 
-import { ROUTE_MODULE_MAP } from '../../lib/permissionsRegistry';
+import { ROUTE_MODULE_MAP, getModuleRoute, hasExplicitPermissions, normalisePath } from '../../lib/permissionsRegistry';
 
 import { CynexLogo } from '../ui/CynexLogo';
 
@@ -131,31 +131,35 @@ export const Sidebar: React.FC<{ onNavClick?: () => void, isMobile?: boolean, on
   }
 
   // Helper for dynamic module routes
-  const SYSTEM_MODULE_NAV: Record<string, { label: string; icon: any; section: string; getRoute: (role: string) => string }> = {
-    dashboard: { label: 'Dashboard & Master View', icon: LayoutDashboard, section: 'Core Navigation', getRoute: (r) => r === 'Manager' ? '/manager' : r === 'Teacher' ? '/teacher' : r === 'DM' ? '/dm/dashboard' : r === 'Sales/HR' ? '/sales/dashboard' : '/ceo/dashboard' },
-    tasks: { label: 'Tasks & Task Center', icon: CheckSquare, section: 'Core Navigation', getRoute: (r) => r === 'Manager' ? '/manager/tasks' : r === 'Teacher' ? '/teacher/tasks' : r === 'DM' ? '/dm/tasks' : r === 'Sales/HR' ? '/sales/tasks' : '/ceo/tasks' },
-    reports: { label: 'Performance Reports', icon: BarChart2, section: 'Analytics', getRoute: (r) => r === 'Manager' ? '/manager/reports' : '/ceo/reports' },
-    sales: { label: 'Sales Hub & CRM Pipeline', icon: DollarSign, section: 'Sales & Growth', getRoute: (r) => r === 'Sales/HR' ? '/sales/pipeline' : '/ceo/sales-pipeline' },
-    sales_history: { label: 'Sales & Master History', icon: History, section: 'Sales & Growth', getRoute: (r) => r === 'Sales/HR' ? '/sales/history' : '/ceo/history' },
-    users: { label: 'User Admin & Staff Mgmt', icon: Users, section: 'Administration', getRoute: (r) => r === 'Manager' ? '/manager/users' : '/ceo/users' },
-    students: { label: 'Students & Progress', icon: GraduationCap, section: 'Academic', getRoute: (r) => r === 'Manager' ? '/manager/students' : '/ceo/students' },
-    certificates: { label: 'Certificates & QR Engine', icon: Award, section: 'Academic', getRoute: (r) => r === 'Manager' ? '/manager/certificates' : '/ceo/certificates' },
-    attendance: { label: 'Attendance & Matrix', icon: Users, section: 'Academic', getRoute: (r) => r === 'CEO' ? '/ceo/attendance' : r === 'Manager' ? '/manager/attendance' : '/teacher/attendance' },
-    courses: { label: 'Courses & Curriculum CMS', icon: BookOpen, section: 'Academic', getRoute: (r) => r === 'Manager' ? '/manager/courses' : r === 'Teacher' ? '/teacher/courses' : r === 'DM' ? '/dm/courses' : r === 'Sales/HR' ? '/sales/courses' : '/ceo/courses' },
-    timetable: { label: 'Timetable & Scheduling', icon: Calendar, section: 'Academic', getRoute: (r) => r === 'Manager' ? '/manager/timetable' : r === 'Teacher' ? '/teacher/timetable' : '/ceo/timetable' },
-    classes: { label: 'Live Classes & Classroom', icon: Video, section: 'Academic', getRoute: () => '/teacher/live' },
-    marketing: { label: 'Marketing Hub & Planner', icon: Calendar, section: 'Marketing', getRoute: (r) => r === 'DM' ? '/dm/planner' : '/ceo/dm-dashboard' },
-    ai_voice: { label: 'AI Voice & Settings', icon: Bot, section: 'AI Tools', getRoute: (r) => r === 'Teacher' ? '/teacher/settings' : '/ceo/ai-voice' },
-    gamification: { label: 'Game Config & Rewards', icon: Zap, section: 'Engagement', getRoute: (r) => r === 'Manager' ? '/manager/gamification' : '/ceo/gamification' },
-    settings: { label: 'System & ERP Settings', icon: Settings, section: 'Administration', getRoute: (r) => r === 'Manager' ? '/manager/student-settings' : '/ceo/student-settings' },
+  const SYSTEM_MODULE_NAV: Record<string, { label: string; icon: any; section: string }> = {
+    dashboard: { label: 'Dashboard & Master View', icon: LayoutDashboard, section: 'Core Navigation' },
+    tasks: { label: 'Tasks & Task Center', icon: CheckSquare, section: 'Core Navigation' },
+    reports: { label: 'Performance Reports', icon: BarChart2, section: 'Analytics' },
+    sales: { label: 'Sales Hub & CRM Pipeline', icon: DollarSign, section: 'Sales & Growth' },
+    sales_history: { label: 'Sales & Master History', icon: History, section: 'Sales & Growth' },
+    users: { label: 'User Admin & Staff Mgmt', icon: Users, section: 'Administration' },
+    students: { label: 'Students & Progress', icon: GraduationCap, section: 'Academic' },
+    certificates: { label: 'Certificates & QR Engine', icon: Award, section: 'Academic' },
+    attendance: { label: 'Attendance & Matrix', icon: Users, section: 'Academic' },
+    courses: { label: 'Courses & Curriculum CMS', icon: BookOpen, section: 'Academic' },
+    timetable: { label: 'Timetable & Scheduling', icon: Calendar, section: 'Academic' },
+    classes: { label: 'Live Classes & Classroom', icon: Video, section: 'Academic' },
+    marketing: { label: 'Marketing Hub & Planner', icon: Calendar, section: 'Marketing' },
+    ai_voice: { label: 'AI Voice & Settings', icon: Bot, section: 'AI Tools' },
+    gamification: { label: 'Game Config & Rewards', icon: Zap, section: 'Engagement' },
+    settings: { label: 'System & ERP Settings', icon: Settings, section: 'Administration' },
   };
+
+  const explicit = hasExplicitPermissions(user.permissions_json);
 
   // Dynamically add any granted system modules not already present in allNavItems
   if (user.role !== 'CEO') {
     Object.entries(SYSTEM_MODULE_NAV).forEach(([modId, def]) => {
       const access = getModuleAccess(user, modId);
       if (access !== 'none') {
-        const route = def.getRoute(user.role);
+        const route = getModuleRoute(modId, user.role);
+        // Role defaults do not open another role's pages (see decideRouteAccess), so only an explicit grant gets a /ceo/* link.
+        if (!route || (!explicit && route.startsWith('/ceo/'))) return;
         if (!allNavItems.some(i => i.to === route)) {
           allNavItems.push({
             to: route,
@@ -181,7 +185,7 @@ export const Sidebar: React.FC<{ onNavClick?: () => void, isMobile?: boolean, on
   // Apply Advanced Access Control permission filtering for non-CEO users
   if (user.role !== 'CEO') {
     allNavItems = allNavItems.filter(item => {
-      const moduleId = ROUTE_MODULE_MAP[item.to];
+      const moduleId = ROUTE_MODULE_MAP[normalisePath(item.to)];
       if (!moduleId) return true;
       const access = getModuleAccess(user, moduleId);
       return access !== 'none';
@@ -212,13 +216,14 @@ export const Sidebar: React.FC<{ onNavClick?: () => void, isMobile?: boolean, on
             onClick={onToggleSidebar}
             className="hidden md:flex p-1.5 rounded-xl text-erp-text/50 hover:text-erp-text hover:bg-erp-surface transition-all border border-erp-border cursor-pointer shadow-sm"
             title="Collapse sidebar"
+            aria-label="Collapse sidebar"
           >
-            <ChevronLeft className="w-4 h-4" />
+            <ChevronLeft className="w-4 h-4" aria-hidden="true" />
           </button>
         )}
       </div>
 
-      <div className={isMobile ? '' : 'flex-1 overflow-y-auto py-4 px-4 space-y-6'}>
+      <nav aria-label="Main navigation" className={isMobile ? '' : 'flex-1 overflow-y-auto py-4 px-4 space-y-6'}>
         {loading ? (
           <div className="flex justify-center"><Loader2 className="w-5 h-5 animate-spin text-erp-primary" /></div>
         ) : (
@@ -247,7 +252,7 @@ export const Sidebar: React.FC<{ onNavClick?: () => void, isMobile?: boolean, on
             </div>
           ))
         )}
-      </div>
+      </nav>
 
       <div className={`${isMobile ? 'mt-4 pt-4 border-t border-slate-200 dark:border-white/10' : 'p-4 border-t-2 border-erp-border'} space-y-1`}>
         <ThemeToggle variant="sidebar" />
@@ -267,7 +272,7 @@ export const Sidebar: React.FC<{ onNavClick?: () => void, isMobile?: boolean, on
         </NavLink>
         <button
           onClick={() => { logout(); onNavClick?.(); }}
-          className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all font-black text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 active:scale-95 min-h-[44px]"
+          className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all font-black text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 active:scale-95 min-h-[44px]"
         >
           <LogOut className="w-5 h-5" strokeWidth={2.5} />
           Log Out

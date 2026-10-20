@@ -4,6 +4,7 @@ import { useInView } from 'react-intersection-observer';
 import { X, Smartphone, RefreshCcw, Copy, CreditCard, ShieldCheck } from 'lucide-react'; // Added Copy icon
 import { useNavigate } from 'react-router-dom';
 import { openRazorpayCheckout } from '../lib/razorpay';
+import { recordManualUpiIntent } from '../lib/api/payments';
 
 // Define courses - Ensure this data is always valid
 const coursesData = [
@@ -101,13 +102,15 @@ const PaymentPage = () => {
       }
     }, 100);
 
-    console.log("Payment initiated details:", {
-      internalOrderId: internalOrderId,
+    // Remember who is about to pay what, so the manual UPI payment can be matched later.
+    recordManualUpiIntent({
+      orderId: internalOrderId,
       amount: parsedAmount,
+      name: checkoutDetails.fullName,
+      email: checkoutDetails.email,
+      phone: checkoutDetails.phoneNumber,
+      course: selectedCourseName,
       upiId: YOUR_UPI_ID,
-      customer: checkoutDetails,
-      selectedCourse: selectedCourseName,
-      timestamp: new Date().toISOString()
     });
 
     setMessage(
@@ -219,11 +222,12 @@ const PaymentPage = () => {
         variants={containerVariants}
         className="relative bg-background/40 backdrop-blur-xl rounded-2xl shadow-[0_0_40px_rgba(65,200,223,0.1)] p-6 sm:p-8 w-full max-w-5xl mx-auto border border-secondary/10 flex flex-col lg:flex-row"
       >
+        <h1 className="sr-only">Make a Payment</h1>
         {/* Close Button */}
         <button
           onClick={() => navigate('/')}
-          className="absolute top-4 right-4 text-gray-400 hover:text-secondary transition-colors z-10"
-          aria-label="Close payment modal"
+          className="absolute top-2 right-2 flex min-h-[40px] min-w-[40px] items-center justify-center rounded-full text-gray-500 hover:text-secondary transition-colors z-10"
+          aria-label="Close payment page"
         >
           <X className="w-6 h-6" />
         </button>
@@ -374,10 +378,6 @@ const PaymentPage = () => {
                 <div className="flex justify-between items-center text-lg">
                   <span className="text-gray-400">Selected Course:</span>
                   <span className="font-semibold text-gray-100">{selectedCourseName}</span>
-                </div>
-                <div className="flex justify-between items-center text-lg">
-                  <span className="text-gray-400">Coupon Code:</span>
-                  <button type="button" className="text-[#41c8df] hover:underline text-sm">Apply</button>
                 </div>
                 <div className="flex justify-between items-center text-2xl font-bold pt-4 border-t border-secondary/10">
                   <span className="text-secondary">Total Amount:</span>

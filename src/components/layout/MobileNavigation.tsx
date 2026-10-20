@@ -54,7 +54,8 @@ export const MobileNavigation: React.FC = () => {
       <div className="fixed bottom-0 left-0 right-0 z-50 md:hidden">
         {/* Safe area background with candy-panel style */}
         <div className="bg-white/95 dark:bg-[#09090b]/95 backdrop-blur-xl border-t border-slate-200/80 dark:border-zinc-800 shadow-[0_-10px_30px_rgba(0,0,0,0.35)]">
-          <div
+          <nav
+            aria-label="Primary"
             className="flex items-center h-[66px] px-1 py-1"
             style={{ paddingBottom: 'env(safe-area-inset-bottom, 6px)' }}
           >
@@ -95,18 +96,22 @@ export const MobileNavigation: React.FC = () => {
               </div>
               <span className="text-[10px] font-black leading-none">Menu</span>
             </button>
-          </div>
+          </nav>
         </div>
       </div>
 
       {/* Mobile Drawer (Sidebar) */}
-      <div 
+      <div
+        // The closed drawer is only transparent; keep its links out of the tab order and the accessibility tree.
+        inert={!menuOpen}
+        aria-hidden={!menuOpen}
         className={`fixed inset-0 z-[100] md:hidden transition-opacity duration-300 ${
           menuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
         }`}
       >
         {/* Backdrop */}
-        <div 
+        <div
+          aria-hidden="true"
           className="absolute inset-0 bg-black/50 backdrop-blur-sm"
           onClick={() => setMenuOpen(false)}
         />
@@ -122,9 +127,10 @@ export const MobileNavigation: React.FC = () => {
             <CynexLogo size="md" badge="Menu" />
             <button 
               onClick={() => setMenuOpen(false)}
+              aria-label="Close menu"
               className="p-2 rounded-full bg-slate-100 dark:bg-zinc-900 text-slate-600 dark:text-white cursor-pointer"
             >
-              <X className="w-5 h-5" />
+              <X className="w-5 h-5" aria-hidden="true" />
             </button>
           </div>
 

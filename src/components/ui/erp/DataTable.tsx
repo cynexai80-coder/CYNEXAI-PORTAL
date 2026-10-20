@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { ArrowUp, ArrowDown } from 'lucide-react';
+import { keyboardActivate, FOCUS_RING } from '../../../lib/a11y';
 
 export interface Column {
   key: string;
@@ -70,16 +71,25 @@ export const DataTable: React.FC<DataTableProps> = ({
         <thead className="bg-erp-background border-b border-erp-border">
           <tr>
             {columns.map((col) => (
-              <th key={col.key} className="p-4 font-bold text-erp-text/70 uppercase tracking-wider text-xs">
-                <div 
-                  className="flex items-center gap-2 cursor-pointer select-none"
-                  onClick={() => onSort && onSort(col.key)}
-                >
-                  {col.header}
-                  {sortBy === col.key && (
-                    sortDir === 'asc' ? <ArrowUp className="w-4 h-4" /> : <ArrowDown className="w-4 h-4" />
-                  )}
-                </div>
+              <th
+                key={col.key}
+                aria-sort={sortBy === col.key ? (sortDir === 'asc' ? 'ascending' : 'descending') : undefined}
+                className="p-4 font-bold text-erp-text/70 uppercase tracking-wider text-xs"
+              >
+                {onSort ? (
+                  <button
+                    type="button"
+                    className="flex items-center gap-2 min-h-[24px] cursor-pointer select-none uppercase tracking-wider font-bold text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-erp-primary rounded"
+                    onClick={() => onSort(col.key)}
+                  >
+                    {col.header}
+                    {sortBy === col.key && (
+                      sortDir === 'asc' ? <ArrowUp className="w-4 h-4" aria-hidden="true" /> : <ArrowDown className="w-4 h-4" aria-hidden="true" />
+                    )}
+                  </button>
+                ) : (
+                  <div className="flex items-center gap-2 select-none">{col.header}</div>
+                )}
               </th>
             ))}
           </tr>
@@ -90,9 +100,10 @@ export const DataTable: React.FC<DataTableProps> = ({
             const isExpanded = expandedRows.has(rowId);
             return (
             <React.Fragment key={rowId}>
-              <tr 
-                className={`border-b border-erp-border hover:bg-erp-background/50 transition-colors ${renderExpandedRow ? 'cursor-pointer' : ''}`}
+              <tr
+                className={`border-b border-erp-border hover:bg-erp-background/50 transition-colors ${renderExpandedRow ? `cursor-pointer ${FOCUS_RING}` : ''}`}
                 onClick={() => toggleRowExpansion(rowId)}
+                {...(renderExpandedRow ? { ...keyboardActivate(() => toggleRowExpansion(rowId)), 'aria-expanded': isExpanded } : {})}
               >
                 {columns.map((col) => {
                   const isEditing =
@@ -101,7 +112,8 @@ export const DataTable: React.FC<DataTableProps> = ({
                   return (
                     <td 
                       key={col.key} 
-                      className={`p-4 ${col.editable ? 'cursor-pointer hover:bg-erp-background' : ''}`}
+                      className={`p-4 ${col.editable ? `cursor-pointer hover:bg-erp-background ${FOCUS_RING}` : ''}`}
+                      {...(col.editable && !isEditing ? keyboardActivate(() => handleCellClick(row, col)) : {})}
                       onClick={(e) => {
                         if (col.editable) {
                           e.stopPropagation();

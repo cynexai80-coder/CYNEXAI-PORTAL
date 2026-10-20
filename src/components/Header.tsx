@@ -105,7 +105,7 @@ export default function Header() {
           </Link>
 
           {/* Desktop nav */}
-          <nav className="hidden lg:flex items-center space-x-8">
+          <nav className="hidden lg:flex items-center space-x-2 xl:space-x-4">
             {navItems.map(({ name, href }) => {
               const isActive =
                 href === '/'
@@ -119,9 +119,9 @@ export default function Header() {
                   key={name}
                   href={href}
                   onClick={(e) => handleNavClick(href, e)}
-                  className={`relative font-bold tracking-wide transition-all duration-300 px-6 py-2.5 rounded-full text-sm uppercase
+                  className={`relative font-bold tracking-wide transition-all duration-300 px-4 xl:px-5 py-2.5 rounded-full text-sm uppercase
                     ${isActive
-                      ? 'bg-cyan-500/10 text-cyan-500 shadow-sm border border-cyan-500/20'
+                      ? 'bg-cyan-500/10 text-cyan-900 dark:text-cyan-400 shadow-sm border border-cyan-500/20'
                       : 'text-foreground hover:bg-muted'
                     }`}
                 >
@@ -169,7 +169,7 @@ export default function Header() {
                       onClick={(e) => handleNavClick(href, e)}
                       className={`block py-3 px-6 rounded-xl text-lg font-bold transition-all duration-300
                         ${isActive
-                          ? 'bg-cyan-500/10 text-cyan-500 shadow-sm border border-cyan-500/20'
+                          ? 'bg-cyan-500/10 text-cyan-900 dark:text-cyan-400 shadow-sm border border-cyan-500/20'
                           : 'text-foreground hover:bg-muted'
                         }`}
                     >

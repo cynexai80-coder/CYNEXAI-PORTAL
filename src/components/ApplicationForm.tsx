@@ -93,10 +93,10 @@ const ApplicationForm = () => {
               <CheckCircle className="w-8 h-8 text-secondary" />
             </motion.div>
             <h1 className="text-2xl font-bold mb-4">Thank You for Applying!</h1>
-            <p className="text-[#010203]/80 mb-6">
+            <p className="text-secondary/80 mb-6">
               Your application for <span className="text-[#41c8df] font-medium">{courseName}</span> has been submitted successfully. Our team will review your application and contact you within 24-48 hours.
             </p>
-            <div className="space-y-3 mb-8 text-[#010203]/80">
+            <div className="space-y-3 mb-8 text-secondary/80">
               <div className="flex items-center justify-between text-sm">
                 <span>Application ID:</span>
                 <span className="font-mono">{applicationId}</span>
@@ -115,7 +115,7 @@ const ApplicationForm = () => {
               </Link>
               <Link
                 to={`/course/${courseId}`}
-                className="w-full border-2 border-[#41c8df] text-[#010203] py-3 px-4 rounded-lg font-medium block text-center hover:bg-[#41c8df]/10 transition-colors duration-300"
+                className="w-full border-2 border-[#41c8df] text-secondary py-3 px-4 rounded-lg font-medium block text-center hover:bg-[#41c8df]/10 transition-colors duration-300"
               >
                 View Course Details
               </Link>
@@ -132,7 +132,7 @@ const ApplicationForm = () => {
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
           <Link
             to={`/course/${courseId}`}
-            className="inline-flex items-center text-[#41c8df] hover:text-secondary transition-colors mb-6"
+            className="inline-flex items-center min-h-[24px] text-[#41c8df] hover:text-secondary transition-colors mb-6"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Course
@@ -147,7 +147,7 @@ const ApplicationForm = () => {
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="bg-background/40 backdrop-blur-xl text-secondary rounded-2xl p-8 border border-[#41c8df]/30 shadow-[0_0_40px_rgba(65,200,223,0.1)]">
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
-              <label className="block text-sm font-medium text-[#010203] mb-2">
+              <label className="block text-sm font-medium text-secondary mb-2">
                 <User className="w-4 h-4 inline mr-2" /> Full Name *
               </label>
               <input
@@ -161,7 +161,7 @@ const ApplicationForm = () => {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-[#010203] mb-2">
+              <label className="block text-sm font-medium text-secondary mb-2">
                 <Mail className="w-4 h-4 inline mr-2" /> Email Address *
               </label>
               <input
@@ -175,7 +175,7 @@ const ApplicationForm = () => {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-[#010203] mb-2">
+              <label className="block text-sm font-medium text-secondary mb-2">
                 <Phone className="w-4 h-4 inline mr-2" /> Phone Number *
               </label>
               <input
@@ -189,7 +189,7 @@ const ApplicationForm = () => {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-[#010203] mb-2">
+              <label className="block text-sm font-medium text-secondary mb-2">
                 <Briefcase className="w-4 h-4 inline mr-2" /> Current Status *
               </label>
               <select
@@ -231,7 +231,7 @@ const ApplicationForm = () => {
               )}
             </motion.button>
             {error && (
-              <div className="mt-4 p-4 flex items-center bg-red-100 text-red-700 dark:text-white rounded-lg border border-red-200">
+              <div className="mt-4 p-4 flex items-center bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-white rounded-lg border border-red-200">
                 <XCircle className="w-5 h-5 mr-2 flex-shrink-0" />
                 <span>{error}</span>
               </div>

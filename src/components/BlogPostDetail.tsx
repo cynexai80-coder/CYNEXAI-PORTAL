@@ -53,6 +53,23 @@ const BlogPostDetail = () => {
         fetchPost();
     }, [id]);
 
+    // Each article gets its own title; a missing article must not be indexed (the route still answers 200).
+    useEffect(() => {
+        if (loading) return;
+        if (post?.title) {
+            document.title = `${post.title} | CynexAI Blog`;
+        } else {
+            document.title = 'Article not found | CynexAI';
+            let robots = document.head.querySelector('meta[name="robots"]');
+            if (!robots) {
+                robots = document.createElement('meta');
+                robots.setAttribute('name', 'robots');
+                document.head.appendChild(robots);
+            }
+            robots.setAttribute('content', 'noindex, nofollow');
+        }
+    }, [loading, post]);
+
     if (loading) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-transparent">
@@ -276,7 +293,7 @@ const BlogPostDetail = () => {
                                 >
                                     <div className="aspect-[4/3] rounded-xl overflow-hidden mb-4 relative bg-secondary/5 border border-secondary/10">
                                         <img
-                                            src={relatedPost.image}
+                                            src={relatedPost.image || 'https://images.unsplash.com/photo-1620712943543-bcc4688e7485?q=80&w=1280&auto=format&fit=crop'}
                                             alt={relatedPost.title}
                                             className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                                         />

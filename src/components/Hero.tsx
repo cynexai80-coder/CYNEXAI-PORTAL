@@ -60,7 +60,7 @@ const Hero = () => {
           className="text-center"
         >
           <motion.div variants={itemVariants} className="mb-8">
-            <span className="inline-flex items-center px-4 py-2 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-600 dark:text-cyan-400 text-sm font-semibold tracking-wide mb-6">
+            <span className="inline-flex items-center px-4 py-2 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-700 dark:text-cyan-400 text-sm font-semibold tracking-wide mb-6">
               <Sparkles className="w-4 h-4 mr-2" />
               Transform Your Tech Career
             </span>
@@ -93,7 +93,7 @@ const Hero = () => {
             >
               <Link
                 to="/#courses"
-                className="group bg-cyan-500 hover:bg-cyan-600 text-white px-8 py-4 rounded-full font-bold text-lg shadow-lg shadow-cyan-500/25 transition-all duration-300 flex items-center"
+                className="group bg-cyan-700 hover:bg-cyan-800 text-white px-8 py-4 rounded-full font-bold text-lg shadow-lg shadow-cyan-500/25 transition-all duration-300 flex items-center"
               >
                 Explore Courses
                 <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />

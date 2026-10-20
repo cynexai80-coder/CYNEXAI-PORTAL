@@ -7,6 +7,7 @@ import { getErpUsers } from '../../../lib/api/manager';
 import { getCurrentUser } from '../../../lib/auth';
 import { TimeTracker } from './TimeTracker';
 import { ProjectHierarchyPanel } from './ProjectHierarchyPanel';
+import { notify, confirmDialog } from '../../../lib/feedback';
 
 interface Props {
   task: Task;
@@ -81,13 +82,13 @@ export const TaskDetailPanel: React.FC<Props> = ({ task, onClose, onUpdate, curr
   };
 
   const handleDelete = async () => {
-    if (confirm('Are you sure you want to delete this task?')) {
+    if (await confirmDialog({ title: 'Delete task', message: 'Are you sure you want to delete this task?', confirmLabel: 'Delete', danger: true })) {
       const res = await deleteTask(task.id);
       if (res.success) {
         onUpdate();
         onClose();
       } else {
-        alert(res.error || 'Failed to delete');
+        notify(res.error || 'Failed to delete');
       }
     }
   };
@@ -114,9 +115,9 @@ export const TaskDetailPanel: React.FC<Props> = ({ task, onClose, onUpdate, curr
 
   const getPriorityColor = (priority: string) => {
     switch(priority) {
-      case 'Urgent': return 'text-red-600 bg-red-100';
-      case 'High': return 'text-orange-600 bg-orange-100';
-      case 'Medium': return 'text-blue-600 bg-blue-100';
+      case 'Urgent': return 'text-red-700 bg-red-100';
+      case 'High': return 'text-orange-700 bg-orange-100';
+      case 'Medium': return 'text-blue-700 bg-blue-100';
       case 'Low': return 'text-gray-600 bg-gray-100 dark:bg-zinc-900/50';
       default: return 'text-gray-600 bg-gray-100 dark:bg-zinc-900/50';
     }
@@ -131,7 +132,7 @@ export const TaskDetailPanel: React.FC<Props> = ({ task, onClose, onUpdate, curr
     <div className="flex flex-col h-full bg-erp-surface border-l-2 border-erp-border overflow-hidden">
       <div className="flex items-center justify-between p-4 border-b border-erp-border bg-erp-background">
         <div className="flex items-center gap-2 flex-wrap">
-          <Button variant="ghost" className={`py-1 px-3 h-8 border ${editedTask.status === 'Done' ? 'bg-green-50 text-green-600 border-green-200' : 'bg-erp-surface border-erp-border text-erp-text/70'}`} onClick={() => {
+          <Button variant="ghost" className={`py-1 px-3 h-8 border ${editedTask.status === 'Done' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-erp-surface border-erp-border text-erp-text/70'}`} onClick={() => {
             handleChange('status', editedTask.status === 'Done' ? 'To Do' : 'Done');
             updateTask(task.id, { status: editedTask.status === 'Done' ? 'To Do' : 'Done' }).then(onUpdate);
           }}>

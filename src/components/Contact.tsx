@@ -158,7 +158,7 @@ const Contact = () => {
                       whileHover={{ x: 5, scale: 1.01 }}
                       className="flex items-center space-x-4 p-5 bg-surface rounded-xl border border-border hover:border-cyan-500/50 hover:shadow-md transition-all duration-300"
                     >
-                      <div className="flex items-center justify-center w-12 h-12 rounded-lg bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 flex-shrink-0"
+                      <div className="flex items-center justify-center w-12 h-12 rounded-lg bg-cyan-500/10 text-cyan-700 dark:text-cyan-400 flex-shrink-0"
                       >
                         <Icon className="w-6 h-6" />
                       </div>
@@ -263,7 +263,7 @@ const Contact = () => {
                 whileTap={!isSubmitting ? { scale: 0.98 } : {}}
                 className={`w-full py-4 font-bold rounded-xl transition-all duration-300 shadow-sm ${isSubmitting
                   ? 'bg-muted text-muted-foreground cursor-not-allowed'
-                  : 'bg-cyan-500 text-white hover:bg-cyan-600 hover:shadow-md'
+                  : 'bg-cyan-700 text-white hover:bg-cyan-800 hover:shadow-md'
                   }`}
               >
                 {isSubmitting ? 'Sending...' : 'Send Message'}

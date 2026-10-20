@@ -35,7 +35,7 @@ html {
   --accent: 37 99 235;
   --accent-foreground: 255 255 255;
   --muted: 241 245 249;
-  --muted-foreground: 100 116 139;
+  --muted-foreground: 71 85 105; /* slate-600: slate-500 (#64748b) was 4.1–4.4:1 on tinted cards */
   --border: 226 232 240;
   --ring: 37 99 235;
 
@@ -101,6 +101,14 @@ body {
 /* Override white/gray backgrounds in components that use literal colors in dark mode */
 [data-theme="dark"] .bg-white:not([class*="dark:bg-"]) { background-color: var(--erp-surface) !important; }
 [data-theme="dark"] .border-white:not([class*="dark:border-"]) { border-color: var(--erp-border) !important; }
+
+/* Solid brand fills carry white text, so they must reach 4.5:1 (WCAG 1.4.3). The lighter shades in the
+   variables above stay for text, outlines and tints (bg-erp-primary/10 is a different class and is not
+   affected): white on #3B82F6 is 3.7:1 and on #0EA5E9 only 2.8:1; on the colours below it is 5.2:1 and 6.0:1. */
+.bg-erp-primary { background-color: #2563EB; }
+.bg-erp-secondary { background-color: #0369A1; }
+.bg-erp-info { background-color: #0369A1; }      /* was #0284C7: white on it is 4.1:1 */
+.bg-erp-danger { background-color: #DC2626; }    /* was #FF4B4B: white on it is 3.3:1 */
 
 /* Global fix for dark text colors that are invisible in dark mode */
 [data-theme="dark"] .text-slate-900,
@@ -470,12 +478,12 @@ button, [role="button"] {
   @apply relative inline-flex items-center justify-center font-bold text-white transition-all active:scale-95;
   border-radius: 12px;
   min-height: 40px;
-  background: linear-gradient(135deg, #2563eb 0%, #0284c7 100%);
+  background: linear-gradient(135deg, #2563eb 0%, #0369a1 100%);
   box-shadow: 0 4px 14px rgba(37, 99, 235, 0.28);
   border: 1px solid rgba(255, 255, 255, 0.15);
 }
 .candy-btn:hover {
-  background: linear-gradient(135deg, #1d4ed8 0%, #0369a1 100%);
+  background: linear-gradient(135deg, #1d4ed8 0%, #075985 100%);
   box-shadow: 0 6px 18px rgba(37, 99, 235, 0.38);
   transform: translateY(-1px);
 }
@@ -506,12 +514,12 @@ button, [role="button"] {
   @apply relative inline-flex items-center justify-center font-bold text-white transition-all active:scale-95;
   border-radius: 12px;
   min-height: 40px;
-  background-color: #059669;
+  background-color: #047857;
   box-shadow: 0 4px 12px rgba(5, 150, 105, 0.25);
   border: 1px solid rgba(255, 255, 255, 0.1);
 }
 .candy-btn-green:hover {
-  background-color: #047857;
+  background-color: #065f46;
   box-shadow: 0 6px 16px rgba(5, 150, 105, 0.35);
   transform: translateY(-1px);
 }
@@ -584,4 +592,16 @@ button, [role="button"] {
 .no-scrollbar {
   -ms-overflow-style: none !important;  /* IE and Edge */
   scrollbar-width: none !important;  /* Firefox */
+}
+/* ── Navy-shell public pages (course, apply, pay, blog, webinar, gallery) ───────
+   These pages were written for a dark navy shell with the original palette: `text-secondary` is light text,
+   `bg-secondary/5` a faint white tint and `bg-background/NN` black glass. Those tokens flip with the app theme
+   (background becomes white in light, secondary becomes dark slate in dark), which left pale glass with light text
+   (light) and dark text on dark (dark): 1.0–1.3:1 on the course headline. Pin the tokens for these pages only. */
+.navy-surface {
+  --background: 0 0 0;
+  --foreground: 248 250 252;
+  --secondary: 241 245 249;
+  --secondary-foreground: 15 23 42;
+  --muted-foreground: 203 213 225;
 }

@@ -1,7 +1,7 @@
 import React from 'react';
 
 type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
-  variant?: 'primary' | 'secondary' | 'danger' | 'info' | 'ghost';
+  variant?: 'primary' | 'secondary' | 'danger' | 'info' | 'ghost' | 'outline';
   size?: 'sm' | 'md' | 'lg';
   fullWidth?: boolean;
 };
@@ -27,7 +27,8 @@ export const Button: React.FC<ButtonProps> = ({
     secondary: 'bg-erp-secondary text-white shadow-erp-btn-secondary hover:opacity-90',
     danger: 'bg-erp-danger text-white shadow-erp-btn-danger hover:opacity-90',
     info: 'bg-erp-info text-white shadow-erp-btn-info hover:opacity-90',
-    ghost: 'bg-transparent text-erp-text hover:bg-erp-border shadow-none active:translate-y-0 active:shadow-none'
+    ghost: 'bg-transparent text-erp-text hover:bg-erp-border shadow-none active:translate-y-0 active:shadow-none',
+    outline: 'bg-transparent text-erp-text border-2 border-erp-border hover:border-erp-primary hover:text-erp-primary shadow-none active:translate-y-0 active:shadow-none'
   };
 
   const disabledStyles = 'opacity-50 cursor-not-allowed active:translate-y-0 active:shadow-none';

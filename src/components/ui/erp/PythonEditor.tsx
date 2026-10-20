@@ -133,7 +133,7 @@ export const PythonEditor: React.FC<PythonEditorProps> = ({
           </div>
           <div className="flex items-center gap-2">
             {isInitializing && (
-              <span className="text-xs font-bold text-amber-500 flex items-center gap-1 bg-amber-500/10 px-2 py-1 rounded">
+              <span className="text-xs font-bold text-amber-400 flex items-center gap-1 bg-amber-500/10 px-2 py-1 rounded">
                 <Loader2 className="w-3 h-3 animate-spin" /> Initializing Python...
               </span>
             )}
@@ -141,7 +141,7 @@ export const PythonEditor: React.FC<PythonEditorProps> = ({
               variant="primary" 
               onClick={handleRunCode} 
               disabled={!isReady || isRunning}
-              className="h-8 text-xs flex items-center gap-2 px-4 bg-emerald-600 hover:bg-emerald-500 border-none text-white font-bold"
+              className="h-8 text-xs flex items-center gap-2 px-4 bg-emerald-700 hover:bg-emerald-800 border-none text-white font-bold"
             >
               {isRunning ? <Loader2 className="w-3 h-3 animate-spin" /> : <Play className="w-3 h-3 fill-white" />}
               {isRunning ? 'Running' : 'Run Code'}
@@ -156,6 +156,7 @@ export const PythonEditor: React.FC<PythonEditorProps> = ({
           height="100%"
           defaultLanguage="python"
           theme="vs-dark"
+          loading={<span className="text-xs font-medium text-slate-400">Loading editor…</span>}
           value={code}
           onChange={handleCodeChange}
           options={{
@@ -177,15 +178,20 @@ export const PythonEditor: React.FC<PythonEditorProps> = ({
         <div className="h-[160px] border-t border-slate-800 bg-[#1e1e1e] p-4 flex flex-col">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-bold text-slate-400 font-mono uppercase tracking-wider">Terminal Output</span>
-            <button onClick={() => setOutput('')} className="text-xs text-slate-500 hover:text-slate-300 transition-colors">
-              <RefreshCw className="w-3 h-3" />
+            <button
+              type="button"
+              onClick={() => setOutput('')}
+              aria-label="Clear output"
+              className="flex min-h-[24px] min-w-[24px] items-center justify-center rounded text-xs text-slate-400 hover:text-slate-200 transition-colors"
+            >
+              <RefreshCw className="w-3 h-3" aria-hidden="true" />
             </button>
           </div>
           <div className="flex-1 overflow-y-auto font-mono text-sm">
             {output ? (
               <pre className="text-emerald-400 whitespace-pre-wrap">{output}</pre>
             ) : (
-              <span className="text-slate-600 italic text-xs">Click 'Run Code' to execute your solution.</span>
+              <span className="text-slate-400 italic text-xs">Click 'Run Code' to execute your solution.</span>
             )}
           </div>
         </div>

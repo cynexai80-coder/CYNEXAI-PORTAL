@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Search, Play } from 'lucide-react';
 import { initTursoDB, getPosts, getCategories } from '../lib/turso';
+import { subscribeNewsletter } from '../lib/api/crm';
+import { notify } from '../lib/feedback';
 interface BlogPost {
     id: string;
     title: string;
@@ -44,14 +46,17 @@ const BlogPage = () => {
     const handleSubscribe = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!newsletterEmail || !newsletterEmail.includes('@')) {
-            alert('Please enter a valid professional email.');
+            notify('Please enter a valid professional email.');
             return;
         }
 
         setSubscribeLoading(true);
-        // Simulate API call
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        const result = await subscribeNewsletter(newsletterEmail);
         setSubscribeLoading(false);
+        if (!result.success) {
+            notify(result.error || 'Could not subscribe. Please try again.');
+            return;
+        }
         setIsSubscribed(true);
         setNewsletterEmail('');
     };
@@ -138,6 +143,7 @@ const BlogPage = () => {
                             <input
                                 type="text"
                                 placeholder="Search articles..."
+                                aria-label="Search articles"
                                 value={searchQuery}
                                 onChange={(e) => {
                                     setSearchQuery(e.target.value);
@@ -149,6 +155,7 @@ const BlogPage = () => {
 
                         <select
                             title="Sort by Category"
+                            aria-label="Filter by category"
                             value={selectedCategory}
                             onChange={(e) => {
                                 setSelectedCategory(e.target.value);

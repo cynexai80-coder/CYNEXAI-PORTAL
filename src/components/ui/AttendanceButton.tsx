@@ -64,8 +64,8 @@ export function AttendanceButton() {
         onClick={handleToggle}
         className={`w-full p-4 rounded-2xl flex flex-col items-center justify-center gap-1 transition-all shadow-sm border-2 cursor-pointer ${
           isLoggedIn 
-            ? 'bg-red-50 hover:bg-red-100 border-red-200 text-red-700 dark:text-white'
-            : 'bg-emerald-50 hover:bg-emerald-100 border-emerald-200 text-emerald-700'
+            ? 'bg-red-50 hover:bg-red-100 border-red-200 text-red-700 dark:bg-red-950 dark:hover:bg-red-900 dark:border-red-500/40 dark:text-red-100'
+            : 'bg-emerald-50 hover:bg-emerald-100 border-emerald-200 text-emerald-700 dark:bg-emerald-950 dark:hover:bg-emerald-900 dark:border-emerald-500/40 dark:text-emerald-100'
         }`}
       >
         <div className="flex items-center gap-2 font-black text-lg">

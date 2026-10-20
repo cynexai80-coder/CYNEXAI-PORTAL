@@ -11,6 +11,7 @@ import {
   deleteStaffAttendance 
 } from '../../../lib/api/reports';
 import { getCurrentUser } from '../../../lib/auth';
+import { confirmDialog } from '../../../lib/feedback';
 
 interface StaffAttendanceModalProps {
   isOpen: boolean;
@@ -27,37 +28,37 @@ interface StaffAttendanceModalProps {
 const STATUS_CONFIG: Record<string, { label: string; badgeClass: string; dotClass: string; icon: any }> = {
   'Present': { 
     label: 'Present (Office)', 
-    badgeClass: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30',
+    badgeClass: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30',
     dotClass: 'bg-emerald-500',
     icon: CheckCircle
   },
   'Work From Home': { 
     label: 'Work From Home', 
-    badgeClass: 'bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/30',
+    badgeClass: 'bg-sky-500/10 text-sky-700 dark:text-sky-400 border-sky-500/30',
     dotClass: 'bg-sky-500',
     icon: Home
   },
   'Half-day': { 
     label: 'Half Day', 
-    badgeClass: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30',
+    badgeClass: 'bg-amber-500/10 text-amber-800 dark:text-amber-400 border-amber-500/30',
     dotClass: 'bg-amber-500',
     icon: Clock
   },
   'Official Duty': { 
     label: 'Official Duty / Field', 
-    badgeClass: 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/30',
+    badgeClass: 'bg-purple-500/10 text-purple-700 dark:text-purple-400 border-purple-500/30',
     dotClass: 'bg-purple-500',
     icon: Briefcase
   },
   'Leave': { 
     label: 'On Leave', 
-    badgeClass: 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30',
+    badgeClass: 'bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-500/30',
     dotClass: 'bg-rose-500',
     icon: UserX
   },
   'Absent': { 
     label: 'Absent', 
-    badgeClass: 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/30',
+    badgeClass: 'bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/30',
     dotClass: 'bg-red-500',
     icon: UserX
   },
@@ -327,7 +328,7 @@ export function StaffAttendanceModal({ isOpen, onClose, targetUser, onAttendance
   // Delete attendance log for selected date
   const handleDeleteAttendance = async () => {
     if (!selectedDate || !effectiveUser?.id) return;
-    if (!window.confirm(`Delete attendance record for ${selectedDate}?`)) return;
+    if (!(await confirmDialog({ title: 'Delete attendance', message: `Delete attendance record for ${selectedDate}?`, confirmLabel: 'Delete', danger: true }))) return;
     setSaving(true);
     try {
       const ok = await deleteStaffAttendance(effectiveUser.id, selectedDate);
@@ -354,7 +355,7 @@ export function StaffAttendanceModal({ isOpen, onClose, targetUser, onAttendance
         {/* Header Bar */}
         <div className="p-5 sm:p-6 border-b border-erp-border flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-erp-surface">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-blue-500/10 text-blue-500 flex items-center justify-center font-bold text-xl shrink-0 shadow-inner">
+            <div className="w-12 h-12 rounded-2xl bg-blue-500/10 text-blue-700 dark:text-blue-400 flex items-center justify-center font-bold text-xl shrink-0 shadow-inner">
               <CalendarIcon className="w-6 h-6" />
             </div>
             <div>
@@ -362,7 +363,7 @@ export function StaffAttendanceModal({ isOpen, onClose, targetUser, onAttendance
                 <h2 className="text-xl sm:text-2xl font-black font-display text-erp-text">
                   Staff Attendance Calendar
                 </h2>
-                <span className="text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full bg-blue-500/10 text-blue-500 border border-blue-500/20">
+                <span className="text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-500/20">
                   {effectiveUser?.role || 'Staff'}
                 </span>
               </div>
@@ -414,7 +415,7 @@ export function StaffAttendanceModal({ isOpen, onClose, targetUser, onAttendance
         {/* Monthly KPI Summary Banner */}
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 p-4 sm:px-6 bg-slate-50/50 dark:bg-zinc-900/40 border-b border-erp-border">
           <div className="bg-erp-surface border border-erp-border rounded-xl p-2.5 flex items-center gap-2.5 shadow-2xs">
-            <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-500 flex items-center justify-center font-bold text-xs shrink-0">
+            <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 flex items-center justify-center font-bold text-xs shrink-0">
               <CheckCircle className="w-4 h-4" />
             </div>
             <div className="min-w-0">
@@ -424,7 +425,7 @@ export function StaffAttendanceModal({ isOpen, onClose, targetUser, onAttendance
           </div>
 
           <div className="bg-erp-surface border border-erp-border rounded-xl p-2.5 flex items-center gap-2.5 shadow-2xs">
-            <div className="w-8 h-8 rounded-lg bg-sky-500/10 text-sky-500 flex items-center justify-center font-bold text-xs shrink-0">
+            <div className="w-8 h-8 rounded-lg bg-sky-500/10 text-sky-700 dark:text-sky-400 flex items-center justify-center font-bold text-xs shrink-0">
               <Home className="w-4 h-4" />
             </div>
             <div className="min-w-0">
@@ -434,7 +435,7 @@ export function StaffAttendanceModal({ isOpen, onClose, targetUser, onAttendance
           </div>
 
           <div className="bg-erp-surface border border-erp-border rounded-xl p-2.5 flex items-center gap-2.5 shadow-2xs">
-            <div className="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-500 flex items-center justify-center font-bold text-xs shrink-0">
+            <div className="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-800 dark:text-amber-400 flex items-center justify-center font-bold text-xs shrink-0">
               <Clock className="w-4 h-4" />
             </div>
             <div className="min-w-0">
@@ -444,7 +445,7 @@ export function StaffAttendanceModal({ isOpen, onClose, targetUser, onAttendance
           </div>
 
           <div className="bg-erp-surface border border-erp-border rounded-xl p-2.5 flex items-center gap-2.5 shadow-2xs">
-            <div className="w-8 h-8 rounded-lg bg-rose-500/10 text-rose-500 flex items-center justify-center font-bold text-xs shrink-0">
+            <div className="w-8 h-8 rounded-lg bg-rose-500/10 text-rose-700 dark:text-rose-400 flex items-center justify-center font-bold text-xs shrink-0">
               <UserX className="w-4 h-4" />
             </div>
             <div className="min-w-0">
@@ -454,7 +455,7 @@ export function StaffAttendanceModal({ isOpen, onClose, targetUser, onAttendance
           </div>
 
           <div className="bg-erp-surface border border-erp-border rounded-xl p-2.5 flex items-center gap-2.5 col-span-2 sm:col-span-1 shadow-2xs">
-            <div className="w-8 h-8 rounded-lg bg-purple-500/10 text-purple-500 flex items-center justify-center font-bold text-xs shrink-0">
+            <div className="w-8 h-8 rounded-lg bg-purple-500/10 text-purple-700 dark:text-purple-400 flex items-center justify-center font-bold text-xs shrink-0">
               <Sparkles className="w-4 h-4" />
             </div>
             <div className="min-w-0">
@@ -525,7 +526,7 @@ export function StaffAttendanceModal({ isOpen, onClose, targetUser, onAttendance
                           day.isToday 
                             ? 'bg-blue-600 text-white' 
                             : isSelected
-                            ? 'bg-blue-500/20 text-blue-600 dark:text-blue-400'
+                            ? 'bg-blue-500/20 text-blue-700 dark:text-blue-400'
                             : 'text-erp-text'
                         }`}>
                           {day.dayNum}
@@ -592,8 +593,8 @@ export function StaffAttendanceModal({ isOpen, onClose, targetUser, onAttendance
               {notification && (
                 <div className={`p-3 rounded-xl text-xs font-bold border flex items-center gap-2 ${
                   notification.type === 'success' 
-                    ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30' 
-                    : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30'
+                    ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30' 
+                    : 'bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-500/30'
                 }`}>
                   {notification.type === 'success' ? <CheckCircle className="w-4 h-4 shrink-0" /> : <AlertCircle className="w-4 h-4 shrink-0" />}
                   <span>{notification.message}</span>

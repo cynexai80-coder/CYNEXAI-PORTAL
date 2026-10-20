@@ -2,6 +2,7 @@ import React from 'react';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import { Task, updateTaskStatus, deleteTask } from '../../../lib/api/tasks';
 import { Clock, CheckCircle, MessageSquare, MoreVertical, AlertCircle, Trash2 } from 'lucide-react';
+import { notify, confirmDialog } from '../../../lib/feedback';
 
 interface Props {
   tasks: Task[];
@@ -18,8 +19,8 @@ const COLUMNS: { id: string; label: string; color: string; bgClass: string }[] =
 ];
 
 const PRIORITY_STYLES: Record<string, { dot: string; label: string }> = {
-  Urgent: { dot: '#ef4444', label: 'text-red-600 bg-red-50 border-red-200' },
-  High:   { dot: '#f97316', label: 'text-orange-600 bg-orange-50 border-orange-200' },
+  Urgent: { dot: '#ef4444', label: 'text-red-700 bg-red-50 border-red-200' },
+  High:   { dot: '#f97316', label: 'text-orange-700 bg-orange-50 border-orange-200' },
   Medium: { dot: '#3b82f6', label: 'text-blue-600 bg-blue-50 border-blue-200' },
   Low:    { dot: '#9ca3af', label: 'text-gray-500 bg-gray-50 dark:bg-zinc-900/50 border-gray-200 dark:border-white/10' },
 };
@@ -39,12 +40,12 @@ export const TaskBoardView: React.FC<Props> = ({ tasks, users, onTaskClick, onUp
 
   const handleDeleteTask = async (e: React.MouseEvent, task: Task) => {
     e.stopPropagation();
-    if (confirm(`Delete "${task.title}"?`)) {
+    if (await confirmDialog({ title: 'Delete task', message: `Delete "${task.title}"?`, confirmLabel: 'Delete', danger: true })) {
       const res = await deleteTask(task.id);
       if (res.success) {
         onUpdate();
       } else {
-        alert(res.error || 'Failed to delete task');
+        notify(res.error || 'Failed to delete task');
       }
     }
   };
@@ -59,7 +60,7 @@ export const TaskBoardView: React.FC<Props> = ({ tasks, users, onTaskClick, onUp
     if (res.success) {
       onUpdate();
     } else {
-      alert(res.error || 'Failed to move task');
+      notify(res.error || 'Failed to move task');
     }
   };
 

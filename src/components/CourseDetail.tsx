@@ -408,7 +408,7 @@ const CourseDetail = () => {
             <motion.div variants={itemVariants} className="mb-6">
               <Link
                 to="/"
-                className="inline-flex items-center text-[#41c8df] hover:text-secondary transition-colors" // Gold link
+                className="inline-flex items-center min-h-[24px] text-[#41c8df] hover:text-secondary transition-colors" // Gold link
               >
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Back to Courses
@@ -607,7 +607,7 @@ const CourseDetail = () => {
                     className="bg-secondary/5 backdrop-blur-sm rounded-lg p-6 border border-secondary/10 hover:border-[#41c8df]/50 transition-all duration-300" // White background, light gray border, gold hover
                   >
                     <div className="flex items-center">
-                      <div className="flex items-center justify-center w-10 h-10 bg-[#41c8df] rounded-full text-secondary font-bold mr-4"> {/* Gold circle */}
+                      <div className="flex items-center justify-center w-10 h-10 bg-[#41c8df] rounded-full text-black font-bold mr-4"> {/* Gold circle */}
                         {index + 1}
                       </div>
                       <div className="flex-1">
@@ -700,13 +700,15 @@ const CourseDetail = () => {
                 Enroll Now
               </button>
               {/* UPDATED BROCHURE LINK */}
-              <Link
-                to="/brochure" // <<<--- THIS IS THE NEW INTERNAL ROUTE
+              <a
+                href="/CynaxAI%20Brouchure.pdf"
+                target="_blank"
+                rel="noopener noreferrer"
                 className="border border-[#41c8df]/50 text-[#41c8df] px-8 py-4 rounded-lg font-semibold hover:bg-secondary/5 transition-all duration-300 flex items-center justify-center"
               >
                 <Download className="w-5 h-5 mr-2" />
                 View Brochure
-              </Link>
+              </a>
             </motion.div>
           </motion.div>
         </div>
