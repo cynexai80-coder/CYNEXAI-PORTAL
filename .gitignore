@@ -35,3 +35,13 @@ backend/.wwebjs_auth/
 .wwebjs_auth/
 screenshots/
 scratch/
+# Personal data & credential helper scripts (never commit)
+Student_Data.xlsx
+Modules Data.xlsx
+students_seed.json
+history.txt
+diff.txt
+get_all_creds.mjs
+get_creds.ts
+show_logins.mjs
+show_student_logins.cjs
