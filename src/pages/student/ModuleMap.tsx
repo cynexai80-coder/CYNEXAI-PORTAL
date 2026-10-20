@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getCurrentUser } from '../../lib/auth';
 import { getModuleMapData } from '../../lib/api/student';
+import { keyboardActivate, FOCUS_RING } from '../../lib/a11y';
 
 
 
@@ -88,13 +89,18 @@ const NodeIcons = {
 
 // ─── Node style config ────────────────────────────────────────────────────────
 
+// labelColor is for the dark theme; labelColorLight is a darker shade that keeps 4.5:1 on the pale tint in the light theme.
 const KIND_CONFIG = {
-  video:  { color: '#6366f1', bg: '#6366f120', label: 'Video',    labelColor: '#818cf8' },
-  live:   { color: '#ef4444', bg: '#ef444420', label: 'Live',     labelColor: '#f87171' },
-  quiz:   { color: '#f59e0b', bg: '#f59e0b20', label: 'Q&A',      labelColor: '#fbbf24' },
-  code:   { color: '#10b981', bg: '#10b98120', label: 'Coding',   labelColor: '#34d399' },
-  lesson: { color: '#8b5cf6', bg: '#8b5cf620', label: 'Lesson',   labelColor: '#a78bfa' },
+  video:  { color: '#6366f1', bg: '#6366f120', label: 'Video',    labelColor: '#818cf8', labelColorLight: '#4338ca' },
+  live:   { color: '#ef4444', bg: '#ef444420', label: 'Live',     labelColor: '#f87171', labelColorLight: '#b91c1c' },
+  quiz:   { color: '#f59e0b', bg: '#f59e0b20', label: 'Q&A',      labelColor: '#fbbf24', labelColorLight: '#92400e' },
+  code:   { color: '#10b981', bg: '#10b98120', label: 'Coding',   labelColor: '#34d399', labelColorLight: '#047857' },
+  lesson: { color: '#8b5cf6', bg: '#8b5cf620', label: 'Lesson',   labelColor: '#a78bfa', labelColorLight: '#6d28d9' },
 };
+
+const KIND_LABEL_CLASS = 'text-[color:var(--kind-fg)] dark:text-[color:var(--kind-fg-dark)]';
+const kindLabelVars = (cfg: typeof KIND_CONFIG[keyof typeof KIND_CONFIG]) =>
+  ({ '--kind-fg': cfg.labelColorLight, '--kind-fg-dark': cfg.labelColor }) as React.CSSProperties;
 
 // ─── Popup Card ───────────────────────────────────────────────────────────────
 
@@ -138,8 +144,8 @@ function NodePopup({
             </div>
             <div className="flex-1 min-w-0">
               <span
-                className="inline-block text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full mb-1"
-                style={{ background: cfg.bg, color: cfg.labelColor }}
+                className={`inline-block text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full mb-1 ${KIND_LABEL_CLASS}`}
+                style={{ background: cfg.bg, ...kindLabelVars(cfg) }}
               >
                 {cfg.label}
               </span>
@@ -163,11 +169,11 @@ function NodePopup({
           {/* Status badge */}
           <div className="mb-5">
             {node.classItem.status === 'in_progress' || node.classItem.status === 'live' ? (
-              <span className="inline-flex items-center gap-1.5 text-sm font-bold text-red-600 bg-red-100 border border-red-200 px-3 py-1 rounded-full dark:text-red-400 dark:bg-red-500/10 dark:border-red-500/20">
+              <span className="inline-flex items-center gap-1.5 text-sm font-bold text-red-700 bg-red-100 border border-red-200 px-3 py-1 rounded-full dark:text-red-400 dark:bg-red-500/10 dark:border-red-500/20">
                 <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" /> Live Class in Session
               </span>
             ) : state === 'completed' || node.classItem.status === 'completed' ? (
-              <span className="inline-flex items-center gap-1.5 text-sm font-bold text-emerald-600 bg-emerald-100 border border-emerald-200 px-3 py-1 rounded-full dark:text-emerald-400 dark:bg-emerald-500/10 dark:border-emerald-500/20">
+              <span className="inline-flex items-center gap-1.5 text-sm font-bold text-emerald-700 bg-emerald-100 border border-emerald-200 px-3 py-1 rounded-full dark:text-emerald-400 dark:bg-emerald-500/10 dark:border-emerald-500/20">
                 <NodeIcons.check size={14} /> Class Ended · Recorded
               </span>
             ) : state === 'current' ? (
@@ -176,7 +182,7 @@ function NodePopup({
                 Ready to start
               </span>
             ) : (
-              <span className="inline-flex items-center gap-1.5 text-sm font-bold text-amber-600 bg-amber-100 border border-amber-200 px-3 py-1 rounded-full dark:text-amber-400 dark:bg-amber-500/10 dark:border-amber-500/20">
+              <span className="inline-flex items-center gap-1.5 text-sm font-bold text-amber-800 bg-amber-100 border border-amber-200 px-3 py-1 rounded-full dark:text-amber-400 dark:bg-amber-500/10 dark:border-amber-500/20">
                 <NodeIcons.lock size={14} /> Locked · Complete previous class to unlock
               </span>
             )}
@@ -186,7 +192,7 @@ function NodePopup({
           <div className="flex gap-3">
             <button
               onClick={onClose}
-              className="flex-1 py-3 rounded-2xl text-sm font-bold text-slate-500 border border-slate-200 hover:bg-slate-50 dark:bg-zinc-900/50 transition-colors dark:text-white/60 dark:border-white/10 dark:hover:bg-white dark:bg-black/5"
+              className="flex-1 py-3 rounded-2xl text-sm font-bold text-slate-500 border border-slate-200 hover:bg-slate-50 dark:bg-zinc-900/50 transition-colors dark:text-white/60 dark:border-white/10 dark:hover:bg-white/5"
             >
               Close
             </button>
@@ -325,7 +331,7 @@ export default function ModuleMap() {
           <p className="text-red-400 font-semibold mb-4">{error}</p>
           <button
             onClick={() => navigate('/student')}
-            className="px-6 py-3 rounded-2xl bg-blue-600 text-white font-bold hover:bg-blue-500 transition-colors"
+            className="px-6 py-3 rounded-2xl bg-blue-600 text-white font-bold hover:bg-blue-700 transition-colors"
           >
             ← Back to Dashboard
           </button>
@@ -343,9 +349,10 @@ export default function ModuleMap() {
         <div className="max-w-4xl mx-auto flex items-center gap-3">
           <button
             onClick={() => navigate('/student')}
-            className="w-9 h-9 rounded-xl flex items-center justify-center text-slate-600 dark:text-white/60 hover:bg-slate-200 dark:bg-zinc-900/50 dark:hover:bg-white dark:bg-black/10 transition-all candy-panel !border-2 !p-0"
+            aria-label="Back to dashboard"
+            className="w-9 h-9 rounded-xl flex items-center justify-center text-slate-600 dark:text-white/60 hover:bg-slate-200 dark:bg-zinc-900/50 dark:hover:bg-white/10 transition-all candy-panel !border-2 !p-0"
           >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <polyline points="15,18 9,12 15,6" />
             </svg>
           </button>
@@ -389,8 +396,8 @@ export default function ModuleMap() {
         {(Object.entries(KIND_CONFIG) as [string, typeof KIND_CONFIG[keyof typeof KIND_CONFIG]][]).map(([key, cfg]) => (
           <span
             key={key}
-            className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full"
-            style={{ background: cfg.bg, color: cfg.labelColor, border: `1px solid ${cfg.color}30` }}
+            className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${KIND_LABEL_CLASS}`}
+            style={{ background: cfg.bg, border: `1px solid ${cfg.color}30`, ...kindLabelVars(cfg) }}
           >
             {cfg.label}
           </span>
@@ -456,19 +463,22 @@ export default function ModuleMap() {
                 kind = 'code';
               }
               const cfg = KIND_CONFIG[kind] || KIND_CONFIG.lesson;
+              const openNode = () => {
+                if (isLocked) {
+                  setToastMessage('Content locked! Wait for the live class to complete.');
+                  setTimeout(() => setToastMessage(null), 3000);
+                  return;
+                }
+                handleNodeClick(node);
+              };
               return (
                 <div 
                   key={node.id} 
                   id={`node-${i}`}
-                  onClick={() => {
-                     if (isLocked) {
-                        setToastMessage('Content locked! Wait for the live class to complete.');
-                        setTimeout(() => setToastMessage(null), 3000);
-                        return;
-                     }
-                     handleNodeClick(node);
-                  }}
-                  className={`relative p-4 rounded-2xl flex items-center gap-4 transition-all duration-200 border-2 ${
+                  onClick={openNode}
+                  {...keyboardActivate(openNode, { asButton: true })}
+                  aria-disabled={isLocked || undefined}
+                  className={`${FOCUS_RING} relative p-4 rounded-2xl flex items-center gap-4 transition-all duration-200 border-2 ${
                     isLocked
                       ? 'cursor-pointer border-dashed border-slate-300 dark:border-white/10 bg-slate-100/60 dark:bg-white/5 opacity-60 hover:opacity-80'
                       : isCurrent
@@ -487,10 +497,13 @@ export default function ModuleMap() {
                   </div>
                   
                   <div className="flex-1 min-w-0">
-                    <p className="text-[10px] font-bold uppercase tracking-wider mb-0.5" style={{ color: isLocked ? '#94a3b8' : cfg.labelColor }}>
+                    <p
+                      className={`text-[10px] font-bold uppercase tracking-wider mb-0.5 ${isLocked ? 'text-[#94a3b8]' : KIND_LABEL_CLASS}`}
+                      style={isLocked ? undefined : kindLabelVars(cfg)}
+                    >
                       {cfg.label}
-                      {isCurrent && <span className="ml-2 text-blue-500 animate-pulse text-[9px] px-1.5 py-0.5 bg-blue-100 dark:bg-blue-950/60 rounded-full">Next up</span>}
-                      {isLocked && <span className="ml-2 text-slate-500 text-[9px] px-1.5 py-0.5 bg-slate-200 dark:bg-white/10 rounded-full font-bold">Locked 🔒</span>}
+                      {isCurrent && <span className="ml-2 text-blue-700 dark:text-blue-400 animate-pulse text-[9px] px-1.5 py-0.5 bg-blue-100 dark:bg-blue-950/60 rounded-full">Next up</span>}
+                      {isLocked && <span className="ml-2 text-slate-600 text-[9px] px-1.5 py-0.5 bg-slate-200 dark:bg-white/10 rounded-full font-bold">Locked 🔒</span>}
                     </p>
                     <p className={`font-bold text-sm leading-tight line-clamp-2 ${isLocked ? 'text-slate-500 dark:text-white/40' : 'text-slate-900 dark:text-white'}`}>
                       {node.title}

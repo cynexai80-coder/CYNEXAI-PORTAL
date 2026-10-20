@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { parseCsvText, csvCell } from '../../../lib/csvUtils';
 import {
   Users, Search, ChevronRight, X,
   GraduationCap, Flame, Coins, Shield, Loader2,
@@ -7,6 +8,7 @@ import {
   Upload, UserPlus
 } from 'lucide-react';
 import { getCurrentUser, getModuleAccess } from '../../../lib/auth';
+import { keyboardActivate, FOCUS_RING } from '../../../lib/a11y';
 import { client } from '../../../lib/turso';
 import { cachedQuery } from '../../../lib/cache';
 import { BatchesTab } from './BatchesTab';
@@ -22,8 +24,8 @@ import {
   updateStudentModuleProgress, getStudentDetail, getUserPasswordEncrypted,
   findUserIdByEmail, updateStudentLeadStatus
 } from '../../../lib/api/student';
-import studentSeedData from '../../../../students_seed.json';
 import { useSearchParams } from 'react-router-dom';
+import { notify, confirmDialog } from '../../../lib/feedback';
 
 
 
@@ -38,7 +40,7 @@ interface StudentStat {
 function Badge({ color, children }: { color: string; children: React.ReactNode }) {
   return (
     <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold"
-      style={{ background: `${color}18`, color, border: `1px solid ${color}30` }}>
+      style={{ background: `${color}18`, color: `color-mix(in srgb, ${color} 60%, var(--erp-text))`, border: `1px solid ${color}30` }}>
       {children}
     </span>
   );
@@ -146,68 +148,6 @@ export default function StudentsPage() {
       console.error("loadStudents DB fetch error:", e);
     }
 
-    const hasActiveFilters = Boolean(search || courseFilter || batchFilter || statusFilter);
-    if (data.length === 0 && !hasActiveFilters) {
-      let localExtra: any[] = [];
-      try {
-        const cached = localStorage.getItem('cynex_local_students');
-        if (cached) localExtra = JSON.parse(cached);
-      } catch {}
-
-      const rawSeed = [...localExtra, ...studentSeedData];
-      data = rawSeed
-        .filter((r: any) => r.id !== 'stu_32' && r.name !== 'Names')
-        .map((r: any, idx: number) => {
-          const cName = !r.course || r.course === 'Course' ? 'Data Science with AI' : r.course;
-          const rawBatch = String(r.batch || r.batch_number || '1');
-          const bNum = !rawBatch || rawBatch === 'Batch' ? 'Batch 1' : (rawBatch.startsWith('Batch') ? rawBatch : `Batch ${rawBatch}`);
-          const sEmail = r.portal_login_email || r.email || `${(r.id || 'stu').toLowerCase()}@student.cynexai.com`;
-          const sDate = r.joining_date ? String(r.joining_date).split(' ')[0] : '2026-06-01';
-          return {
-            id: r.id || `stu_seed_${idx}`,
-            name: r.name || 'Student User',
-            email: sEmail,
-            phone: r.phone || '9876543210',
-            course: cName,
-            batch_number: bNum,
-            status: r.status || 'Active',
-            joining_date: sDate,
-            portal_login_email: sEmail,
-            streak: Number(r.streak) || (idx * 3 % 14) + 1,
-            coins: Number(r.coins) || (idx * 50 % 500) + 100,
-            badges: Number(r.badges) || (idx % 4) + 1,
-            completedClasses: Number(r.completedClasses) || (idx * 2 % 15) + 3,
-            totalModules: 12,
-            attendancePct: 90 + (idx % 10),
-            level: Math.floor(((idx * 2 % 15) + 3) / 5) + 1,
-          };
-        });
-    }
-
-    if (data.length > 0 && hasActiveFilters && data.some(s => s.id.startsWith('stu_seed_'))) {
-      if (search) {
-        const q = search.toLowerCase().trim();
-        data = data.filter(s => (s.name && s.name.toLowerCase().includes(q)) || (s.email && s.email.toLowerCase().includes(q)) || (s.phone && s.phone.includes(q)));
-      }
-      if (courseFilter) {
-        data = data.filter(s => s.course && s.course.toLowerCase().trim() === courseFilter.toLowerCase().trim());
-      }
-      if (batchFilter) {
-        const cleanB = batchFilter.replace(/batch[_\s]*/i, '').trim().toLowerCase();
-        data = data.filter(s => {
-          const sB = String(s.batch_number || '').replace(/batch[_\s]*/i, '').trim().toLowerCase();
-          return sB === cleanB || String(s.batch_number).toLowerCase() === batchFilter.toLowerCase();
-        });
-      }
-      if (statusFilter) {
-        if (statusFilter.toLowerCase() === 'active') {
-          data = data.filter(s => s.status === 'Active' || s.status === 'Onboarded' || !s.status);
-        } else {
-          data = data.filter(s => s.status && s.status.toLowerCase() === statusFilter.toLowerCase());
-        }
-      }
-    }
-
     setStudents(data);
 
     try {
@@ -244,9 +184,6 @@ export default function StudentsPage() {
       finalStats.forEach(st => { if (st.course) allCourseNames.add(st.course); });
       data.forEach(s => { if (s.course) allCourseNames.add(s.course); });
 
-      if (allCourseNames.size === 0) {
-        ['Data Science with AI', 'AI & Genrative AI', 'Full stack python', 'SAP Fico', 'Digital marketing'].forEach(c => allCourseNames.add(c));
-      }
       setCourses(Array.from(allCourseNames));
 
       // Build unified batch list from DB batches + any student batch numbers
@@ -285,17 +222,6 @@ export default function StudentsPage() {
       finalStats.forEach(st => checkAndAddBatch(st.batch_number, st.course));
       data.forEach(st => checkAndAddBatch(st.batch_number, st.course));
 
-      if (finalBatchesMap.size === 0) {
-        ['1', '2', '3', '4', '5'].forEach(b => {
-          finalBatchesMap.set(b.toLowerCase(), {
-            id: `batch_${b}`,
-            name: b,
-            course_id: '',
-            module_progress_json: '{}'
-          });
-        });
-      }
-
       const sortedBatchList = Array.from(finalBatchesMap.values()).sort((a, b) =>
         a.name.localeCompare(b.name, undefined, { numeric: true })
       );
@@ -328,7 +254,7 @@ export default function StudentsPage() {
       setAdjustReason('');
       await loadData();
       if (selectedStudent?.id === student.id) openStudentDetail(student);
-    } catch (e) { console.error(e); alert('Failed to adjust.'); }
+    } catch (e) { console.error(e); notify('Failed to adjust.'); }
     finally { setAdjustSaving(false); }
   };
 
@@ -338,10 +264,11 @@ export default function StudentsPage() {
     try {
       await updateStudentModuleProgress(selectedStudent.id, moduleId, action);
       await openStudentDetail(selectedStudent);
-    } catch (e) { console.error(e); alert('Failed to update module progress'); setDetailLoading(false); }
+    } catch (e) { console.error(e); notify('Failed to update module progress'); setDetailLoading(false); }
   };
 
   const [editStudentId, setEditStudentId] = useState<string | null>(null);
+  const [originalEmail, setOriginalEmail] = useState('');
   
   // Extended fields
   const [dob, setDob] = useState('');
@@ -394,6 +321,7 @@ export default function StudentsPage() {
 
   const handleEditStudent = async (stu: any) => {
     setEditStudentId(stu.id);
+    setOriginalEmail(stu.email || stu.portal_login_email || '');
     setName(stu.name || '');
     setEmail(stu.email || '');
     setPassword('');
@@ -444,14 +372,15 @@ export default function StudentsPage() {
   };
 
   const handleSaveStudent = async () => {
-    if (!name.trim() || !email.trim()) { alert('Name and email required.'); return; }
+    if (!name.trim() || !email.trim()) { notify('Name and email required.'); return; }
     try {
       let existingUserId: string | undefined = undefined;
       if (editStudentId) {
-        existingUserId = await findUserIdByEmail(email);
+        existingUserId = await findUserIdByEmail(originalEmail || email);
       }
       const studentData = {
         id: existingUserId,
+        originalEmail: originalEmail || email,
         name, email, password, status, phone: stuPhone, course: stuCourse, batch_number: stuBatch,
         joining_date: joiningDate
       };
@@ -483,17 +412,17 @@ export default function StudentsPage() {
       setDob(''); setAddress(''); setGender(''); setBloodGroup(''); setFeesTotal(''); setFeesPaid(''); setJoiningDate(''); setFatherName(''); setMotherName(''); setEmergencyContact(''); setTrainingStartDate(''); setTopicCompleted(''); setDocumentsSubmitted('');
     } catch (e: any) {
       console.error(e);
-      alert('Failed to save student. ' + (e.message || ''));
+      notify('Failed to save student. ' + (e.message || ''));
     }
   };
 
   const parseCsv = (text: string) => {
-    const lines = text.trim().split('\n');
-    const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/\s+/g, '_'));
-    return lines.slice(1).map(line => {
-      const vals = line.split(',').map(v => v.trim().replace(/^"|"$/g, ''));
+    const table = parseCsvText(text);
+    if (table.length === 0) return [];
+    const headers = table[0].map(h => h.trim().toLowerCase().replace(/\s+/g, '_'));
+    return table.slice(1).map(vals => {
       const obj: any = {};
-      headers.forEach((h, i) => { obj[h] = vals[i] || ''; });
+      headers.forEach((h, i) => { obj[h] = (vals[i] || '').trim(); });
       return obj;
     });
   };
@@ -507,7 +436,7 @@ export default function StudentsPage() {
         const existing = (row.existing_student_y_n || row.existing_student || row.existing || '').toLowerCase();
         return !['n', 'no', 'false', '0'].includes(existing);
       });
-      if (validRows.length < rows.length) alert(`Filtered out ${rows.length - validRows.length} rows where 'Existing student' was N.`);
+      if (validRows.length < rows.length) notify(`Filtered out ${rows.length - validRows.length} rows where 'Existing student' was N.`);
       setCsvPreview(validRows);
     };
     reader.readAsText(file);
@@ -579,7 +508,7 @@ export default function StudentsPage() {
               className={`pb-2 px-1 font-bold capitalize ${activeTab === 'pending' ? 'text-erp-primary border-b-2 border-erp-primary' : 'text-erp-text/50 hover:text-erp-text'}`}
               onClick={() => { setActiveTab('pending'); }}
             >
-              Pending Approvals {pendingStudents.length > 0 && <span className="ml-1 px-1.5 py-0.5 rounded-full bg-red-500 text-white text-[10px]">{pendingStudents.length}</span>}
+              Pending Approvals {pendingStudents.length > 0 && <span className="ml-1 px-1.5 py-0.5 rounded-full bg-red-600 text-white text-[10px]">{pendingStudents.length}</span>}
             </button>
           )}
           {(me?.role === 'CEO' || me?.role === 'Manager') && (
@@ -598,6 +527,8 @@ export default function StudentsPage() {
             <div className="flex gap-4 overflow-x-auto mb-4 pb-2 snap-x hide-scrollbar">
               <div 
                 onClick={() => { setCourseFilter(''); setBatchFilter(''); }}
+                {...keyboardActivate(() => { setCourseFilter(''); setBatchFilter(''); }, { asButton: true })}
+                aria-pressed={!courseFilter && !batchFilter}
                 className={`snap-start flex-shrink-0 cursor-pointer min-w-[150px] p-4 rounded-2xl border ${!courseFilter && !batchFilter ? 'border-indigo-500 bg-indigo-500/10' : 'border-erp-border bg-erp-surface hover:border-indigo-500/50'}`}
               >
                 <div className="text-xs font-bold text-erp-text/50 uppercase">All Students</div>
@@ -629,6 +560,8 @@ export default function StudentsPage() {
                   <div key={c} className="snap-start flex-shrink-0 flex gap-2">
                     <div 
                       onClick={() => { setCourseFilter(c); setBatchFilter(''); }}
+                      {...keyboardActivate(() => { setCourseFilter(c); setBatchFilter(''); }, { asButton: true })}
+                      aria-pressed={!!(isCourseSelected && !batchFilter)}
                       className={`cursor-pointer min-w-[180px] p-4 rounded-2xl border ${isCourseSelected && !batchFilter ? 'border-indigo-500 bg-indigo-500/10' : 'border-erp-border bg-erp-surface hover:border-indigo-500/50'}`}
                     >
                       <div className="text-xs font-bold text-erp-text/50 uppercase truncate" title={c}>{c}</div>
@@ -652,6 +585,8 @@ export default function StudentsPage() {
                         <div 
                           key={bName}
                           onClick={() => { setCourseFilter(c); setBatchFilter(bName); }}
+                          {...keyboardActivate(() => { setCourseFilter(c); setBatchFilter(bName); }, { asButton: true })}
+                          aria-pressed={!!isBatchSelected}
                           className={`cursor-pointer min-w-[150px] p-4 rounded-2xl border ${isBatchSelected ? 'border-emerald-500 bg-emerald-500/10' : 'border-erp-border bg-erp-surface hover:border-emerald-500/50'}`}
                         >
                           <div className="text-xs font-bold text-erp-text/50 uppercase truncate" title={bName}>{bName}</div>
@@ -668,17 +603,17 @@ export default function StudentsPage() {
             <div className="bg-erp-surface border border-erp-border rounded-2xl p-4 mb-4 flex flex-wrap gap-3">
               <div className="flex-1 min-w-[200px] relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-erp-text/40" />
-                <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search name, email, phone..." className={`${inputCls} pl-9`} />
+                <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search name, email, phone..." aria-label="Search students by name, email or phone" className={`${inputCls} pl-9`} />
               </div>
-              <select value={courseFilter} onChange={e => setCourseFilter(e.target.value)} className={`w-48 ${inputCls}`}>
+              <select aria-label="Filter by course" value={courseFilter} onChange={e => setCourseFilter(e.target.value)} className={`w-48 ${inputCls}`}>
                 <option value="">All Courses</option>
                 {courses.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
-              <select value={batchFilter} onChange={e => setBatchFilter(e.target.value)} className={`w-36 ${inputCls}`}>
+              <select aria-label="Filter by batch" value={batchFilter} onChange={e => setBatchFilter(e.target.value)} className={`w-36 ${inputCls}`}>
                 <option value="">All Batches</option>
                 {batches.map(b => <option key={b.name} value={b.name}>{b.name}</option>)}
               </select>
-              <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className={`w-32 ${inputCls}`}>
+              <select aria-label="Filter by status" value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className={`w-32 ${inputCls}`}>
                 <option value="">All Status</option>
                 {['Active', 'Onboarded', 'Suspended', 'Alumni', 'Pending'].map(s => <option key={s} value={s}>{s}</option>)}
               </select>
@@ -693,8 +628,8 @@ export default function StudentsPage() {
               ) : (
                 <div className="space-y-2">
                   {students.map(stu => (
-                    <div key={stu.id} onClick={() => openStudentDetail(stu)}
-                      className={`flex items-center gap-4 px-4 py-3 rounded-2xl border cursor-pointer transition-all hover:shadow-md ${selectedStudent?.id === stu.id ? 'border-indigo-500/50 bg-indigo-500/5' : 'border-erp-border bg-erp-surface hover:border-erp-border/60'}`}>
+                    <div key={stu.id} onClick={() => openStudentDetail(stu)} {...keyboardActivate(() => openStudentDetail(stu), { asButton: true })}
+                      className={`${FOCUS_RING} flex items-center gap-4 px-4 py-3 rounded-2xl border cursor-pointer transition-all hover:shadow-md ${selectedStudent?.id === stu.id ? 'border-indigo-500/50 bg-indigo-500/5' : 'border-erp-border bg-erp-surface hover:border-erp-border/60'}`}>
                       <div className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-black flex-shrink-0" style={{ background: `linear-gradient(135deg, #6366f1, #8b5cf6)` }}>
                         {stu.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
                       </div>
@@ -703,9 +638,9 @@ export default function StudentsPage() {
                         <div className="flex items-center gap-3 text-xs text-erp-text/50 mt-0.5">{stu.course && <span className="truncate max-w-[160px]">{stu.course}</span>}{stu.batch_number && <span>{String(stu.batch_number).toLowerCase().startsWith('batch') ? stu.batch_number : `Batch ${stu.batch_number}`}</span>}</div>
                       </div>
                       <div className="hidden sm:flex items-center gap-2">
-                        <span className="flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-lg" style={{ background: 'rgba(249,115,22,0.1)', color: '#f97316' }}><Flame className="w-3 h-3" />{stu.streak}</span>
-                        <span className="flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-lg" style={{ background: 'rgba(245,158,11,0.1)', color: '#f59e0b' }}><Coins className="w-3 h-3" />{stu.coins}</span>
-                        <span className="flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-lg" style={{ background: 'rgba(99,102,241,0.1)', color: '#6366f1' }}><BookOpen className="w-3 h-3" />{stu.completedClasses}</span>
+                        <span className="flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-lg bg-orange-500/10 text-orange-700 dark:text-orange-400"><Flame className="w-3 h-3" />{stu.streak}</span>
+                        <span className="flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-lg bg-amber-500/10 text-amber-800 dark:text-amber-400"><Coins className="w-3 h-3" />{stu.coins}</span>
+                        <span className="flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-lg bg-indigo-500/10 text-indigo-700 dark:text-indigo-300"><BookOpen className="w-3 h-3" />{stu.completedClasses}</span>
                         <span className="text-xs font-black px-2 py-1 rounded-lg text-white" style={{ background: 'linear-gradient(90deg, #06b6d4, #8b5cf6)' }}>LVL {stu.level}</span>
                       </div>
                       <ChevronRight className="w-4 h-4 text-erp-text/30 flex-shrink-0" />
@@ -727,8 +662,8 @@ export default function StudentsPage() {
                 { key: 'course', header: 'Course' },
                 { key: 'actions', header: 'Actions', filterable: false, render: (row: any) => (
                   <div className="flex items-center gap-2">
-                    <button onClick={() => { setApprovingStudentId(row.id); setApproveForm({ student_id: row.id, password: 'cnx' + Math.floor(1000 + Math.random() * 9000), portalId: 'CNX-' + new Date().getFullYear() + '-' + Math.floor(1000 + Math.random() * 9000), batch: '' }); setIsApproveModalOpen(true); }} className="px-3 py-1.5 text-xs font-bold text-white bg-green-500 hover:bg-green-600 rounded-lg">Approve</button>
-                    <button onClick={async () => { if (confirm('Reject?')) { await rejectStudent(row.id); loadData(); } }} className="px-3 py-1.5 text-xs font-bold text-white bg-red-500 hover:bg-red-600 rounded-lg">Reject</button>
+                    <button onClick={() => { setApprovingStudentId(row.id); setApproveForm({ student_id: row.id, password: 'cnx' + Array.from(crypto.getRandomValues(new Uint32Array(2))).map(n => n.toString(36)).join('').slice(0, 8), portalId: 'CNX-' + new Date().getFullYear() + '-' + Math.floor(1000 + Math.random() * 9000), batch: '' }); setIsApproveModalOpen(true); }} className="px-3 py-1.5 text-xs font-bold text-white bg-green-700 hover:bg-green-800 rounded-lg">Approve</button>
+                    <button onClick={async () => { if (await confirmDialog({ title: 'Reject student', message: 'Reject this student application?', confirmLabel: 'Reject', danger: true })) { await rejectStudent(row.id); loadData(); } }} className="px-3 py-1.5 text-xs font-bold text-white bg-red-600 hover:bg-red-700 rounded-lg">Reject</button>
                   </div>
                 )}
               ]}
@@ -829,7 +764,7 @@ export default function StudentsPage() {
             </div>
             <div className="flex gap-2">
               <button onClick={() => { setAdjustModal(null); setAdjustDelta(0); }} className="flex-1 px-4 py-2 border rounded-xl" disabled={adjustSaving}>Cancel</button>
-              <button onClick={handleAdjust} disabled={adjustSaving} className="flex-1 px-4 py-2 bg-indigo-500 text-white rounded-xl disabled:opacity-50 flex items-center justify-center gap-2">{adjustSaving && <Loader2 className="w-4 h-4 animate-spin" />}Apply</button>
+              <button onClick={handleAdjust} disabled={adjustSaving} className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-xl disabled:opacity-50 flex items-center justify-center gap-2">{adjustSaving && <Loader2 className="w-4 h-4 animate-spin" />}Apply</button>
             </div>
           </div>
         </div>
@@ -1013,9 +948,9 @@ export default function StudentsPage() {
             <div className="mt-4 flex justify-end gap-2">
               <Button variant="ghost" onClick={() => { setIsApproveModalOpen(false); setApprovingStudentId(null); }}>Cancel</Button>
               <Button onClick={async () => {
-                if (!approveForm.password || !approveForm.portalId) return alert("Portal ID and Password required.");
+                if (!approveForm.password || !approveForm.portalId) return notify("Portal ID and Password required.");
                 const stu = pendingStudents.find(s => s.id === approvingStudentId);
-                if (!stu) return alert("Student not found.");
+                if (!stu) return notify("Student not found.");
                 
                 await approveStudent(approvingStudentId, approveForm.portalId, approveForm.password, stu.portal_login_email, stu.name);
                 if (approveForm.batch) {
@@ -1023,7 +958,7 @@ export default function StudentsPage() {
                 }
                 await updateStudentLeadStatus(stu.portal_login_email, stu.phone);
                 
-                alert("Approved!");
+                notify("Approved!");
                 setIsApproveModalOpen(false); setApprovingStudentId(null);
                 loadData();
               }}>Approve</Button>
@@ -1042,8 +977,26 @@ export default function StudentsPage() {
              {csvResult ? (
                 <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-4 mb-4 text-emerald-400 text-sm">
                   <p className="font-bold">Import Summary:</p>
-                  <p>Success: {csvResult.imported ?? csvResult.successCount ?? csvResult.length ?? 'Done'}</p>
-                  {csvResult.failed > 0 && <p className="text-red-400">Failed: {csvResult.failed}</p>}
+                  <p>Imported: {csvResult.imported ?? csvResult.successCount ?? csvResult.length ?? 'Done'}</p>
+                  {csvResult.errors && csvResult.errors.length > 0 && (
+                    <div className="text-amber-400 mt-2">
+                      <p className="font-bold">Skipped / failed ({csvResult.errors.length}):</p>
+                      <ul className="list-disc ml-5 max-h-24 overflow-y-auto">{csvResult.errors.slice(0, 10).map((er: string, i: number) => <li key={i}>{er}</li>)}</ul>
+                    </div>
+                  )}
+                  {csvResult.credentials && csvResult.credentials.length > 0 && (
+                    <button
+                      className="mt-3 px-3 py-1.5 rounded-lg bg-emerald-700 text-white text-xs font-bold"
+                      onClick={() => {
+                        const csv = ['name,email,student_code,password', ...csvResult.credentials.map((c: any) => [c.name, c.email, c.student_code, c.password].map(csvCell).join(','))].join('\n');
+                        const url = window.URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+                        const a = document.createElement('a'); a.href = url; a.download = 'new_student_logins.csv'; a.click();
+                        window.URL.revokeObjectURL(url);
+                      }}
+                    >
+                      Download login credentials (CSV)
+                    </button>
+                  )}
                 </div>
              ) : null}
 

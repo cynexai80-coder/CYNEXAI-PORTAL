@@ -258,7 +258,7 @@ export default function PlacementDashboard({ initialAuth }: PlacementDashboardPr
               <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-slate-900 text-white shadow-md mb-3">
                 <Lock className="w-6 h-6 text-emerald-400" />
               </div>
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-200 mb-2">
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-slate-100 dark:bg-white/10 text-slate-700 border border-slate-200 mb-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                 Protected Dashboard
               </div>
@@ -325,8 +325,9 @@ export default function PlacementDashboard({ initialAuth }: PlacementDashboardPr
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1"
+                    className="absolute right-1.5 top-1/2 -translate-y-1/2 flex min-h-[28px] min-w-[28px] items-center justify-center rounded-md text-slate-500 hover:text-slate-700"
                     title={showPassword ? "Hide password" : "Show password"}
+                    aria-label={showPassword ? "Hide password" : "Show password"}
                   >
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
@@ -346,7 +347,7 @@ export default function PlacementDashboard({ initialAuth }: PlacementDashboardPr
             <div className="mt-6 pt-4 border-t border-slate-100 text-center">
               <Link
                 to="/"
-                className="text-xs text-slate-500 hover:text-slate-900 font-semibold inline-flex items-center gap-1 transition-colors"
+                className="text-xs text-slate-600 hover:text-slate-900 font-semibold inline-flex items-center gap-1 min-h-[24px] transition-colors"
               >
                 <span>← Back to CynexAI Home</span>
               </Link>

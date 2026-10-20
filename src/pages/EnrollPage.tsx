@@ -61,12 +61,13 @@ export default function EnrollPage() {
         amount: 500,
         name: 'CynexAI Enrollment Fee',
         description: `${formData.course} — ${formData.mode} Mode`,
-        prefill: {
+        customer: {
           name: formData.name,
           email: formData.email,
           contact: formData.phone
         },
         notes: {
+          type: 'Enrollment Fee',
           course: formData.course,
           mode: formData.mode,
           college: formData.college,
@@ -98,12 +99,12 @@ export default function EnrollPage() {
 
   if (success) {
     return (
-      <div className="min-h-screen bg-slate-50 dark:bg-zinc-900/50 flex items-center justify-center p-4">
+      <main id="main-content" className="min-h-screen bg-slate-50 dark:bg-zinc-900/50 flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white dark:bg-black rounded-2xl shadow-sm border border-slate-200 dark:border-white/10 p-8 text-center">
-          <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-6">
+          <div className="w-16 h-16 bg-green-100 text-green-700 rounded-full flex items-center justify-center mx-auto mb-6">
             <CheckCircle2 className="w-8 h-8" />
           </div>
-          <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2 font-display">Enrollment Successful!</h2>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-2 font-display">Enrollment Successful!</h1>
           <p className="text-slate-600 dark:text-slate-400 mb-2">Your payment of <strong>₹500</strong> was received.</p>
           <p className="text-slate-500 dark:text-slate-500 text-sm mb-8">Thank you for enrolling with CynexAI. Our team will get back to you shortly with onboarding details.</p>
           <button
@@ -113,12 +114,12 @@ export default function EnrollPage() {
             Go to Home
           </button>
         </div>
-      </div>
+      </main>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-zinc-900/50 flex items-center justify-center p-4 md:p-8">
+    <main id="main-content" className="min-h-screen bg-slate-50 dark:bg-zinc-900/50 flex items-center justify-center p-4 md:p-8">
       <div className="max-w-xl w-full bg-white dark:bg-black rounded-3xl shadow-sm border border-slate-200 dark:border-white/10 overflow-hidden">
 
         {/* Header */}
@@ -338,6 +339,6 @@ export default function EnrollPage() {
           </div>
         </form>
       </div>
-    </div>
+    </main>
   );
 }

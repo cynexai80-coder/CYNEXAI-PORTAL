@@ -103,7 +103,7 @@ export default function ManagerDashboard() {
                       <p className="text-erp-text/70 font-medium text-sm">{app.course.toUpperCase()}</p>
                     </div>
                     <div className="flex flex-col items-end gap-1">
-                      <div className="bg-erp-secondary/10 text-erp-secondary font-bold px-3 py-1 rounded-xl text-xs">
+                      <div className="bg-erp-secondary/10 text-sky-700 dark:text-erp-secondary font-bold px-3 py-1 rounded-xl text-xs">
                         ₹{app.amount_paid} / ₹{app.total_fee}
                       </div>
                       {app.amount_paid >= app.total_fee && (

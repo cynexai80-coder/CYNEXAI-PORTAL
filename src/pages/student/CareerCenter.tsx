@@ -36,10 +36,10 @@ function highlight(text: string, query: string): React.ReactNode {
 
 function ExpiryBadge({ expireDateStr }: { expireDateStr: string }) {
   const days = getDaysUntilExpiry(expireDateStr);
-  if (days < 0) return <span className="inline-flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-full bg-red-100 text-red-600 border border-red-200 uppercase tracking-widest"><Calendar className="w-3 h-3" /> Expired</span>;
-  if (days === 0) return <span className="inline-flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-full bg-orange-100 text-orange-600 border border-orange-200 uppercase tracking-widest"><Calendar className="w-3 h-3" /> Expires today</span>;
+  if (days < 0) return <span className="inline-flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-200 uppercase tracking-widest"><Calendar className="w-3 h-3" /> Expired</span>;
+  if (days === 0) return <span className="inline-flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 border border-orange-200 uppercase tracking-widest"><Calendar className="w-3 h-3" /> Expires today</span>;
   return (
-    <span className={`inline-flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-full border uppercase tracking-widest ${days <= 3 ? 'bg-orange-100 text-orange-600 border-orange-200' : 'bg-emerald-100 text-emerald-700 border-emerald-200'}`}>
+    <span className={`inline-flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-full border uppercase tracking-widest ${days <= 3 ? 'bg-orange-100 text-orange-700 border-orange-200' : 'bg-emerald-100 text-emerald-700 border-emerald-200'}`}>
       <Calendar className="w-3 h-3" /> Expires in {days}d
     </span>
   );
@@ -89,7 +89,7 @@ function JobCard({ job, searchQuery }: { job: JobListing; searchQuery: string })
             className={`flex-1 flex items-center justify-center gap-1.5 text-xs font-bold px-4 py-2.5 rounded-xl transition-all ${
               expired 
                 ? 'bg-slate-200 dark:bg-zinc-800 opacity-50 cursor-not-allowed text-slate-400' 
-                : 'bg-blue-600 hover:bg-blue-500 text-white shadow-md active:scale-95'
+                : 'bg-blue-600 hover:bg-blue-700 text-white shadow-md active:scale-95'
             }`}
           >
             <ExternalLink className="w-3.5 h-3.5" /> Apply
@@ -99,7 +99,7 @@ function JobCard({ job, searchQuery }: { job: JobListing; searchQuery: string })
               const msg = encodeURIComponent(`🚀 Job Alert! ${job.title} at ${job.company} in ${job.location}. Apply before ${formatExpireDate(job.expire_date)}: ${job.source_url}`);
               window.open(`https://wa.me/?text=${msg}`, '_blank');
             }}
-            className="flex items-center justify-center gap-1.5 text-xs font-bold px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white shadow-md active:scale-95"
+            className="flex items-center justify-center gap-1.5 text-xs font-bold px-4 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white shadow-md active:scale-95"
             title="Share"
           >
             <Share2 className="w-3.5 h-3.5" />

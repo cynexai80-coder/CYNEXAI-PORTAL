@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { Avatar2D } from '../../components/ui/Avatar2D';
 import { getGamificationSettings } from '../../lib/api/gamification';
+import { notify } from '../../lib/feedback';
 
 const VOICES = [
   { id: 'aura-asteria-en', name: 'Priya (Indian HR Female)', desc: 'Warm & professional' },
@@ -190,7 +191,7 @@ export default function MockInterview() {
 
   const startInterview = async () => {
     if (isWeeklyLimitReached) {
-      alert("Weekly limit reached! Students are allowed a maximum of 2 mock interviews per week. Your quota resets next week.");
+      notify.warning("Weekly limit reached! Students are allowed a maximum of 2 mock interviews per week. Your quota resets next week.");
       return;
     }
     if (!user) return;
@@ -229,7 +230,7 @@ export default function MockInterview() {
       setIsRecording(true);
     } catch (err) {
       console.error('Error accessing microphone:', err);
-      alert('Could not access microphone. Switch to Text mode below if needed.');
+      notify('Could not access microphone. Switch to Text mode below if needed.');
     }
   };
 
@@ -316,7 +317,7 @@ export default function MockInterview() {
       const evalResult = await evaluateMockInterview(chatHistory, targetJobRole);
       setEvaluation(evalResult);
 
-      const calculatedCoins = Math.min(turnCount * 5, 50);
+      const calculatedCoins = evalResult.unavailable ? 0 : Math.min(turnCount * 5, 50);
       if (user) {
         await saveMockInterview({
           studentId: user.id,
@@ -396,7 +397,7 @@ export default function MockInterview() {
               }`}>
                 <div className="flex items-center gap-3">
                   <div className={`w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 ${
-                    isWeeklyLimitReached ? 'bg-amber-500/20 text-amber-500' : 'bg-blue-500/20 text-blue-400'
+                    isWeeklyLimitReached ? 'bg-amber-500/20 text-amber-800 dark:text-amber-400' : 'bg-blue-500/20 text-blue-400'
                   }`}>
                     <Clock className="w-6 h-6" />
                   </div>
@@ -404,7 +405,7 @@ export default function MockInterview() {
                     <div className="flex items-center gap-2">
                       <p className="text-xs font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Weekly Quota (2 / Week)</p>
                       <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full border ${
-                        isWeeklyLimitReached ? 'bg-amber-500/20 text-amber-400 border-amber-500/40' : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40'
+                        isWeeklyLimitReached ? 'bg-amber-500/20 text-amber-800 dark:text-amber-400 border-amber-500/40' : 'bg-emerald-500/20 text-emerald-800 dark:text-emerald-400 border-emerald-500/40'
                       }`}>
                         {weeklyInterviewsTaken} / 2 Completed
                       </span>
@@ -418,7 +419,7 @@ export default function MockInterview() {
                 </div>
 
                 <div className="text-right flex-shrink-0">
-                  <span className="text-xs font-bold text-slate-400">Twice per week limit</span>
+                  <span className="text-xs font-bold text-slate-600 dark:text-slate-400">Twice per week limit</span>
                 </div>
               </div>
 
@@ -441,7 +442,7 @@ export default function MockInterview() {
                       onClick={() => setTargetJobRole(role)}
                       className={`text-xs px-3 py-1.5 rounded-xl font-bold transition-all border ${
                         targetJobRole === role
-                          ? 'bg-blue-500 text-white border-blue-400'
+                          ? 'bg-blue-600 text-white border-blue-400'
                           : 'bg-white/50 dark:bg-black/30 text-slate-600 dark:text-white/60 border-slate-200 dark:border-white/10 hover:border-blue-300'
                       }`}
                     >
@@ -539,7 +540,7 @@ export default function MockInterview() {
                             <span className="font-black text-slate-900 dark:text-white text-base">
                               {parsedEval?.targetRole || 'Mock Interview Session'}
                             </span>
-                            <span className="text-xs px-2.5 py-0.5 rounded-full bg-blue-500/20 text-blue-600 dark:text-blue-300 font-bold border border-blue-500/30">
+                            <span className="text-xs px-2.5 py-0.5 rounded-full bg-blue-500/20 text-blue-700 dark:text-blue-300 font-bold border border-blue-500/30">
                               Score: {item.score?.toFixed(1)}/10
                             </span>
                           </div>
@@ -846,7 +847,7 @@ export default function MockInterview() {
             <button
               onClick={handleTextSubmission}
               disabled={!textInput.trim() || processingAI || isAvatarSpeaking}
-              className="p-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold transition-all disabled:opacity-40"
+              className="p-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold transition-all disabled:opacity-40"
               title="Send Response"
             >
               <Send className="w-4 h-4" />
@@ -867,8 +868,8 @@ export default function MockInterview() {
                 isAvatarSpeaking || processingAI
                   ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed'
                   : isRecording
-                  ? 'bg-red-500 text-white shadow-[0_0_30px_rgba(239,68,68,0.7)] scale-95'
-                  : 'bg-blue-600 hover:bg-blue-500 text-white active:scale-95'
+                  ? 'bg-red-600 text-white shadow-[0_0_30px_rgba(239,68,68,0.7)] scale-95'
+                  : 'bg-blue-600 hover:bg-blue-700 text-white active:scale-95'
               }`}
               title={isRecording ? "Click to Stop & Send" : "Click to Speak"}
             >
@@ -900,7 +901,7 @@ export default function MockInterview() {
 
             <button 
               onClick={finishInterview}
-              className="p-3 bg-red-600 hover:bg-red-500 text-white rounded-full transition-all shadow-lg active:scale-95"
+              className="p-3 bg-red-600 hover:bg-red-700 text-white rounded-full transition-all shadow-lg active:scale-95"
               title="End Interview & View AI Report"
             >
               <XCircle className="w-5 h-5" />

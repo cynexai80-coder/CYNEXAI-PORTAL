@@ -2,31 +2,32 @@ import React, { useState, useEffect } from 'react';
 import { Card } from '../../components/ui/erp/Card';
 import { getCurrentUser } from '../../lib/auth';
 import { getCRMAnalytics } from '../../lib/api/crm';
-import { Calendar, TrendingUp, Users, Target, Phone, Filter, Percent, Source } from 'lucide-react';
+import { Calendar, TrendingUp, Users, Target, Phone, Filter, Percent } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { AttendanceButton } from '../../components/ui/AttendanceButton';
+import { AttendanceButton } from '../../components/ui/AttendanceButton';
+import { todayIST } from '../../lib/dateUtils';
 
 const getStatusColor = (status: string) => {
   switch(status) {
-    case 'Admission Completed': return 'text-green-600 bg-green-50 dark:bg-green-900/20 dark:text-green-400 border-green-200 dark:border-green-800/30';
-    case 'Closed Won': return 'text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/30';
-    case 'Closed Lost': return 'text-red-600 bg-red-50 dark:bg-red-900/20 dark:text-red-400 border-red-200 dark:border-red-800/30';
+    case 'Admission Completed': return 'text-green-700 bg-green-50 dark:bg-green-900/20 dark:text-green-400 border-green-200 dark:border-green-800/30';
+    case 'Closed Won': return 'text-emerald-700 bg-emerald-50 dark:bg-emerald-900/20 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/30';
+    case 'Closed Lost': return 'text-red-700 bg-red-50 dark:bg-red-900/20 dark:text-red-400 border-red-200 dark:border-red-800/30';
     case 'Interested': return 'text-blue-600 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400 border-blue-200 dark:border-blue-800/30';
-    case 'Not Interested': return 'text-rose-600 bg-rose-50 dark:bg-rose-900/20 dark:text-rose-400 border-rose-200 dark:border-rose-800/30';
-    case 'Busy': return 'text-yellow-600 bg-yellow-50 dark:bg-yellow-900/20 dark:text-yellow-400 border-yellow-200 dark:border-yellow-800/30';
-    case 'Not answering': return 'text-orange-600 bg-orange-50 dark:bg-orange-900/20 dark:text-orange-400 border-orange-200 dark:border-orange-800/30';
+    case 'Not Interested': return 'text-rose-700 bg-rose-50 dark:bg-rose-900/20 dark:text-rose-400 border-rose-200 dark:border-rose-800/30';
+    case 'Busy': return 'text-yellow-800 bg-yellow-50 dark:bg-yellow-900/20 dark:text-yellow-400 border-yellow-200 dark:border-yellow-800/30';
+    case 'Not answering': return 'text-orange-700 bg-orange-50 dark:bg-orange-900/20 dark:text-orange-400 border-orange-200 dark:border-orange-800/30';
     case 'Invalid number': return 'text-gray-600 bg-gray-50 dark:bg-gray-900/20 dark:text-gray-400 border-gray-200 dark:border-gray-800/30';
     case 'New': return 'text-purple-600 bg-purple-50 dark:bg-purple-900/20 dark:text-purple-400 border-purple-200 dark:border-purple-800/30';
     case 'Demo Scheduled': return 'text-blue-600 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400 border-blue-200 dark:border-blue-800/30';
-    case 'Demo Completed': return 'text-teal-600 bg-teal-50 dark:bg-teal-900/20 dark:text-teal-400 border-teal-200 dark:border-teal-800/30';
-    case 'Onboarding completed': return 'text-cyan-600 bg-cyan-50 dark:bg-cyan-900/20 dark:text-cyan-400 border-cyan-200 dark:border-cyan-800/30';
+    case 'Demo Completed': return 'text-teal-700 bg-teal-50 dark:bg-teal-900/20 dark:text-teal-400 border-teal-200 dark:border-teal-800/30';
+    case 'Onboarding completed': return 'text-cyan-700 bg-cyan-50 dark:bg-cyan-900/20 dark:text-cyan-400 border-cyan-200 dark:border-cyan-800/30';
     default: return 'text-erp-text bg-erp-surface border-erp-border';
   }
 };
 
 export default function SalesDashboard() {
   const user = getCurrentUser();
-  const today = new Date().toISOString().split('T')[0];
+  const today = todayIST();
   const firstDayOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
   
   const [startDate, setStartDate] = useState(firstDayOfMonth);
@@ -132,7 +133,7 @@ export default function SalesDashboard() {
         {(user?.role === 'Manager' || user?.role === 'CEO') && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
             <Card className="flex items-center gap-4 bg-gradient-to-r from-green-50 to-green-100/50 border-green-200">
-              <div className="bg-green-500 p-4 rounded-xl text-white shadow-lg shadow-green-500/30">
+              <div className="bg-green-700 p-4 rounded-xl text-white shadow-lg shadow-green-500/30">
                 <TrendingUp className="w-8 h-8" />
               </div>
               <div>
@@ -142,7 +143,7 @@ export default function SalesDashboard() {
             </Card>
             
             <Card className="flex items-center gap-4 bg-gradient-to-r from-blue-50 to-blue-100/50 border-blue-200">
-              <div className="bg-blue-500 p-4 rounded-xl text-white shadow-lg shadow-blue-500/30">
+              <div className="bg-blue-600 p-4 rounded-xl text-white shadow-lg shadow-blue-500/30">
                 <TrendingUp className="w-8 h-8" />
               </div>
               <div>
@@ -167,7 +168,18 @@ export default function SalesDashboard() {
                     <XAxis dataKey="name" tick={{fill: '#333', fontWeight: 'bold'}} />
                     <YAxis tick={{fill: '#333', fontWeight: 'bold'}} />
                     <Tooltip contentStyle={{ borderRadius: '12px', fontWeight: 'bold', border: '2px solid #e5e7eb' }} />
-                    <Legend wrapperStyle={{ fontWeight: 'bold', paddingTop: '20px' }} />
+                    {/* Recharts paints legend text in the series fill (#b8ff22 / #e5e7eb = 1.2:1 on white); keep the swatch colour, use readable text. */}
+                    <Legend
+                      wrapperStyle={{ fontWeight: 'bold', paddingTop: '20px' }}
+                      formatter={(value, entry) => (
+                        <span
+                          className="text-zinc-700 dark:text-[color:var(--legend-color)]"
+                          style={{ '--legend-color': entry.color } as React.CSSProperties}
+                        >
+                          {value}
+                        </span>
+                      )}
+                    />
                     <Bar dataKey="target" name="Target Revenue (₹)" fill="#e5e7eb" radius={[4, 4, 0, 0]} />
                     <Bar dataKey="collected" name="Collected Revenue (₹)" fill="#b8ff22" radius={[4, 4, 0, 0]} />
                   </BarChart>
@@ -216,7 +228,7 @@ export default function SalesDashboard() {
             <div className="flex flex-col gap-6">
               <div className="bg-erp-surface border-2 border-erp-border rounded-xl p-6 flex justify-between items-center">
                 <div className="flex items-center gap-4">
-                  <div className="bg-blue-100 p-3 rounded-xl text-blue-700 dark:text-white">
+                  <div className="bg-blue-100 dark:bg-blue-500/20 p-3 rounded-xl text-blue-700 dark:text-white">
                     <Percent className="w-6 h-6" />
                   </div>
                   <div>
@@ -255,7 +267,7 @@ export default function SalesDashboard() {
                       cx="50%"
                       cy="50%"
                       outerRadius={80}
-                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                      label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}
                       labelLine={false}
                     >
                       {metrics.leadSources.map((entry, index) => (

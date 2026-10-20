@@ -6,12 +6,16 @@ import { getCurrentUser } from '../../../lib/auth';
 import { Card } from '../../../components/ui/erp/Card';
 import { Button } from '../../../components/ui/erp/Button';
 import { ArrowLeft } from 'lucide-react';
+import { LoadingNotice, UnavailableNotice } from '../../../components/ui/erp/LoadState';
+import { notify } from '../../../lib/feedback';
 
 export default function ApprovalDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [sale, setSale] = useState<any>(null);
-  
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
+
   const [checks, setChecks] = useState({
     payment_verified: false,
     course_confirmed: false,
@@ -23,43 +27,64 @@ export default function ApprovalDetail() {
   const [rejectNotes, setRejectNotes] = useState('');
 
   useEffect(() => {
+    let cancelled = false;
     const fetchAppr = async () => {
-      if (isTursoConfigured && client) {
-        const details = await getApprovalDetails(id as string);
-        if (details) {
-          setSale(details);
-          setChecks(JSON.parse(details.checklist_json as string || '{}'));
-        }
+      setLoadFailed(false);
+      try {
+        const details = isTursoConfigured && client ? await getApprovalDetails(id as string) : null;
+        if (cancelled) return;
+        if (!details) { setLoadFailed(true); return; }
+        setSale(details);
+        try {
+          setChecks(prev => ({ ...prev, ...JSON.parse(details.checklist_json as string || '{}') }));
+        } catch { /* corrupt checklist JSON: keep the default (all unchecked) */ }
+      } catch {
+        if (!cancelled) setLoadFailed(true);
       }
     };
     fetchAppr();
-  }, [id]);
+    return () => { cancelled = true; };
+  }, [id, reloadKey]);
 
   const allChecked = Object.values(checks).every(v => v === true);
 
   const handleApprove = async () => {
     const user = getCurrentUser();
     if (!user) return;
-    await approveSale(id as string, user.id, sale.sale_id);
+    if (!allChecked) { notify('Please complete every item on the checklist before approving.'); return; }
+    const result = await approveSale(id as string, user.id, sale.sale_id);
+    if (!result) { notify('This approval could not be completed (it may already have been decided).'); return; }
     // Student is now onboarded, task is created, just return to manager dash
-    navigate(`/crm/manager`);
+    navigate('/manager');
   };
 
   const handleReject = async () => {
-    if (!rejectNotes) return alert("Must provide reject reason");
+    if (!rejectNotes) return notify("Must provide reject reason");
     const user = getCurrentUser();
     if (!user) return;
     await rejectSale(id as string, user.id, rejectNotes);
-    navigate('/crm/manager');
+    navigate('/manager');
   };
 
-  if (!sale) return <div className="p-10 text-center font-bold">Loading...</div>;
+  if (!sale) {
+    return loadFailed ? (
+      <UnavailableNotice
+        title="Approval not found"
+        message="This approval could not be loaded. The link may be wrong, it may already have been decided, or the connection failed."
+        onRetry={() => setReloadKey(k => k + 1)}
+        onBack={() => navigate('/manager')}
+        backLabel="Back to Manager Hub"
+      />
+    ) : (
+      <LoadingNotice />
+    );
+  }
 
   return (
     <div className="p-4 pt-8 min-h-screen bg-erp-background pb-32">
       <div className="flex items-center gap-4 mb-6">
-        <Button variant="ghost" onClick={() => navigate('/crm/manager')} className="w-12 h-12 p-0 rounded-full flex items-center justify-center">
-          <ArrowLeft className="w-6 h-6" />
+        <Button variant="ghost" aria-label="Back to Manager Hub" onClick={() => navigate('/manager')} className="w-12 h-12 p-0 rounded-full flex items-center justify-center">
+          <ArrowLeft className="w-6 h-6" aria-hidden="true" />
         </Button>
         <h1 className="text-2xl font-display font-bold text-erp-text">Approval Gate</h1>
       </div>
@@ -72,7 +97,7 @@ export default function ApprovalDetail() {
         </div>
         <div className="flex justify-between items-center text-sm font-bold mt-2">
           <span className="text-erp-text/70 uppercase">Payment</span>
-          <span className={sale.amount_paid >= sale.total_fee ? 'text-green-500' : 'text-erp-secondary'}>
+          <span className={sale.amount_paid >= sale.total_fee ? 'text-green-700 dark:text-green-500' : 'text-sky-700 dark:text-erp-secondary'}>
             ₹{sale.amount_paid} / ₹{sale.total_fee}
           </span>
         </div>

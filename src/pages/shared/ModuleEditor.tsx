@@ -6,6 +6,7 @@ import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { getModuleDetails, createClassForModule, deleteClass, updateModuleCoding, updateClassOrder, updateClassAccessStatus } from '../../lib/api/cms';
 import { getAllBatches, parseBatchSubjectProgress } from '../../lib/api/batches';
 import { ConfirmModal } from '../../components/ui/erp/ConfirmModal';
+import { notify, confirmDialog } from '../../lib/feedback';
 
 export default function ModuleEditor() {
   const navigate = useNavigate();
@@ -81,7 +82,7 @@ export default function ModuleEditor() {
       await fetchModuleData();
     } catch (e: any) {
       console.error("Error creating class:", e);
-      alert("Failed to create class: " + (e.message || JSON.stringify(e)));
+      notify("Failed to create class: " + (e.message || JSON.stringify(e)));
     }
   };
 
@@ -139,7 +140,7 @@ export default function ModuleEditor() {
 
   const handleUnlockUpToBatchPace = async () => {
     const maxPace = Math.max(0, ...batchPaces.map(bp => bp.completed));
-    if (maxPace <= 0) return alert('No active batch pacing recorded for this module.');
+    if (maxPace <= 0) return notify('No active batch pacing recorded for this module.');
     try {
       for (let i = 0; i < Math.min(classes.length, maxPace); i++) {
         await updateClassAccessStatus(classes[i].id, 'unlocked');
@@ -151,7 +152,7 @@ export default function ModuleEditor() {
   };
 
   const handleUnlockAll = async () => {
-    if (!confirm('Unlock student access to all classes in this module?')) return;
+    if (!(await confirmDialog({ title: 'Unlock classes', message: 'Unlock student access to all classes in this module?', confirmLabel: 'Unlock' }))) return;
     try {
       for (const cls of classes) {
         await updateClassAccessStatus(cls.id, 'unlocked');
@@ -214,7 +215,7 @@ export default function ModuleEditor() {
         <div>
           <button 
             onClick={() => navigate(`${basePath}/courses`)} 
-            className="flex items-center gap-2 text-sm text-erp-text/50 font-bold mb-2 hover:text-indigo-400 transition-colors"
+            className="flex items-center gap-2 min-h-[24px] text-sm text-erp-text/50 font-bold mb-2 hover:text-indigo-400 transition-colors"
           >
             <ArrowLeft className="w-4 h-4" /> Back to Courses
           </button>
@@ -258,7 +259,7 @@ export default function ModuleEditor() {
           </div>
           <button
             onClick={handleUnlockUpToBatchPace}
-            className="text-xs font-bold px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-500 transition-colors shadow-sm cursor-pointer"
+            className="text-xs font-bold px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors shadow-sm cursor-pointer"
           >
             Unlock Classes Up to Batch Pace
           </button>

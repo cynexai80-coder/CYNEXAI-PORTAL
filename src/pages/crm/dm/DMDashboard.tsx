@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { safeLink } from '../../../lib/urlUtils';
 import { Card } from '../../../components/ui/erp/Card';
 import { Button } from '../../../components/ui/erp/Button';
 import {
@@ -19,6 +20,7 @@ import {
   getAISuggestions, getSEOKeywords, addSEOKeyword, deleteSEOKeyword,
   getSEOSettings, updateSEOSettings
 } from '../../../lib/api/dm';
+import { notify, confirmDialog } from '../../../lib/feedback';
 
 type Tab = 'dashboard' | 'blog' | 'jobs' | 'ai' | 'seo';
 
@@ -156,7 +158,7 @@ export default function DMDashboard() {
 
   const handleDeleteCampaign = async (id: string, name: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (confirm(`Are you sure you want to delete campaign "${name}"?`)) {
+    if (await confirmDialog({ title: 'Delete campaign', message: `Are you sure you want to delete campaign "${name}"?`, confirmLabel: 'Delete', danger: true })) {
       await deleteMarketingCampaign(id);
       fetchData();
     }
@@ -211,7 +213,7 @@ export default function DMDashboard() {
   };
 
   const handleDeleteBlog = async (id: string, title: string) => {
-    if (confirm(`Are you sure you want to delete post "${title}"?`)) {
+    if (await confirmDialog({ title: 'Delete post', message: `Are you sure you want to delete post "${title}"?`, confirmLabel: 'Delete', danger: true })) {
       await deleteBlogPost(id);
       fetchData();
     }
@@ -238,13 +240,15 @@ export default function DMDashboard() {
       setShowJobModal(false);
       setJobForm({ title: '', company: '', location: '', qualifications: '', source_url: '', expire_date: '' });
       await fetchData();
+    } catch (err: any) {
+      notify('Could not save the job listing: ' + (err?.message || 'unknown error'));
     } finally {
       setSubmitting(false);
     }
   };
 
   const handleDeleteJob = async (id: string, title: string) => {
-    if (confirm(`Are you sure you want to remove job listing "${title}"?`)) {
+    if (await confirmDialog({ title: 'Remove job listing', message: `Are you sure you want to remove job listing "${title}"?`, confirmLabel: 'Remove', danger: true })) {
       await deleteJob(id);
       fetchData();
     }
@@ -271,7 +275,7 @@ export default function DMDashboard() {
       content: item.description,
       isVisible: true
     });
-    alert(`Saved "${item.title}" as a Blog Post Draft!`);
+    notify(`Saved "${item.title}" as a Blog Post Draft!`);
     if (activeTab === 'blog') fetchData();
   };
 
@@ -294,7 +298,7 @@ export default function DMDashboard() {
     setSubmitting(true);
     try {
       await updateSEOSettings(seoSettings);
-      alert('SEO Meta Settings saved successfully!');
+      notify('SEO Meta Settings saved successfully!');
     } finally {
       setSubmitting(false);
     }
@@ -341,7 +345,7 @@ export default function DMDashboard() {
           <span className="text-xs font-bold text-erp-text/50 uppercase tracking-wider">Meta Ads Spend</span>
           <div className="flex items-baseline justify-between mt-2">
             <span className="text-3xl font-display font-black text-erp-text">₹{getMetric('Meta')?.spend?.toLocaleString() || 0}</span>
-            <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400">
+            <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-950/40 text-blue-700 dark:text-blue-400">
               {getMetric('Meta')?.leads_generated || 0} leads
             </span>
           </div>
@@ -351,7 +355,7 @@ export default function DMDashboard() {
           <span className="text-xs font-bold text-erp-text/50 uppercase tracking-wider">Google Ads Spend</span>
           <div className="flex items-baseline justify-between mt-2">
             <span className="text-3xl font-display font-black text-erp-text">₹{getMetric('Google')?.spend?.toLocaleString() || 0}</span>
-            <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-red-100 dark:bg-red-950/40 text-red-600 dark:text-red-400">
+            <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-red-100 dark:bg-red-950/40 text-red-700 dark:text-red-400">
               {getMetric('Google')?.leads_generated || 0} leads
             </span>
           </div>
@@ -361,7 +365,7 @@ export default function DMDashboard() {
           <span className="text-xs font-bold text-erp-text/50 uppercase tracking-wider">Website Traffic</span>
           <div className="flex items-baseline justify-between mt-2">
             <span className="text-3xl font-display font-black text-erp-text">{getMetric('Website')?.traffic?.toLocaleString() || 0}</span>
-            <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400">
+            <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400">
               Organic Visits
             </span>
           </div>
@@ -388,7 +392,7 @@ export default function DMDashboard() {
           campaigns.map((camp: MarketingCampaign) => (
             <Card key={camp.id} className="flex items-center justify-between p-4 bg-white dark:bg-black border-2 border-erp-border rounded-2xl hover:border-erp-primary transition-all">
               <div className="flex items-center gap-4">
-                <div className={`p-3.5 rounded-xl ${camp.platform === 'Meta' ? 'bg-blue-100 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400' : 'bg-red-100 text-red-600 dark:bg-red-950/40 dark:text-red-400'}`}>
+                <div className={`p-3.5 rounded-xl ${camp.platform === 'Meta' ? 'bg-blue-100 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400' : 'bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-400'}`}>
                   {camp.platform === 'Meta' ? <BarChart3 className="w-6 h-6" /> : <MousePointerClick className="w-6 h-6" />}
                 </div>
                 <div>
@@ -449,12 +453,12 @@ export default function DMDashboard() {
             <Card key={post.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 bg-white dark:bg-black border-2 border-erp-border rounded-2xl hover:border-erp-primary transition-all gap-4">
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-1">
-                  <span className="text-[10px] font-extrabold px-2 py-0.5 rounded bg-purple-500/10 text-purple-600 border border-purple-500/20">
+                  <span className="text-[10px] font-extrabold px-2 py-0.5 rounded bg-purple-500/10 text-purple-700 dark:text-purple-400 border border-purple-500/20">
                     {post.category || 'General'}
                   </span>
                   <span className="text-xs text-erp-text/40 font-semibold">{post.date}</span>
                   {!post.isVisible && (
-                    <span className="text-[10px] font-extrabold px-2 py-0.5 rounded bg-rose-500/10 text-rose-600 border border-rose-500/20">
+                    <span className="text-[10px] font-extrabold px-2 py-0.5 rounded bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/20">
                       Hidden / Draft
                     </span>
                   )}
@@ -466,7 +470,7 @@ export default function DMDashboard() {
               <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
                 <button
                   onClick={() => handleToggleBlogVisibility(post)}
-                  className={`p-2 rounded-lg border transition-colors ${post.isVisible ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : 'bg-slate-50 text-slate-400 border-slate-200'}`}
+                  className={`p-2 rounded-lg border transition-colors ${post.isVisible ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-slate-50 text-slate-600 border-slate-200'}`}
                   title={post.isVisible ? 'Visible (Click to Hide)' : 'Hidden (Click to Publish)'}
                 >
                   {post.isVisible ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
@@ -512,7 +516,7 @@ export default function DMDashboard() {
             <Card key={job.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 bg-white dark:bg-black border-2 border-erp-border rounded-2xl hover:border-erp-primary transition-all gap-4">
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-1">
-                  <span className="text-[10px] font-extrabold px-2 py-0.5 rounded bg-sky-500/10 text-sky-600 border border-sky-500/20">
+                  <span className="text-[10px] font-extrabold px-2 py-0.5 rounded bg-sky-500/10 text-sky-700 dark:text-sky-400 border border-sky-500/20">
                     {job.company}
                   </span>
                   {job.location && (
@@ -528,7 +532,7 @@ export default function DMDashboard() {
               <div className="flex items-center gap-2 shrink-0">
                 {job.source_url && (
                   <a
-                    href={job.source_url}
+                    href={safeLink(job.source_url)}
                     target="_blank"
                     rel="noreferrer"
                     className="p-2 text-erp-text/50 hover:text-erp-primary border border-erp-border rounded-lg transition-colors"
@@ -570,7 +574,7 @@ export default function DMDashboard() {
         {suggestions.map((s, i) => (
           <Card key={i} className="p-5 bg-white dark:bg-black border-2 border-erp-border rounded-2xl border-l-4 border-l-indigo-500 hover:border-indigo-500 transition-all space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-indigo-500/10 text-indigo-600 border border-indigo-500/20">
+              <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 border border-indigo-500/20">
                 {s.category || 'AI Suggestion'}
               </span>
               <div className="flex gap-2">
@@ -582,7 +586,7 @@ export default function DMDashboard() {
                 </button>
                 <button
                   onClick={() => handleSaveAISuggestionAsBlog(s)}
-                  className="flex items-center gap-1 text-xs font-bold text-emerald-600 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 px-2.5 py-1 rounded-lg border border-emerald-200"
+                  className="flex items-center gap-1 text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 px-2.5 py-1 rounded-lg border border-emerald-200"
                 >
                   <Plus className="w-3.5 h-3.5" /> Save as Blog Draft
                 </button>

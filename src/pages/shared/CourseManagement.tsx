@@ -5,9 +5,11 @@ import { ConfirmModal } from '../../components/ui/erp/ConfirmModal';
 import { BookOpen, FolderOpen, Users, BarChart, FileVideo, Plus, ArrowRight, X, Trash2 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { getCurrentUser } from '../../lib/auth';
+import { FOCUS_RING } from '../../lib/a11y';
 import { client } from '../../lib/turso';
 import { getCoursesFull, createCourse, createModule, updateCoursePitch, getAllModules, mapExistingModuleToCourse, deleteCourse, removeModuleFromCourse, updateModuleInstructor, getTeachersList } from '../../lib/api/cms';
 import { getAllBatches, parseBatchSubjectProgress } from '../../lib/api/batches';
+import { notify } from '../../lib/feedback';
 
 export default function CourseManagement() {
   const navigate = useNavigate();
@@ -208,7 +210,7 @@ export default function CourseManagement() {
       setExpandedCourse(courseId);
     } catch (e) {
       console.error("Error creating course:", e);
-      alert("Failed to create course. Please try again.");
+      notify("Failed to create course. Please try again.");
     }
   };
 
@@ -227,7 +229,7 @@ export default function CourseManagement() {
         if (!selectedExistingModule) return;
         // Check if module already in course
         if (course?.modules.find((m: any) => m.id === selectedExistingModule)) {
-          alert('This module is already in this course!');
+          notify('This module is already in this course!');
           return;
         }
         await mapExistingModuleToCourse(selectedCourseForModule, selectedExistingModule, nextOrder);
@@ -241,7 +243,7 @@ export default function CourseManagement() {
       await fetchAllModulesList(); // refresh global list
     } catch (e) {
       console.error("Error adding module:", e);
-      alert("Failed to add module.");
+      notify("Failed to add module.");
     }
   };
 
@@ -258,7 +260,7 @@ export default function CourseManagement() {
           await fetchCourses();
         } catch (e) {
           console.error(e);
-          alert('Failed to delete course');
+          notify('Failed to delete course');
         } finally {
           setConfirmModalConfig(prev => ({ ...prev, isOpen: false }));
         }
@@ -278,7 +280,7 @@ export default function CourseManagement() {
           await fetchCourses();
         } catch (e) {
           console.error(e);
-          alert('Failed to remove module');
+          notify('Failed to remove module');
         } finally {
           setConfirmModalConfig(prev => ({ ...prev, isOpen: false }));
         }
@@ -300,7 +302,7 @@ export default function CourseManagement() {
       await fetchCourses();
     } catch (e) {
       console.error("Error updating pitch:", e);
-      alert("Failed to update pitch.");
+      notify("Failed to update pitch.");
     }
   };
 
@@ -345,7 +347,7 @@ export default function CourseManagement() {
                   onClick={() => setExpandedCourse(expandedCourse === course.id ? null : course.id)}
                 >
                   <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center">
+                    <div className="w-12 h-12 rounded-xl bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 flex items-center justify-center">
                       <FolderOpen className="w-6 h-6" />
                     </div>
                     <div>
@@ -354,10 +356,10 @@ export default function CourseManagement() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Button variant="ghost" onClick={(e) => handleDeleteCourse(course.id, e)} className="text-red-500 hover:text-red-600 hover:bg-red-500/10">
-                      <Trash2 className="w-4 h-4" />
+                    <Button variant="ghost" aria-label={`Delete course ${course.name}`} onClick={(e) => handleDeleteCourse(course.id, e)} className="text-red-500 hover:text-red-600 hover:bg-red-500/10">
+                      <Trash2 className="w-4 h-4" aria-hidden="true" />
                     </Button>
-                    <Button variant="ghost" className="text-erp-secondary">
+                    <Button variant="ghost" aria-expanded={expandedCourse === course.id} className="text-erp-secondary">
                       {expandedCourse === course.id ? 'Hide Details' : 'View Details'}
                     </Button>
                   </div>
@@ -414,13 +416,13 @@ export default function CourseManagement() {
                             </div>
                           </div>
                         ))}
-                        <div className="bg-erp-surface border-2 border-dashed border-erp-border rounded-lg p-4 flex flex-col items-center justify-center text-erp-text/50 hover:text-indigo-400 hover:border-indigo-400 cursor-pointer transition-colors min-h-[120px]" onClick={() => {
+                        <button type="button" className={`bg-erp-surface border-2 border-dashed border-erp-border rounded-lg p-4 flex flex-col items-center justify-center text-erp-text/50 hover:text-indigo-400 hover:border-indigo-400 cursor-pointer transition-colors min-h-[120px] ${FOCUS_RING}`} onClick={() => {
                           setSelectedCourseForModule(course.id);
                           setIsModuleModalOpen(true);
                         }}>
                           <Plus className="w-6 h-6 mb-2" />
                           <span className="font-bold text-sm">Add Module</span>
-                        </div>
+                        </button>
                       </div>
                     </div>
 
@@ -562,13 +564,13 @@ export default function CourseManagement() {
             <div className="p-6 space-y-4">
               <div className="flex bg-erp-background border border-erp-border rounded-lg p-1 mb-4">
                 <button
-                  className={`flex-1 py-2 text-sm font-bold rounded-md transition-colors ${moduleCreationMode === 'new' ? 'bg-indigo-500 text-white' : 'text-erp-text/60 hover:text-erp-text'}`}
+                  className={`flex-1 py-2 text-sm font-bold rounded-md transition-colors ${moduleCreationMode === 'new' ? 'bg-indigo-600 text-white' : 'text-erp-text/60 hover:text-erp-text'}`}
                   onClick={() => setModuleCreationMode('new')}
                 >
                   Create New
                 </button>
                 <button
-                  className={`flex-1 py-2 text-sm font-bold rounded-md transition-colors ${moduleCreationMode === 'existing' ? 'bg-indigo-500 text-white' : 'text-erp-text/60 hover:text-erp-text'}`}
+                  className={`flex-1 py-2 text-sm font-bold rounded-md transition-colors ${moduleCreationMode === 'existing' ? 'bg-indigo-600 text-white' : 'text-erp-text/60 hover:text-erp-text'}`}
                   onClick={() => setModuleCreationMode('existing')}
                 >
                   Add Existing

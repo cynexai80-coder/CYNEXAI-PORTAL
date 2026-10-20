@@ -36,7 +36,7 @@ export default function ContentPlanner() {
         <h2 className="text-xl font-bold font-display text-erp-text mb-4">Scheduled for Today (Wed 16)</h2>
         <div className="space-y-4">
           <Card className="flex items-start gap-4 border-l-4 border-pink-500">
-            <div className="bg-pink-100 p-3 rounded-xl text-pink-600 mt-1">
+            <div className="bg-pink-100 p-3 rounded-xl text-pink-700 mt-1">
               <CalendarIcon className="w-6 h-6" />
             </div>
             <div className="flex-1">
@@ -69,7 +69,7 @@ export default function ContentPlanner() {
                   <h3 className="font-bold text-lg text-erp-text">LinkedIn Post - Student Success</h3>
                   <p className="text-sm font-bold text-erp-text/50">Platform: LinkedIn • Type: Image + Text</p>
                 </div>
-                <span className="bg-green-100 text-green-700 dark:text-white px-2 py-1 rounded-md text-[10px] font-bold flex items-center gap-1">
+                <span className="bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-white px-2 py-1 rounded-md text-[10px] font-bold flex items-center gap-1">
                   <CheckCircle className="w-3 h-3" /> Published 10:00 AM
                 </span>
               </div>

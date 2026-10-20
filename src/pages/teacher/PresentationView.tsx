@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { getClassForPresentation } from '../../lib/api/teacher';
 import ReactMarkdown from 'react-markdown';
 import { BookOpen, Code, ArrowLeft, ArrowRight, Pencil, Eraser, Loader2, MousePointer2, PlayCircle, Cast, MonitorPlay, Upload, FileCode2, Trash2, Undo2, Redo2, Minus, Square, Circle as CircleIcon, ArrowRight as ArrowIcon, Diamond, Database, FilePlus, FileText } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { executeCode, Language, UploadedFile } from '../../lib/compiler';
 import Editor from '@monaco-editor/react';
+import { notify, promptDialog } from '../../lib/feedback';
 
 type DrawTool = 'pen' | 'eraser' | 'line' | 'rect' | 'circle' | 'arrow' | 'diamond' | 'cylinder';
 type Theme = 'retro' | 'modern-dark' | 'glassmorphism' | 'minimalist';
@@ -86,6 +87,7 @@ export default function PresentationView() {
 
   useEffect(() => {
     if (classId) fetchSlides();
+    else setLoading(false);
   }, [classId]);
 
   // Sync to/from parent window (teacher dashboard / localStorage)
@@ -387,11 +389,11 @@ export default function PresentationView() {
     e.target.value = '';
   };
 
-  const createNewFile = () => {
-    const name = prompt('Enter new file name (e.g. utils.py):');
+  const createNewFile = async () => {
+    const name = (await promptDialog({ title: 'New file', message: 'Enter new file name (e.g. utils.py):', placeholder: 'utils.py', confirmLabel: 'Create', validate: v => (!v.trim() ? 'Enter a file name.' : files.some(f => f.name === v.trim()) ? 'A file with that name already exists.' : null) }))?.trim();
     if (!name) return;
     if (files.some(f => f.name === name)) {
-      alert('File already exists');
+      notify('File already exists');
       return;
     }
     const newFiles = [...files, { name, content: '' }];
@@ -422,9 +424,21 @@ export default function PresentationView() {
     }
   };
 
+  if (!classId) return (
+    <div role="alert" className="flex h-screen flex-col items-center justify-center gap-3 bg-slate-950 px-6 text-center text-white">
+      <h1 className="text-xl font-bold">No class selected</h1>
+      <p className="max-w-md text-sm text-slate-300">
+        This screen shows the slides for one class. Open it from the Teacher Studio with the “Pop-Out Screen” button.
+      </p>
+      <Link to="/teacher/live" className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold hover:bg-blue-500">
+        Go to Teacher Studio
+      </Link>
+    </div>
+  );
+
   if (loading) return (
-    <div className="flex h-screen items-center justify-center bg-slate-950 text-white gap-2">
-      <Loader2 className="w-6 h-6 animate-spin text-blue-400" /> Loading presentation...
+    <div role="status" aria-live="polite" className="flex h-screen items-center justify-center bg-slate-950 text-white gap-2">
+      <Loader2 className="w-6 h-6 animate-spin text-blue-400" aria-hidden="true" /> Loading presentation...
     </div>
   );
 
@@ -641,7 +655,7 @@ export default function PresentationView() {
           <button
             onClick={handleCast}
             title={isCasting ? 'Stop casting' : 'Cast / Share this screen'}
-            className={`px-3 py-1.5 rounded-lg text-sm font-bold flex items-center gap-2 transition-all ${isCasting ? 'bg-green-600 text-white animate-pulse' : 'text-slate-400 hover:text-white hover:bg-white/10'}`}
+            className={`px-3 py-1.5 rounded-lg text-sm font-bold flex items-center gap-2 transition-all ${isCasting ? 'bg-green-700 text-white animate-pulse' : 'text-slate-400 hover:text-white hover:bg-white/10'}`}
           >
             {isCasting ? <><MonitorPlay className="w-4 h-4" /> Casting…</> : <><Cast className="w-4 h-4" /> Cast</>}
           </button>
@@ -675,7 +689,7 @@ export default function PresentationView() {
               </select>
               <button 
                 onClick={runCode} disabled={isRunning}
-                className="flex items-center gap-1 bg-green-600 hover:bg-green-500 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition-colors"
+                className="flex items-center gap-1 bg-green-700 hover:bg-green-800 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition-colors"
               >
                 {isRunning ? <Loader2 className="w-3 h-3 animate-spin" /> : <PlayCircle className="w-3 h-3" />} Run
               </button>
@@ -684,42 +698,42 @@ export default function PresentationView() {
             <div className="flex items-center gap-2">
               {/* Undo / Redo */}
               <div className="flex items-center gap-1 border-r border-white/10 pr-2 mr-1">
-                <button onClick={undoDraw} disabled={!canUndo} className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${canUndo ? 'text-slate-300 hover:text-white hover:bg-white dark:bg-black/10' : 'text-slate-600 cursor-not-allowed'}`} title="Undo">
+                <button onClick={undoDraw} disabled={!canUndo} className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${canUndo ? 'text-slate-300 hover:text-white hover:bg-white/10' : 'text-slate-600 cursor-not-allowed'}`} title="Undo">
                   <Undo2 className="w-4 h-4" />
                 </button>
-                <button onClick={redoDraw} disabled={!canRedo} className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${canRedo ? 'text-slate-300 hover:text-white hover:bg-white dark:bg-black/10' : 'text-slate-600 cursor-not-allowed'}`} title="Redo">
+                <button onClick={redoDraw} disabled={!canRedo} className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${canRedo ? 'text-slate-300 hover:text-white hover:bg-white/10' : 'text-slate-600 cursor-not-allowed'}`} title="Redo">
                   <Redo2 className="w-4 h-4" />
                 </button>
               </div>
 
               {/* Type vs Draw toggle */}
-              <button onClick={() => setIsDrawMode(false)} className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${!isDrawMode ? 'bg-blue-500/20 text-blue-400' : 'text-slate-400 hover:text-white hover:bg-white dark:bg-black/5'}`} title="Type Mode">
+              <button onClick={() => setIsDrawMode(false)} className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${!isDrawMode ? 'bg-blue-500/20 text-blue-400' : 'text-slate-400 hover:text-white hover:bg-white/5'}`} title="Type Mode">
                 <MousePointer2 className="w-4 h-4" />
               </button>
               
               <div className="flex items-center bg-slate-900 rounded-lg p-0.5 border border-white/10">
-                <button onClick={() => { setIsDrawMode(true); setDrawTool('pen'); }} className={`w-7 h-7 rounded flex items-center justify-center transition-colors ${isDrawMode && drawTool === 'pen' ? 'bg-blue-500 text-white shadow-sm' : 'text-slate-400 hover:text-white'}`} title="Pen">
+                <button onClick={() => { setIsDrawMode(true); setDrawTool('pen'); }} className={`w-7 h-7 rounded flex items-center justify-center transition-colors ${isDrawMode && drawTool === 'pen' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'}`} title="Pen">
                   <Pencil className="w-3.5 h-3.5" />
                 </button>
-                <button onClick={() => { setIsDrawMode(true); setDrawTool('eraser'); }} className={`w-7 h-7 rounded flex items-center justify-center transition-colors ${isDrawMode && drawTool === 'eraser' ? 'bg-blue-500 text-white shadow-sm' : 'text-slate-400 hover:text-white'}`} title="Eraser">
+                <button onClick={() => { setIsDrawMode(true); setDrawTool('eraser'); }} className={`w-7 h-7 rounded flex items-center justify-center transition-colors ${isDrawMode && drawTool === 'eraser' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'}`} title="Eraser">
                   <Eraser className="w-3.5 h-3.5" />
                 </button>
-                <button onClick={() => { setIsDrawMode(true); setDrawTool('line'); }} className={`w-7 h-7 rounded flex items-center justify-center transition-colors ${isDrawMode && drawTool === 'line' ? 'bg-blue-500 text-white shadow-sm' : 'text-slate-400 hover:text-white'}`} title="Line">
+                <button onClick={() => { setIsDrawMode(true); setDrawTool('line'); }} className={`w-7 h-7 rounded flex items-center justify-center transition-colors ${isDrawMode && drawTool === 'line' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'}`} title="Line">
                   <Minus className="w-3.5 h-3.5" />
                 </button>
-                <button onClick={() => { setIsDrawMode(true); setDrawTool('arrow'); }} className={`w-7 h-7 rounded flex items-center justify-center transition-colors ${isDrawMode && drawTool === 'arrow' ? 'bg-blue-500 text-white shadow-sm' : 'text-slate-400 hover:text-white'}`} title="Arrow">
+                <button onClick={() => { setIsDrawMode(true); setDrawTool('arrow'); }} className={`w-7 h-7 rounded flex items-center justify-center transition-colors ${isDrawMode && drawTool === 'arrow' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'}`} title="Arrow">
                   <ArrowIcon className="w-3.5 h-3.5" />
                 </button>
-                <button onClick={() => { setIsDrawMode(true); setDrawTool('rect'); }} className={`w-7 h-7 rounded flex items-center justify-center transition-colors ${isDrawMode && drawTool === 'rect' ? 'bg-blue-500 text-white shadow-sm' : 'text-slate-400 hover:text-white'}`} title="Rectangle">
+                <button onClick={() => { setIsDrawMode(true); setDrawTool('rect'); }} className={`w-7 h-7 rounded flex items-center justify-center transition-colors ${isDrawMode && drawTool === 'rect' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'}`} title="Rectangle">
                   <Square className="w-3.5 h-3.5" />
                 </button>
-                <button onClick={() => { setIsDrawMode(true); setDrawTool('circle'); }} className={`w-7 h-7 rounded flex items-center justify-center transition-colors ${isDrawMode && drawTool === 'circle' ? 'bg-blue-500 text-white shadow-sm' : 'text-slate-400 hover:text-white'}`} title="Circle">
+                <button onClick={() => { setIsDrawMode(true); setDrawTool('circle'); }} className={`w-7 h-7 rounded flex items-center justify-center transition-colors ${isDrawMode && drawTool === 'circle' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'}`} title="Circle">
                   <CircleIcon className="w-3.5 h-3.5" />
                 </button>
-                <button onClick={() => { setIsDrawMode(true); setDrawTool('diamond'); }} className={`w-7 h-7 rounded flex items-center justify-center transition-colors ${isDrawMode && drawTool === 'diamond' ? 'bg-blue-500 text-white shadow-sm' : 'text-slate-400 hover:text-white'}`} title="Diamond (Decision)">
+                <button onClick={() => { setIsDrawMode(true); setDrawTool('diamond'); }} className={`w-7 h-7 rounded flex items-center justify-center transition-colors ${isDrawMode && drawTool === 'diamond' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'}`} title="Diamond (Decision)">
                   <Diamond className="w-3.5 h-3.5" />
                 </button>
-                <button onClick={() => { setIsDrawMode(true); setDrawTool('cylinder'); }} className={`w-7 h-7 rounded flex items-center justify-center transition-colors ${isDrawMode && drawTool === 'cylinder' ? 'bg-blue-500 text-white shadow-sm' : 'text-slate-400 hover:text-white'}`} title="Database Cylinder">
+                <button onClick={() => { setIsDrawMode(true); setDrawTool('cylinder'); }} className={`w-7 h-7 rounded flex items-center justify-center transition-colors ${isDrawMode && drawTool === 'cylinder' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'}`} title="Database Cylinder">
                   <Database className="w-3.5 h-3.5" />
                 </button>
               </div>
@@ -770,7 +784,7 @@ export default function PresentationView() {
             <div className="absolute bottom-6 left-0 right-0 flex justify-center gap-3 z-20">
               {slides.map((_, i) => (
                 <button key={i} onClick={() => changeSlide(i + 1)}
-                  className={`h-2.5 rounded-full transition-all duration-300 ${slide === i + 1 ? 'w-8 bg-blue-500' : 'w-2.5 bg-white dark:bg-black/20'}`}
+                  className={`h-2.5 rounded-full transition-all duration-300 ${slide === i + 1 ? 'w-8 bg-blue-500' : 'w-2.5 bg-white/20'}`}
                 />
               ))}
             </div>
@@ -797,7 +811,7 @@ export default function PresentationView() {
                 {/* Main Script */}
                 <div 
                   onClick={() => updateActiveFile(null)} 
-                  className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-colors ${activeFile === null ? 'bg-blue-600/20 text-blue-300' : 'hover:bg-white dark:bg-black/5 text-slate-300'}`}
+                  className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-colors ${activeFile === null ? 'bg-blue-600/20 text-blue-300' : 'hover:bg-white/5 text-slate-300'}`}
                 >
                   <FileText className="w-4 h-4 flex-shrink-0" />
                   <span className="text-sm truncate">main.{language === 'python' ? 'py' : language === 'javascript' ? 'js' : language === 'java' ? 'java' : 'sql'}</span>
@@ -814,7 +828,7 @@ export default function PresentationView() {
                     <div 
                       key={f.name} 
                       onClick={() => updateActiveFile(f.name)}
-                      className={`flex items-center justify-between p-2 rounded-lg cursor-pointer group transition-colors ${activeFile === f.name ? 'bg-blue-600/20 text-blue-300' : 'hover:bg-white dark:bg-black/5 text-slate-300'}`}
+                      className={`flex items-center justify-between p-2 rounded-lg cursor-pointer group transition-colors ${activeFile === f.name ? 'bg-blue-600/20 text-blue-300' : 'hover:bg-white/5 text-slate-300'}`}
                     >
                       <div className="flex items-center gap-2 overflow-hidden">
                         <FileCode2 className="w-4 h-4 flex-shrink-0 opacity-70" />

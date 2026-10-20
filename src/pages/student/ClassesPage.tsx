@@ -83,7 +83,7 @@ export default function ClassesPage() {
           <div className="w-12 h-12 rounded-2xl bg-blue-600/10 border border-blue-500/30 flex items-center justify-center text-blue-500 animate-spin">
             <Cpu className="w-6 h-6" />
           </div>
-          <p className="text-xs font-black uppercase tracking-widest text-slate-400">Loading Class Modules...</p>
+          <p className="text-xs font-black uppercase tracking-widest text-slate-600 dark:text-slate-400">Loading Class Modules...</p>
         </div>
       </div>
     );
@@ -147,7 +147,7 @@ export default function ClassesPage() {
               placeholder="Search class modules..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-black/50 text-slate-900 dark:text-white placeholder:text-slate-400 font-bold text-xs focus:outline-none focus:border-blue-500"
+              className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white/50 text-slate-900 dark:text-white placeholder:text-slate-400 font-bold text-xs focus:outline-none focus:border-blue-500"
             />
           </div>
 
@@ -210,10 +210,10 @@ export default function ClassesPage() {
                   <div className="flex items-start md:items-center gap-4 flex-1 min-w-0">
                     <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-sm flex-shrink-0 transition-transform group-hover:scale-105 ${
                       isCompleted
-                        ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/20'
+                        ? 'bg-emerald-700 text-white shadow-md shadow-emerald-500/20'
                         : isCurrent
                         ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
-                        : 'bg-slate-100 dark:bg-zinc-800 text-slate-500'
+                        : 'bg-slate-100 dark:bg-zinc-800 text-slate-600'
                     }`}>
                       {String(idx + 1).padStart(2, '0')}
                     </div>
@@ -225,7 +225,7 @@ export default function ClassesPage() {
                             {mod.title}
                           </h3>
                           {isCompleted && (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-black text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800 flex-shrink-0">
+                            <span className="inline-flex items-center gap-1 text-[10px] font-black text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800 flex-shrink-0">
                               <CheckCircle2 className="w-3 h-3" /> Solved
                             </span>
                           )}
@@ -240,7 +240,7 @@ export default function ClassesPage() {
                           className={`md:hidden px-3.5 py-1.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 whitespace-nowrap transition-all shadow-md active:scale-95 flex-shrink-0 ${
                             isCompleted
                               ? 'bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200'
-                              : 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-500/20'
+                              : 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/20'
                           }`}
                         >
                           <Play className="w-3 h-3 fill-current" />
@@ -257,7 +257,7 @@ export default function ClassesPage() {
                   <div className="flex items-center gap-5 w-full md:w-auto">
                     <div className="flex-1 md:w-48 space-y-1">
                       <div className="flex justify-between items-center text-xs font-bold">
-                        <span className="text-slate-400 text-[10px] uppercase">Progress</span>
+                        <span className="text-slate-600 dark:text-slate-400 text-[10px] uppercase">Progress</span>
                         <span className="text-slate-900 dark:text-white">{Math.round(pct)}%</span>
                       </div>
                       <ProgressBar pct={pct} color={isCompleted ? 'bg-emerald-500' : 'bg-blue-600'} />
@@ -271,7 +271,7 @@ export default function ClassesPage() {
                       className={`hidden md:flex px-5 py-2.5 rounded-xl font-bold text-xs items-center justify-center gap-2 whitespace-nowrap transition-all shadow-md active:scale-95 ${
                         isCompleted
                           ? 'bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-zinc-700'
-                          : 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-500/20'
+                          : 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/20'
                       }`}
                     >
                       <Play className="w-3.5 h-3.5 fill-current" />

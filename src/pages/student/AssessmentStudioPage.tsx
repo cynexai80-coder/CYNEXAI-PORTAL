@@ -7,7 +7,9 @@ import {
   ArrowLeft, Play, RefreshCw, Trophy, Terminal, Check, 
   Zap, Cpu, AlertCircle
 } from 'lucide-react';
+import { gradePython, formatGrade, parseTestCases } from '../../lib/pyGrader';
 import { PythonEditor } from '../../components/ui/erp/PythonEditor';
+import { notify } from '../../lib/feedback';
 
 interface QuizQuestion {
   id: string;
@@ -33,7 +35,7 @@ export default function AssessmentStudioPage() {
   const { classId } = useParams<{ classId: string }>();
   const navigate = useNavigate();
   const user = getCurrentUser();
-  const studentId = user?.id || 'CAI-STU-001';
+  const studentId = user?.id || '';
 
   const [loading, setLoading] = useState(true);
   const [classDetails, setClassDetails] = useState<ClassDetails | null>(null);
@@ -116,56 +118,6 @@ export default function AssessmentStudioPage() {
 
       let fetchedQs: QuizQuestion[] = qRes.rows || [];
 
-      // Fallback: Ensure 4 MCQs and 2 Coding questions if missing
-      const mcqs = fetchedQs.filter(q => q.type === 'mcq');
-      const codings = fetchedQs.filter(q => q.type === 'coding' || q.type === 'code');
-
-      if (mcqs.length < 4) {
-        for (let i = mcqs.length; i < 4; i++) {
-          fetchedQs.push({
-            id: `fallback_mcq_${classId}_${i}`,
-            class_id: classId,
-            type: 'mcq',
-            question_text: i === 0 
-              ? `What is the core objective of ${cls.title}?`
-              : i === 1 ? `Which best practice should be followed when working with ${cls.title}?`
-              : i === 2 ? `What data type or output is produced by valid operations in ${cls.title}?`
-              : `Why is ${cls.title} critical in high-performance application design?`,
-            options_json: JSON.stringify(
-              i === 0 
-                ? [`Understanding concepts and fundamentals of ${cls.title}`, `Deprecated legacy execution`, `Raw hardware configuration`, `None of the above`]
-                : i === 1 ? [`Hardcoding raw credentials`, `Writing clean, modular, and tested code`, `Disabling exception handling`, `Ignoring runtime validation`]
-                : i === 2 ? [`Null pointer exception`, `Raw unformatted byte stream`, `Structured, valid value data`, `Syntax error`]
-                : [`Optimizing workflow execution and scalability`, `Increasing server latency`, `Preventing file savings`, `Styling static UI`]
-            ),
-            correct_answer_idx: i === 1 ? 1 : i === 2 ? 2 : 0,
-          });
-        }
-      }
-
-      if (codings.length < 2) {
-        for (let i = codings.length; i < 2; i++) {
-          fetchedQs.push({
-            id: `fallback_code_${classId}_${i}`,
-            class_id: classId,
-            type: 'coding',
-            question_text: i === 0
-              ? `Coding Challenge 1: Data Transformation for ${cls.title}. Write a function 'solution(data)' that returns processed data.`
-              : `Coding Challenge 2: Algorithmic Check for ${cls.title}. Write a function 'verify_data(n)' that returns True if n is positive & even.`,
-            boilerplate_json: JSON.stringify(
-              i === 0 
-                ? `def solution(data):\n    # TODO: Implement solution for ${cls.title}\n    if isinstance(data, list):\n        return sum(data)\n    elif isinstance(data, str):\n        return data.upper()\n    return data\n\n# Test execution\nprint(solution([10, 20, 30]))`
-                : `def verify_data(n):\n    # Check if n is positive and even\n    return n > 0 and n % 2 == 0\n\n# Test execution\nprint(verify_data(4))`
-            ),
-            test_cases_json: JSON.stringify(
-              i === 0
-                ? [{ input: "[10, 20, 30]", expected: "60", desc: "Numeric List Sum" }, { input: "'cynexai'", expected: "CYNEXAI", desc: "String Uppercase Formatting" }]
-                : [{ input: "4", expected: "True", desc: "Positive Even Check" }, { input: "7", expected: "False", desc: "Odd Check" }]
-            ),
-          });
-        }
-      }
-
       setQuestions(fetchedQs);
 
       // Set initial user code for first coding challenge
@@ -211,6 +163,7 @@ export default function AssessmentStudioPage() {
   const handleSubmitMcq = async () => {
     if (!classDetails) return;
     const mcqQuestions = questions.filter(q => q.type === 'mcq');
+    if (mcqQuestions.length === 0) return; // nothing to submit
     let score = 0;
 
     for (const q of mcqQuestions) {
@@ -260,34 +213,17 @@ export default function AssessmentStudioPage() {
     }
   };
 
-  const handleRunCode = () => {
+  const handleRunCode = async () => {
     if (!classDetails) return;
     const codingQs = questions.filter(q => q.type === 'coding' || q.type === 'code');
     const currentQ = codingQs[activeCodeQIdx];
+    const testCases = parseTestCases(currentQ?.test_cases_json);
+
+    setCodeOutput('⏳ Loading Python runtime and running your code…');
     
-    let testCases: any[] = [];
-    if (currentQ?.test_cases_json) {
-      try { testCases = JSON.parse(currentQ.test_cases_json); } catch {}
-    }
-
-    if (testCases.length === 0) {
-      testCases = [
-        { input: "[10, 20, 30]", expected: "60", desc: "Test Case 1: Standard Numeric Processing" },
-        { input: "'cynexai'", expected: "CYNEXAI", desc: "Test Case 2: String Formatting Verification" }
-      ];
-    }
-
-    let logLines = [`⚡ Running Python 3.11 Automated Verification Engine...`, `──────────────────────────────────────────────────`];
-
-    testCases.forEach((tc, idx) => {
-      logLines.push(`✔ Test Case ${idx + 1}: ${tc.desc || 'Validation'}`);
-      logLines.push(`  Input: ${tc.input} ➔ Expected Output: ${tc.expected} ➔ PASSED (0.01s)`);
-    });
-
-    logLines.push(`──────────────────────────────────────────────────`);
-    logLines.push(`🎉 ALL ${testCases.length} TEST CASES PASSED SUCCESSFULLY! Solution verified.`);
-
-    setCodeOutput(logLines.join('\n'));
+    const graded = await gradePython(userCode, testCases);
+    setCodeOutput(formatGrade(graded));
+    
   };
 
   const handleSubmitCode = async () => {
@@ -297,16 +233,19 @@ export default function AssessmentStudioPage() {
       const codingQs = questions.filter(q => q.type === 'coding' || q.type === 'code');
       const currentQ = codingQs[activeCodeQIdx];
       const qId = currentQ?.id || `code_${classDetails.id}_${activeCodeQIdx}`;
+      const gradedSubmit = await gradePython(userCode, parseTestCases(currentQ?.test_cases_json));
+      const submitCorrect = gradedSubmit.allPassed ? 1 : 0;
 
       await executeWithRetry(
         `INSERT OR REPLACE INTO qa_responses (id, student_id, class_id, question_id, answer_text, is_correct, created_at)
-         VALUES (?, ?, ?, ?, ?, 1, ?)`,
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
         [
           `qr_code_${Date.now()}`,
           studentId,
           classDetails.id,
           qId,
           userCode,
+          submitCorrect,
           new Date().toISOString()
         ]
       ).catch(() => {});
@@ -334,9 +273,9 @@ export default function AssessmentStudioPage() {
       }
 
       setIsCompleted(true);
-      alert('🎉 Solution verified and submitted successfully!');
+      if (submitCorrect) notify.success('🎉 All test cases passed — solution submitted!'); else notify.warning('Solution submitted, but not all test cases passed yet. Review the output and try again.');
     } catch {
-      alert('Failed to save code submission.');
+      notify('Failed to save code submission.');
     } finally {
       setSubmittingCode(false);
     }
@@ -349,7 +288,7 @@ export default function AssessmentStudioPage() {
           <div className="w-12 h-12 rounded-2xl bg-indigo-600/10 border border-indigo-500/30 flex items-center justify-center text-indigo-500 animate-spin">
             <Cpu className="w-6 h-6" />
           </div>
-          <p className="text-xs font-black uppercase tracking-widest text-slate-400">Loading Assessment Studio...</p>
+          <p className="text-xs font-black uppercase tracking-widest text-slate-600 dark:text-slate-400">Loading Assessment Studio...</p>
         </div>
       </div>
     );
@@ -362,7 +301,7 @@ export default function AssessmentStudioPage() {
         <h2 className="text-xl font-bold text-slate-900 dark:text-white">Assessment Class Not Found</h2>
         <button
           onClick={() => navigate('/student/quizzes')}
-          className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs flex items-center gap-2"
+          className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-2"
         >
           <ArrowLeft className="w-4 h-4" /> Return to Quizzes
         </button>
@@ -400,7 +339,7 @@ export default function AssessmentStudioPage() {
           {/* Status Badge & Tab Selector */}
           <div className="flex flex-wrap items-center gap-3 w-full md:w-auto justify-between md:justify-end">
             {isCompleted && (
-              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs font-bold border border-emerald-500/20">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 text-xs font-bold border border-emerald-500/20">
                 <CheckCircle2 className="w-4 h-4" /> Solved
               </span>
             )}
@@ -420,7 +359,7 @@ export default function AssessmentStudioPage() {
                 onClick={() => setActiveTab('coding')}
                 className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all ${
                   activeTab === 'coding'
-                    ? 'bg-emerald-600 text-white shadow-md shadow-emerald-500/20'
+                    ? 'bg-emerald-700 text-white shadow-md shadow-emerald-500/20'
                     : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
@@ -438,7 +377,7 @@ export default function AssessmentStudioPage() {
                 <h2 className="text-lg font-black text-slate-900 dark:text-white">MCQ Knowledge Assessment</h2>
                 <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Select the correct choice for each concept below.</p>
               </div>
-              <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 px-3 py-1.5 rounded-xl border border-indigo-500/20">
+              <span className="text-xs font-bold text-indigo-700 dark:text-indigo-400 bg-indigo-500/10 px-3 py-1.5 rounded-xl border border-indigo-500/20">
                 4 Questions
               </span>
             </div>
@@ -505,7 +444,7 @@ export default function AssessmentStudioPage() {
               {!mcqSubmitted && mcqQuestions.length > 0 && (
                 <button
                   onClick={handleSubmitMcq}
-                  className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-lg shadow-indigo-500/20 active:scale-95 transition-all"
+                  className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-lg shadow-indigo-500/20 active:scale-95 transition-all"
                 >
                   Submit MCQ Quiz
                 </button>
@@ -529,7 +468,7 @@ export default function AssessmentStudioPage() {
                       onClick={() => selectCodeQuestion(cIdx)}
                       className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
                         activeCodeQIdx === cIdx
-                          ? 'bg-emerald-600 text-white shadow-md shadow-emerald-500/20'
+                          ? 'bg-emerald-700 text-white shadow-md shadow-emerald-500/20'
                           : 'bg-slate-100 dark:bg-zinc-900 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white border border-slate-200 dark:border-zinc-800'
                       }`}
                     >
@@ -593,7 +532,7 @@ export default function AssessmentStudioPage() {
               <button
                 onClick={handleSubmitCode}
                 disabled={submittingCode}
-                className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-2 shadow-lg shadow-emerald-500/20 transition-all active:scale-95"
+                className="px-6 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs flex items-center gap-2 shadow-lg shadow-emerald-500/20 transition-all active:scale-95"
               >
                 {submittingCode ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
                 Submit Solution

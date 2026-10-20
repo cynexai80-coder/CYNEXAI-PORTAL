@@ -158,7 +158,7 @@ export default function TeacherSettings() {
             {/* User info */}
             <Card className="p-5">
               <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 rounded-full bg-violet-500/10 flex items-center justify-center font-bold text-violet-600 text-lg">
+                <div className="w-10 h-10 rounded-full bg-violet-500/10 flex items-center justify-center font-bold text-violet-700 dark:text-violet-400 text-lg">
                   {user?.name?.charAt(0).toUpperCase() || 'T'}
                 </div>
                 <div>
@@ -166,11 +166,11 @@ export default function TeacherSettings() {
                   <p className="text-xs text-erp-text/50 font-medium capitalize">{user?.role || 'Teacher'}</p>
                 </div>
               </div>
-              <div className="bg-violet-50 border border-violet-200 rounded-xl p-3">
+              <div className="bg-violet-50 dark:bg-violet-500/10 border border-violet-200 rounded-xl p-3">
                 <div className="flex gap-2">
                   <Info className="w-4 h-4 text-violet-600 mt-0.5 shrink-0" />
-                  <p className="text-xs text-violet-700 leading-relaxed font-medium">
-                    This system prompt is used every time you click <strong>"Generate AI Slides"</strong> in the Teacher Studio. Use <code className="bg-violet-100 px-1 rounded">{'{{title}}'}</code> and <code className="bg-violet-100 px-1 rounded">{'{{description}}'}</code> as placeholders.
+                  <p className="text-xs text-violet-700 dark:text-violet-300 leading-relaxed font-medium">
+                    This system prompt is used every time you click <strong>"Generate AI Slides"</strong> in the Teacher Studio. Use <code className="bg-violet-100 dark:bg-violet-500/20 text-violet-800 dark:text-violet-200 px-1 rounded">{'{{title}}'}</code> and <code className="bg-violet-100 dark:bg-violet-500/20 text-violet-800 dark:text-violet-200 px-1 rounded">{'{{description}}'}</code> as placeholders.
                   </p>
                 </div>
               </div>
@@ -203,7 +203,7 @@ export default function TeacherSettings() {
                     onClick={() => handlePreset(idx)}
                     className={`w-full text-left p-4 rounded-xl border-2 transition-all ${
                       selectedPreset === idx
-                        ? 'border-violet-500 bg-violet-50'
+                        ? 'border-violet-500 bg-violet-50 dark:bg-violet-500/10'
                         : 'border-erp-border hover:border-violet-300 bg-white dark:bg-black'
                     }`}
                   >
@@ -235,7 +235,7 @@ export default function TeacherSettings() {
                     { code: '{{description}}', desc: 'Class description (if set)' },
                   ].map(p => (
                     <div key={p.code} className="flex items-start gap-2">
-                      <code className="bg-violet-100 text-violet-700 px-2 py-0.5 rounded text-xs font-mono font-bold shrink-0">{p.code}</code>
+                      <code className="bg-violet-100 dark:bg-violet-500/20 text-violet-700 dark:text-violet-200 px-2 py-0.5 rounded text-xs font-mono font-bold shrink-0">{p.code}</code>
                       <span className="text-xs text-erp-text/60">{p.desc}</span>
                     </div>
                   ))}
@@ -252,7 +252,7 @@ export default function TeacherSettings() {
                   <Sparkles className="w-5 h-5 text-violet-500" />
                   <h2 className="font-bold text-erp-text">AI System Prompt</h2>
                   {selectedPreset >= 0 && (
-                    <span className="text-xs font-bold text-violet-600 bg-violet-100 px-2 py-0.5 rounded-full">
+                    <span className="text-xs font-bold text-violet-700 dark:text-violet-200 bg-violet-100 dark:bg-violet-500/20 px-2 py-0.5 rounded-full">
                       {PRESETS[selectedPreset].icon} {PRESETS[selectedPreset].label}
                     </span>
                   )}

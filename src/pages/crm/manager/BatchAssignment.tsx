@@ -4,6 +4,8 @@ import { assignBatchToStudent, getOnboardingDetails, getErpUsers } from '../../.
 import { getBatchesForAssignment, findPendingTaskForEntity } from '../../../lib/api/batches';
 import { Button } from '../../../components/ui/erp/Button';
 import { SearchableDropdown } from '../../../components/ui/erp/SearchableDropdown';
+import { LoadingNotice, UnavailableNotice } from '../../../components/ui/erp/LoadState';
+import { notify } from '../../../lib/feedback';
 
 export default function BatchAssignment() {
   const { id } = useParams(); // This is the studentId
@@ -20,27 +22,36 @@ export default function BatchAssignment() {
   const [remarks, setRemarks] = useState('');
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
+    let cancelled = false;
     const fetchData = async () => {
-      // Fetch onboarding details using studentId
-      const details = await getOnboardingDetails(id as string);
-      if (details) setStudentInfo(details);
+      setLoadFailed(false);
+      try {
+        // Fetch onboarding details using studentId
+        const details = await getOnboardingDetails(id as string);
+        if (cancelled) return;
+        if (!details) { setLoadFailed(true); return; }
 
-      // Fetch teachers
-      const users = await getErpUsers();
-      setTeachers(users.filter((u: any) => u.role === 'Teacher'));
-
-      // Fetch batches
-      const batchesRes = await getBatchesForAssignment();
-      setBatches(batchesRes);
+        // Fetch teachers and batches
+        const [users, batchesRes] = await Promise.all([getErpUsers(), getBatchesForAssignment()]);
+        if (cancelled) return;
+        setTeachers(users.filter((u: any) => u.role === 'Teacher'));
+        setBatches(batchesRes);
+        setStudentInfo(details);
+      } catch {
+        if (!cancelled) setLoadFailed(true);
+      }
     };
     fetchData();
-  }, [id]);
+    return () => { cancelled = true; };
+  }, [id, reloadKey]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!batch || !teacher || !mode || !joiningDate) return alert("Fill all fields");
+    if (!batch || !teacher || !mode || !joiningDate) return notify("Fill all fields");
     
     setIsSubmitting(true);
     // Find task ID if any task links here
@@ -48,15 +59,27 @@ export default function BatchAssignment() {
 
     const result = await assignBatchToStudent(id as string, batch, teacher, mode, joiningDate, remarks, taskId);
     if (result) {
-      alert("Batch assigned successfully!");
+      notify("Batch assigned successfully!");
       navigate('/manager/tasks');
     } else {
-      alert("Failed to assign batch.");
+      notify("Failed to assign batch.");
     }
     setIsSubmitting(false);
   };
 
-  if (!studentInfo) return <div className="p-10 text-center font-bold">Loading...</div>;
+  if (!studentInfo) {
+    return loadFailed ? (
+      <UnavailableNotice
+        title="Student not found"
+        message="We couldn't load this student's onboarding details. The link may be wrong, or the connection failed."
+        onRetry={() => setReloadKey(k => k + 1)}
+        onBack={() => navigate('/manager')}
+        backLabel="Back to Manager Hub"
+      />
+    ) : (
+      <LoadingNotice />
+    );
+  }
 
   const batchOptions = batches.map(b => ({ value: b.id, label: `${b.name} (${b.course_id || 'Global'})` }));
   const teacherOptions = teachers.map(t => ({ value: t.id, label: t.name }));

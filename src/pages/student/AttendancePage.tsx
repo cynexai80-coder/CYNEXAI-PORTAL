@@ -9,7 +9,7 @@ import { useNavigate } from 'react-router-dom';
 import { Html5Qrcode } from 'html5-qrcode';
 import { getCurrentUser } from '../../lib/auth';
 import { getStudentMode } from '../../lib/api/student';
-import { logQRAttendance } from '../../lib/api/teacher';
+import { markAttendanceWithQR } from '../../lib/api/ux';
 
 export default function AttendancePage() {
   const navigate = useNavigate();
@@ -78,15 +78,9 @@ export default function AttendancePage() {
           await stopScanner();
 
           try {
-            let classId = decodedText;
-            try {
-              const data = JSON.parse(decodedText);
-              classId = data.classId || data.token || decodedText;
-            } catch (e) {}
-
-            if (classId && user) {
-              await logQRAttendance(user.id, classId);
-              setResult({ success: true, message: 'Attendance marked successfully via Classroom QR Scanner!' });
+            if (decodedText && user) {
+              const res = await markAttendanceWithQR(user.id, decodedText);
+              setResult({ success: res.success, message: res.success ? 'Attendance marked successfully via Classroom QR Scanner!' : res.message });
             } else {
               setResult({ success: false, message: 'Invalid QR code format. Please scan classroom QR code.' });
             }
@@ -144,9 +138,9 @@ export default function AttendancePage() {
     setResult(null);
 
     try {
-      await logQRAttendance(user.id, manualCode.trim());
-      setResult({ success: true, message: 'Attendance marked successfully via session code!' });
-      setManualCode('');
+      const res = await markAttendanceWithQR(user.id, manualCode.trim());
+      setResult({ success: res.success, message: res.success ? 'Attendance marked successfully via session code!' : res.message });
+      if (res.success) setManualCode('');
     } catch (e) {
       setResult({ success: false, message: 'Failed to check in. Please verify the session code.' });
     } finally {
@@ -169,7 +163,7 @@ export default function AttendancePage() {
           </button>
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-[10px] font-black uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+              <span className="text-[10px] font-black uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-500/20">
                 Attendance Check-In
               </span>
             </div>
@@ -203,7 +197,7 @@ export default function AttendancePage() {
           
           {!scanning ? (
             <div className="w-full text-center py-4 space-y-4">
-              <div className="w-20 h-20 bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-3xl flex items-center justify-center mx-auto border border-blue-500/20 shadow-inner">
+              <div className="w-20 h-20 bg-blue-500/10 text-blue-700 dark:text-blue-400 rounded-3xl flex items-center justify-center mx-auto border border-blue-500/20 shadow-inner">
                 <Camera className="w-10 h-10" />
               </div>
               <div>
@@ -216,7 +210,7 @@ export default function AttendancePage() {
               <div className="pt-2">
                 <button
                   onClick={startScanner}
-                  className="px-8 py-3.5 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-black text-sm flex items-center justify-center gap-2 mx-auto shadow-lg shadow-blue-500/25 active:scale-95 transition-all"
+                  className="px-8 py-3.5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black text-sm flex items-center justify-center gap-2 mx-auto shadow-lg shadow-blue-500/25 active:scale-95 transition-all"
                 >
                   <Camera className="w-4 h-4" /> Start Live Camera Scanner
                 </button>
@@ -294,7 +288,7 @@ export default function AttendancePage() {
             <button
               onClick={handleManualCheckIn}
               disabled={!manualCode.trim() || submittingManual}
-              className="w-full sm:w-auto px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-black text-xs flex items-center justify-center gap-1.5 shadow-md shadow-blue-500/20 active:scale-95 transition-all"
+              className="w-full sm:w-auto px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-black text-xs flex items-center justify-center gap-1.5 shadow-md shadow-blue-500/20 active:scale-95 transition-all"
             >
               {submittingManual ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
               <span>Check In</span>

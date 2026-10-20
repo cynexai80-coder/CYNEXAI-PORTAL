@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { login } from '../../lib/auth';
 import { Loader2, Eye, EyeOff } from 'lucide-react';
 import { CynexLogo } from '../../components/ui/CynexLogo';
@@ -11,6 +11,7 @@ export default function CrmLogin() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
+  const location = useLocation();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -19,7 +20,11 @@ export default function CrmLogin() {
     try {
       const user = await login(email, password);
       if (user) {
-        if (user.role === 'Manager') navigate('/manager');
+        // Return to the page the user originally asked for (RequireAuth stores it), if any.
+        const from = (location.state as any)?.from?.pathname as string | undefined;
+        if (from && from !== '/login' && from.startsWith('/')) { navigate(from, { replace: true }); return; }
+        if (user.role === 'Admin') navigate('/admin');
+        else if (user.role === 'Manager') navigate('/manager');
         else if (user.role === 'CEO') navigate('/ceo/dashboard');
         else if (user.role === 'DM') navigate('/dm/dashboard');
         else if (user.role === 'Teacher') navigate('/teacher');
@@ -36,7 +41,7 @@ export default function CrmLogin() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50/90 dark:bg-[#0a0a14] p-4 transition-colors duration-300 no-watermark">
+    <main id="main-content" className="min-h-screen flex flex-col items-center justify-center bg-slate-50/90 dark:bg-[#0a0a14] p-4 transition-colors duration-300 no-watermark">
       
       {/* Brand Header */}
       <div className="text-center mb-8 flex flex-col items-center justify-center">
@@ -52,12 +57,14 @@ export default function CrmLogin() {
         {/* Top bar accent gradient */}
         <div className="absolute top-0 inset-x-0 h-1.5 bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-600"></div>
 
-        <h2 className="text-lg sm:text-xl font-bold text-slate-800 dark:text-white mb-6">Sign in to your portal</h2>
+        <h1 className="text-lg sm:text-xl font-bold text-slate-800 dark:text-white mb-6">Sign in to your portal</h1>
 
         <form onSubmit={handleLogin} className="flex flex-col gap-4">
           
           <div>
+            <label htmlFor="login-email" className="sr-only">Email address</label>
             <input
+              id="login-email"
               type="email"
               placeholder="Email address"
               autoComplete="email"
@@ -69,7 +76,9 @@ export default function CrmLogin() {
           </div>
 
           <div className="relative">
+            <label htmlFor="login-password" className="sr-only">Password</label>
             <input
+              id="login-password"
               type={showPw ? 'text' : 'password'}
               placeholder="Password"
               autoComplete="current-password"
@@ -81,7 +90,7 @@ export default function CrmLogin() {
             <button 
               type="button" 
               onClick={() => setShowPw(!showPw)} 
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors p-1"
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 flex min-h-[28px] min-w-[28px] items-center justify-center rounded-md text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
               aria-label={showPw ? 'Hide password' : 'Show password'}
             >
               {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -89,7 +98,7 @@ export default function CrmLogin() {
           </div>
 
           {error && (
-            <p className="text-red-500 dark:text-red-400 text-xs font-semibold bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 px-3.5 py-2.5 rounded-xl">
+            <p role="alert" className="text-red-500 dark:text-red-400 text-xs font-semibold bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 px-3.5 py-2.5 rounded-xl">
               {error}
             </p>
           )}
@@ -109,6 +118,6 @@ export default function CrmLogin() {
       <div className="mt-8 text-center text-xs text-slate-400 dark:text-slate-500 font-normal">
         &copy; {new Date().getFullYear()} CynexAI. All rights reserved.
       </div>
-    </div>
+    </main>
   );
 }

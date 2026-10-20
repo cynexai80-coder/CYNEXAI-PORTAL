@@ -1,18 +1,23 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
-import { getLeads, updateLeadStatus, addActivity, createLead, claimLead } from '../../lib/api/crm';
+import { getLeads, updateLeadStatus, addActivity, createLead, claimLead, findDuplicateLead } from '../../lib/api/crm';
+import { parseCsvText } from '../../lib/csvUtils';
+import { toWhatsAppNumber } from '../../lib/phoneUtils';
 import { getCoursesForPitch } from '../../lib/api/sales';
 import { createPendingStudent } from '../../lib/api/users';
 import { Lead, LeadStatus } from '../../lib/types';
 import { getCurrentUser } from '../../lib/auth';
 import { Button } from '../../components/ui/erp/Button';
+import { keyboardActivate, FOCUS_RING } from '../../lib/a11y';
 import { LeadDetailPanel } from '../../components/crm/LeadDetailPanel';
 import {
   Plus, Phone, MessageCircle, Search, Filter, User,
   Calendar, CheckCircle2, AlertTriangle, XCircle,
   PhoneOff, PhoneCall, UserX, RefreshCw, X, Upload, Download
 } from 'lucide-react';
+import { notify, promptDialog } from '../../lib/feedback';
+import { todayIST } from '../../lib/dateUtils';
 
 const PIPELINE_STAGES: { id: LeadStatus; label: string; color: string; bg: string; darkBg: string; icon: React.ReactNode }[] = [
   { id: 'New',                  label: 'New Lead',       color: '#6366f1', bg: '#eef2ff', darkBg: '#1e1b4b22', icon: <User className="w-3 h-3" /> },
@@ -26,6 +31,7 @@ const PIPELINE_STAGES: { id: LeadStatus; label: string; color: string; bg: strin
   { id: 'Admission Completed',  label: 'Admission',      color: '#f97316', bg: '#fff7ed', darkBg: '#1c0d0022', icon: <CheckCircle2 className="w-3 h-3" /> },
   { id: 'Sale Partial Closed',  label: 'Partial Sale',   color: '#eab308', bg: '#fefce8', darkBg: '#1a150022', icon: <AlertTriangle className="w-3 h-3" /> },
   { id: 'Onboarded',            label: 'Onboarded',      color: '#14b8a6', bg: '#f0fdfa', darkBg: '#05181622', icon: <CheckCircle2 className="w-3 h-3" /> },
+  { id: 'Closed Won',           label: 'Closed Won',     color: '#16a34a', bg: '#f0fdf4', darkBg: '#05180b22', icon: <CheckCircle2 className="w-3 h-3" /> },
 ];
 
 const HIDDEN_BY_DEFAULT = ['Not answering', 'Busy', 'Invalid number', 'Not Interested'];
@@ -35,7 +41,8 @@ function MobileLeadCard({ lead, stage, onClick }: { lead: Lead; stage: typeof PI
   return (
     <div
       onClick={onClick}
-      className="bg-erp-surface border border-erp-border rounded-2xl p-4 cursor-pointer active:scale-[0.98] transition-transform"
+      {...keyboardActivate(onClick, { asButton: true })}
+      className={`bg-erp-surface border border-erp-border rounded-2xl p-4 cursor-pointer active:scale-[0.98] transition-transform ${FOCUS_RING}`}
       style={{ borderLeft: `3px solid ${stage.color}` }}
     >
       <div className="flex items-start justify-between gap-2 mb-2">
@@ -67,16 +74,18 @@ function MobileLeadCard({ lead, stage, onClick }: { lead: Lead; stage: typeof PI
         <span className="text-xs text-erp-text/50 font-medium">{lead.phone || '—'}</span>
         <div className="flex gap-1.5">
           <a
-            href={`https://wa.me/${lead.phone?.replace(/\D/g, '')}`}
+            href={`https://wa.me/${toWhatsAppNumber(lead.phone)}`}
+            aria-label={`WhatsApp ${lead.name}`}
             target="_blank"
             rel="noreferrer"
             onClick={e => e.stopPropagation()}
-            className="w-7 h-7 rounded-lg bg-green-100 dark:bg-green-900/30 text-green-600 flex items-center justify-center"
+            className="w-7 h-7 rounded-lg bg-green-100 dark:bg-green-900/30 text-green-700 flex items-center justify-center"
           >
             <MessageCircle className="w-3.5 h-3.5" />
           </a>
           <a
             href={`tel:${lead.phone}`}
+            aria-label={`Call ${lead.name}`}
             onClick={e => e.stopPropagation()}
             className="w-7 h-7 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-600 flex items-center justify-center"
           >
@@ -109,7 +118,7 @@ export default function LeadPipeline() {
   const [courses, setCourses] = useState<string[]>([]);
   const [onboardForm, setOnboardForm] = useState({
     name: '', email: '', phone: '', fees_total: '', fees_paid: '', fees_pending: '',
-    joining_date: new Date().toISOString().split('T')[0], training_start_date: '',
+    joining_date: todayIST(), training_start_date: '',
     course: '', documents_submitted: 0, gender: 'Male', dob: ''
   });
 
@@ -120,7 +129,7 @@ export default function LeadPipeline() {
   const user = getCurrentUser();
 
   const loadData = useCallback(() => { 
-    getLeads().then(res => setLeads(res || [])); 
+    getLeads().then(res => setLeads((res || []).map(l => (l.status as string) === 'Admission' ? { ...l, status: 'Admission Completed' as LeadStatus } : l))); 
     getCoursesForPitch().then(res => setCourses(res ? res.map(c => String(c.title)) : []));
   }, []);
   useEffect(() => { loadData(); }, []);
@@ -155,7 +164,7 @@ export default function LeadPipeline() {
 
     let partialAmount = '';
     if (newStatus === 'Sale Partial Closed') {
-      const amount = prompt("How much was paid for the partial close?");
+      const amount = await promptDialog({ title: 'Partial payment', message: 'How much was paid for the partial close?', inputType: 'number', placeholder: 'Amount in ₹', confirmLabel: 'Save', validate: v => (v.trim() === '' || Number(v) > 0 ? null : 'Enter an amount greater than zero.') });
       if (amount === null) { setLeads([...leads]); return; }
       partialAmount = amount;
     }
@@ -164,7 +173,7 @@ export default function LeadPipeline() {
       setOnboardForm({
         name: lead.name || '', email: lead.email || '', phone: lead.phone || '',
         fees_total: '', fees_paid: '', fees_pending: '',
-        joining_date: new Date().toISOString().split('T')[0], training_start_date: '',
+        joining_date: todayIST(), training_start_date: '',
         course: lead.course_interest || '', documents_submitted: 0, gender: 'Male', dob: ''
       });
       return;
@@ -193,9 +202,9 @@ export default function LeadPipeline() {
   };
 
   const handleCardClick = async (lead: Lead) => {
-    if (user && (!lead.assigned_to || lead.assigned_to === '')) {
+    if (user && user.role === 'Sales/HR' && (!lead.assigned_to || lead.assigned_to === '')) {
       const res = await claimLead(lead.id, user.id);
-      if (!res.success && res.alreadyClaimed) { alert('This lead is already being handled by someone else!'); loadData(); return; }
+      if (!res.success && res.alreadyClaimed) { notify.warning('This lead is already being handled by someone else!'); loadData(); return; }
       else loadData();
     }
     setSelectedLeadId(lead.id);
@@ -222,7 +231,7 @@ export default function LeadPipeline() {
 
     setLeads(prev => prev.map(l => l.id === onboardingLead.id ? { ...l, status: 'Onboarded' } : l));
     executeMove(onboardingLead.id, 'Onboarded', '', onboardForm);
-    alert(`Student sent to Manager for Approval: ${onboardingLead.name}.`);
+    notify(`Student sent to Manager for Approval: ${onboardingLead.name}.`);
     setOnboardingLead(null);
   };
 
@@ -231,45 +240,47 @@ export default function LeadPipeline() {
     if (!file) return;
     setIsUploadingCsv(true);
     try {
-      const text = await file.text();
-      const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
-      if (lines.length < 2) throw new Error("CSV must have a header row and at least one data row.");
-      const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+      const rows = parseCsvText(await file.text());
+      if (rows.length < 2) throw new Error("CSV must have a header row and at least one data row.");
+      // Exact header names only (a "Course Name" column must never overwrite the lead's name).
+      const norm = (h: string) => h.trim().toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+      const FIELD_FOR: Record<string, string> = {
+        'name': 'name', 'full name': 'name', 'lead name': 'name', 'student name': 'name',
+        'email': 'email', 'email id': 'email', 'email address': 'email', 'e mail': 'email',
+        'phone': 'phone', 'phone number': 'phone', 'mobile': 'phone', 'mobile number': 'phone', 'contact': 'phone', 'contact number': 'phone',
+        'course': 'course_interest', 'course interest': 'course_interest', 'interested course': 'course_interest',
+        'source': 'source', 'status': 'status',
+      };
+      const headers = rows[0].map(h => FIELD_FOR[norm(h)] || '');
       let successCount = 0;
-      for (let i = 1; i < lines.length; i++) {
-        const values = lines[i].split(',').map(v => v.trim());
+      let duplicateCount = 0;
+      let invalidCount = 0;
+      for (let i = 1; i < rows.length; i++) {
+        const values = rows[i].map(v => v.trim());
         const leadData: any = { name: '', email: '', phone: '', course_interest: '', source: 'CSV Upload', status: 'New', assigned_to: '' };
-        headers.forEach((h, index) => {
+        headers.forEach((field, index) => {
           const val = values[index];
-          if (!val) return;
-          
-          if (h.includes('name')) leadData.name = val;
-          else if (h.includes('email')) leadData.email = val;
-          else if (h.includes('phone') || h.includes('number')) {
-            // Strip any non-digit characters. If the column had a name by mistake, it will become empty.
+          if (!field || !val) return;
+          if (field === 'phone') {
             const sanitizedPhone = val.replace(/\D/g, '');
-            // Only accept if it looks like a valid phone length (at least 7 digits)
             if (sanitizedPhone.length >= 7) leadData.phone = sanitizedPhone;
-          }
-          else if (h.includes('course')) leadData.course_interest = val;
-          else if (h.includes('source')) leadData.source = val;
-          else if (h === 'status') {
-            const matchedStage = PIPELINE_STAGES.find(s => s.id.toLowerCase() === val.toLowerCase());
+          } else if (field === 'status') {
+            const matchedStage = PIPELINE_STAGES.find(st => st.id.toLowerCase() === val.toLowerCase());
             leadData.status = matchedStage ? matchedStage.id : 'New';
+          } else {
+            leadData[field] = val;
           }
-          // Any other unrecognized columns are simply ignored!
         });
 
-        // Only create lead if it has a name, AND (a valid phone OR an email)
-        if (leadData.name && (leadData.phone || leadData.email)) {
-          const newId = await createLead(leadData);
-          if (newId) successCount++;
-        }
+        if (!(leadData.name && (leadData.phone || leadData.email))) { invalidCount++; continue; }
+        if (await findDuplicateLead(leadData.phone, leadData.email)) { duplicateCount++; continue; }
+        const newId = await createLead(leadData);
+        if (newId) successCount++;
       }
-      alert(`Successfully imported ${successCount} leads!`);
+      notify.info(`Imported ${successCount} leads. Skipped ${duplicateCount} duplicates and ${invalidCount} invalid rows.`);
       loadData();
     } catch (e: any) {
-      alert("Error importing CSV: " + e.message);
+      notify("Error importing CSV: " + e.message);
     } finally {
       setIsUploadingCsv(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -295,15 +306,15 @@ export default function LeadPipeline() {
             <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-erp-text/40" />
             <input
               type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
-              placeholder="Search leads or phone..."
+              placeholder="Search leads or phone..." aria-label="Search leads or phone"
               className="bg-erp-background border-2 border-erp-border rounded-xl pl-8 pr-3 py-2 text-sm w-48 focus:outline-none focus:border-erp-primary font-medium transition-all text-erp-text placeholder:text-erp-text/30"
             />
-            {searchQuery && <button onClick={() => setSearchQuery('')} className="absolute right-2 top-2.5"><X className="w-4 h-4 text-erp-text/30 hover:text-erp-text" /></button>}
+            {searchQuery && <button onClick={() => setSearchQuery('')} aria-label="Clear search" className="absolute right-2 top-2.5"><X className="w-4 h-4 text-erp-text/30 hover:text-erp-text" /></button>}
           </div>
 
           <div className="flex bg-erp-background border-2 border-erp-border rounded-xl overflow-hidden p-0.5">
-            <button onClick={() => setViewMode('All')} className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-colors ${viewMode === 'All' ? 'bg-erp-surface shadow-sm text-erp-text' : 'text-erp-text/50'}`}>All Leads</button>
-            <button onClick={() => setViewMode('Mine')} className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-colors ${viewMode === 'Mine' ? 'bg-erp-surface shadow-sm text-erp-text' : 'text-erp-text/50'}`}>My Leads</button>
+            <button onClick={() => setViewMode('All')} className={`px-2.5 py-1 min-h-[24px] text-xs font-bold rounded-lg transition-colors ${viewMode === 'All' ? 'bg-erp-surface shadow-sm text-erp-text' : 'text-erp-text/50'}`}>All Leads</button>
+            <button onClick={() => setViewMode('Mine')} className={`px-2.5 py-1 min-h-[24px] text-xs font-bold rounded-lg transition-colors ${viewMode === 'Mine' ? 'bg-erp-surface shadow-sm text-erp-text' : 'text-erp-text/50'}`}>My Leads</button>
           </div>
           <button onClick={() => setShowAdvancedFilters(!showAdvancedFilters)} className={`flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-xl border-2 transition-colors ${showAdvancedFilters ? 'border-erp-primary text-erp-primary' : 'border-erp-border text-erp-text/70'}`}>
             <Filter className="w-3.5 h-3.5" /> Filters
@@ -311,7 +322,7 @@ export default function LeadPipeline() {
           <button onClick={() => setShowAllStages(v => !v)} className="text-xs font-bold px-3 py-2 rounded-xl border-2 border-erp-border text-erp-text/70 hover:border-erp-primary transition-colors">
             {showAllStages ? 'Fewer Stages' : 'All Stages'}
           </button>
-          <button onClick={loadData} className="p-2 rounded-xl border-2 border-erp-border text-erp-text/50 hover:text-erp-primary hover:border-erp-primary transition-colors">
+          <button onClick={loadData} aria-label="Refresh leads" className="p-2 rounded-xl border-2 border-erp-border text-erp-text/50 hover:text-erp-primary hover:border-erp-primary transition-colors">
             <RefreshCw className="w-4 h-4" />
           </button>
           {(user?.role === 'Manager' || user?.role === 'CEO') && (
@@ -356,18 +367,18 @@ export default function LeadPipeline() {
               <Search className="w-4 h-4 absolute left-3 top-2.5 text-erp-text/40" />
               <input
                 autoFocus type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
-                placeholder="Search name, phone, course…"
+                placeholder="Search name, phone, course…" aria-label="Search by name, phone or course"
                 className="w-full bg-erp-background border-2 border-erp-border rounded-xl pl-9 pr-9 py-2 text-sm font-medium focus:outline-none focus:border-erp-primary text-erp-text placeholder:text-erp-text/30"
               />
-              {searchQuery && <button onClick={() => setSearchQuery('')} className="absolute right-3 top-2.5"><X className="w-4 h-4 text-erp-text/30" /></button>}
+              {searchQuery && <button onClick={() => setSearchQuery('')} aria-label="Clear search" className="absolute right-3 top-2.5"><X className="w-4 h-4 text-erp-text/30" /></button>}
             </div>
           </div>
         )}
 
         {/* Mobile All/Mine toggle */}
         <div className="flex px-4 pb-2 gap-2">
-          <button onClick={() => setViewMode('All')} className={`px-3 py-1 text-xs font-bold rounded-full border transition-colors ${viewMode === 'All' ? 'bg-erp-primary text-white border-erp-primary' : 'border-erp-border text-erp-text/60'}`}>All</button>
-          <button onClick={() => setViewMode('Mine')} className={`px-3 py-1 text-xs font-bold rounded-full border transition-colors ${viewMode === 'Mine' ? 'bg-erp-primary text-white border-erp-primary' : 'border-erp-border text-erp-text/60'}`}>Mine</button>
+          <button onClick={() => setViewMode('All')} className={`px-3 py-1 min-h-[24px] text-xs font-bold rounded-full border transition-colors ${viewMode === 'All' ? 'bg-erp-primary text-white border-erp-primary' : 'border-erp-border text-erp-text/60'}`}>All</button>
+          <button onClick={() => setViewMode('Mine')} className={`px-3 py-1 min-h-[24px] text-xs font-bold rounded-full border transition-colors ${viewMode === 'Mine' ? 'bg-erp-primary text-white border-erp-primary' : 'border-erp-border text-erp-text/60'}`}>Mine</button>
         </div>
 
         {/* Stage tabs — horizontal scrollable */}
@@ -426,7 +437,7 @@ export default function LeadPipeline() {
             return stage ? (
               <button key={s} onClick={() => setHiddenStages(prev => { const n = new Set(prev); n.delete(s); return n; })}
                 className="text-xs font-bold px-2 py-1 rounded-full border-2 hover:border-erp-primary transition-colors"
-                style={{ borderColor: stage.color + '44', color: stage.color, background: stage.bg }}>
+                style={{ borderColor: stage.color + '44', color: `color-mix(in srgb, ${stage.color} 55%, #000)`, background: stage.bg }}>
                 {stage.label} {count > 0 && `(${count})`} ×
               </button>
             ) : null;
@@ -439,7 +450,7 @@ export default function LeadPipeline() {
         <div className="mx-4 mt-2 p-3 bg-red-50 dark:bg-red-950/30 border-2 border-red-200 dark:border-red-800 rounded-xl flex items-center gap-3 text-sm font-bold text-red-700 dark:text-red-400 flex-shrink-0">
           <AlertTriangle className="w-4 h-4 flex-shrink-0" />
           <span className="flex-1">{moveError}</span>
-          <button onClick={() => setMoveError(null)}><X className="w-4 h-4" /></button>
+          <button onClick={() => setMoveError(null)} aria-label="Dismiss error"><X className="w-4 h-4" /></button>
         </div>
       )}
 
@@ -479,12 +490,12 @@ export default function LeadPipeline() {
                   <div className="flex items-center justify-between px-3 py-2.5 border-b flex-shrink-0" style={{ borderColor: `${stage.color}33` }}>
                     <div className="flex items-center gap-2 min-w-0">
                       <span style={{ color: stage.color }}>{stage.icon}</span>
-                      <h3 className="font-bold text-[11px] uppercase tracking-wide truncate" style={{ color: stage.color }}>{stage.label}</h3>
+                      <h3 className="font-bold text-[11px] uppercase tracking-wide truncate" style={{ color: `color-mix(in srgb, ${stage.color} 55%, #000)` }}>{stage.label}</h3>
                     </div>
                     <div className="flex items-center gap-1">
-                      <span className="text-[11px] font-bold px-1.5 py-0.5 rounded-full text-white flex-shrink-0" style={{ background: stage.color }}>{stageLeads.length}</span>
+                      <span className="text-[11px] font-bold px-1.5 py-0.5 rounded-full text-white flex-shrink-0" style={{ background: `color-mix(in srgb, ${stage.color} 60%, #000)` }}>{stageLeads.length}</span>
                       {!showAllStages && (
-                        <button onClick={() => setHiddenStages(prev => { const n = new Set(prev); n.add(stage.id); return n; })} className="opacity-30 hover:opacity-70 transition-opacity">
+                        <button onClick={() => setHiddenStages(prev => { const n = new Set(prev); n.add(stage.id); return n; })} aria-label={`Hide ${stage.label} column`} className="-m-1.5 p-1.5 opacity-30 hover:opacity-70 focus-visible:opacity-100 transition-opacity">
                           <X className="w-3 h-3" style={{ color: stage.color }} />
                         </button>
                       )}
@@ -513,6 +524,7 @@ export default function LeadPipeline() {
                                 {...provided.draggableProps}
                                 {...provided.dragHandleProps}
                                 onClick={() => handleCardClick(lead)}
+                                onKeyDown={e => { if (e.key === 'Enter' && e.target === e.currentTarget) handleCardClick(lead); }}
                                 className="bg-erp-surface rounded-xl p-3 cursor-pointer group select-none flex flex-col gap-1.5"
                                 style={{
                                   ...provided.draggableProps.style,
@@ -545,12 +557,12 @@ export default function LeadPipeline() {
                                       {lead.assignee_name.split(' ')[0]}
                                     </span>
                                   )}
-                                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity ml-1 flex-shrink-0">
-                                    <button onClick={e => { e.stopPropagation(); window.open(`https://wa.me/${lead.phone?.replace(/\D/g, '')}`, '_blank'); }}
-                                      className="w-6 h-6 rounded-md bg-green-100 dark:bg-green-900/30 text-green-600 flex items-center justify-center transition-colors">
+                                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity ml-1 flex-shrink-0">
+                                    <button aria-label={`WhatsApp ${lead.name}`} onClick={e => { e.stopPropagation(); window.open(`https://wa.me/${toWhatsAppNumber(lead.phone)}`, '_blank'); }}
+                                      className="w-6 h-6 rounded-md bg-green-100 dark:bg-green-900/30 text-green-700 flex items-center justify-center transition-colors">
                                       <MessageCircle className="w-3 h-3" />
                                     </button>
-                                    <button onClick={e => { e.stopPropagation(); window.open(`tel:${lead.phone}`, '_self'); }}
+                                    <button aria-label={`Call ${lead.name}`} onClick={e => { e.stopPropagation(); window.open(`tel:${lead.phone}`, '_self'); }}
                                       className="w-6 h-6 rounded-md bg-blue-100 dark:bg-blue-900/30 text-blue-600 flex items-center justify-center transition-colors">
                                       <Phone className="w-3 h-3" />
                                     </button>
@@ -579,7 +591,7 @@ export default function LeadPipeline() {
               <h2 className="text-lg font-bold text-erp-text flex items-center gap-2">
                 <CheckCircle2 className="w-5 h-5 text-teal-500" /> Onboard Student
               </h2>
-              <button onClick={() => setOnboardingLead(null)} className="w-8 h-8 rounded-lg flex items-center justify-center text-erp-text/50 hover:text-erp-text hover:bg-erp-border/40">
+              <button onClick={() => setOnboardingLead(null)} aria-label="Close" className="w-8 h-8 rounded-lg flex items-center justify-center text-erp-text/50 hover:text-erp-text hover:bg-erp-border/40">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -658,7 +670,7 @@ export default function LeadPipeline() {
 
               <div className="flex justify-end gap-3 pt-4 border-t border-erp-border mt-4">
                 <button type="button" onClick={() => setOnboardingLead(null)} className="px-4 py-2 rounded-xl border-2 border-erp-border text-erp-text/70 font-bold text-sm hover:bg-erp-border/40 transition-colors">Cancel</button>
-                <button type="submit" className="px-4 py-2 rounded-xl bg-teal-600 text-white font-bold text-sm hover:bg-teal-500 transition-colors">Submit to Manager</button>
+                <button type="submit" className="px-4 py-2 rounded-xl bg-teal-700 text-white font-bold text-sm hover:bg-teal-800 transition-colors">Submit to Manager</button>
               </div>
             </form>
           </div>
@@ -678,7 +690,7 @@ export default function LeadPipeline() {
               setOnboardForm({
                 name: l.name || '', email: l.email || '', phone: l.phone || '',
                 fees_total: '', fees_paid: '', fees_pending: '',
-                joining_date: new Date().toISOString().split('T')[0], training_start_date: '',
+                joining_date: todayIST(), training_start_date: '',
                 course: l.course_interest || '', documents_submitted: 0, gender: 'Male', dob: ''
               });
             }}

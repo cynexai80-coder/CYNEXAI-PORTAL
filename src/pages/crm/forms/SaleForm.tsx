@@ -2,8 +2,9 @@ import React, { useState } from 'react';
 import { BottomSheet } from '../../../components/ui/erp/BottomSheet';
 import { Button } from '../../../components/ui/erp/Button';
 import { SearchableDropdown } from '../../../components/ui/erp/SearchableDropdown';
-import { recordSale, getAdmissionForLead } from '../../../lib/api/sales';
+import { recordSale, getAdmissionForLead, getCoursesForPitch, validateSaleAmounts } from '../../../lib/api/sales';
 import { getCurrentUser } from '../../../lib/auth';
+import { notify } from '../../../lib/feedback';
 
 type SaleFormProps = {
   isOpen: boolean;
@@ -19,11 +20,17 @@ export const SaleForm: React.FC<SaleFormProps> = ({ isOpen, onClose, leadId, onS
   const [referredBy, setReferredBy] = useState('');
   const [paymentMode, setPaymentMode] = useState('');
   const [activeAdmission, setActiveAdmission] = useState<any>(null);
+  const [courseOptions, setCourseOptions] = useState<{ value: string; label: string }[]>([]);
+  const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState('');
   
   const user = getCurrentUser();
 
   React.useEffect(() => {
     if (isOpen) {
+      getCoursesForPitch().then((rows: any[]) =>
+        setCourseOptions((rows || []).map(c => ({ value: String(c.id), label: String(c.title || c.id) })))
+      );
       getAdmissionForLead(leadId).then(adm => {
         if (adm) {
           setActiveAdmission(adm);
@@ -37,10 +44,24 @@ export const SaleForm: React.FC<SaleFormProps> = ({ isOpen, onClose, leadId, onS
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) return alert("Must be logged in to record a sale");
-    await recordSale(leadId, course, Number(totalFee), Number(amountPaid), activeAdmission?.id || null, user.id, referredBy || null, paymentMode);
-    onSuccess();
-    onClose();
+    if (!user) return notify("Must be logged in to record a sale");
+    if (submitting) return;
+    if (!course) { setFormError('Please select a course.'); return; }
+    const amountError = validateSaleAmounts(Number(totalFee), Number(amountPaid));
+    if (amountError) { setFormError(amountError); return; }
+    setFormError('');
+    setSubmitting(true);
+    try {
+      const saleId = await recordSale(leadId, course, Number(totalFee), Number(amountPaid), activeAdmission?.id || null, user.id, referredBy || null, paymentMode);
+      if (!saleId) {
+        setFormError('The sale could not be saved. Please try again.');
+        return;
+      }
+      onSuccess();
+      onClose();
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const paidPct = totalFee && amountPaid ? Math.min(100, (Number(amountPaid) / Number(totalFee)) * 100) : 0;
@@ -64,11 +85,7 @@ export const SaleForm: React.FC<SaleFormProps> = ({ isOpen, onClose, leadId, onS
         <div>
           <label className="block text-xs font-bold text-erp-text/70 mb-1 uppercase">Select Course</label>
           <SearchableDropdown 
-            options={[
-              { value: 'data_science', label: 'Data Science Masterclass' },
-              { value: 'full_stack', label: 'Full Stack Web Dev' },
-              { value: 'ai_ml', label: 'AI & Machine Learning' }
-            ]}
+            options={courseOptions}
             value={course} onChange={setCourse} placeholder="Course"
           />
         </div>
@@ -102,7 +119,7 @@ export const SaleForm: React.FC<SaleFormProps> = ({ isOpen, onClose, leadId, onS
           <div className="mt-2">
             <div className="flex justify-between text-xs font-bold mb-1">
               <span>Payment Progress</span>
-              <span className={paidPct >= 100 ? 'text-erp-primary' : 'text-erp-secondary'}>{paidPct.toFixed(0)}%</span>
+              <span className={paidPct >= 100 ? 'text-erp-primary' : 'text-sky-700 dark:text-erp-secondary'}>{paidPct.toFixed(0)}%</span>
             </div>
             <div className="w-full h-3 bg-erp-border rounded-full overflow-hidden">
               <div 
@@ -113,7 +130,8 @@ export const SaleForm: React.FC<SaleFormProps> = ({ isOpen, onClose, leadId, onS
           </div>
         )}
 
-        <Button type="submit" variant="primary" fullWidth className="mt-4">Submit Payment & Request Approval</Button>
+        {formError && <p className="text-red-700 dark:text-red-500 text-xs font-bold">{formError}</p>}
+        <Button type="submit" variant="primary" fullWidth className="mt-4" disabled={submitting}>{submitting ? 'Saving…' : 'Submit Payment & Request Approval'}</Button>
       </form>
     </BottomSheet>
   );

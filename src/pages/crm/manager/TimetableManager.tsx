@@ -3,6 +3,7 @@ import { Card } from '../../../components/ui/erp/Card';
 import { Button } from '../../../components/ui/erp/Button';
 import { Calendar, Users, AlertTriangle, Plus, UserX, Clock, BookOpen, AlertCircle, ChevronLeft, ChevronRight, Filter, Video, MapPin, X, Book, FileText } from 'lucide-react';
 import { getCurrentUser } from '../../../lib/auth';
+import { keyboardActivate, FOCUS_RING } from '../../../lib/a11y';
 import { 
   getGlobalTimetable, GlobalTimetableSlot, 
   getLeaveRequests, LeaveRequestData, 
@@ -11,6 +12,7 @@ import {
   getErpModules
 } from '../../../lib/api/manager';
 import { getCoursesFull } from '../../../lib/api/cms';
+import { notify, confirmDialog } from '../../../lib/feedback';
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const TIME_SLOTS = ['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00'];
@@ -138,15 +140,15 @@ export default function TimetableManager() {
   const handleSaveSlot = async () => {
     if (!editingSlot) return;
     if (!editingSlot.teacher_id) {
-      alert("Please select a teacher.");
+      notify("Please select a teacher.");
       return;
     }
     if (!editingSlot.day_of_week) {
-      alert("Please select a day of week.");
+      notify("Please select a day of week.");
       return;
     }
     if (!editingSlot.start_time) {
-      alert("Please select a start time.");
+      notify("Please select a start time.");
       return;
     }
 
@@ -169,18 +171,18 @@ export default function TimetableManager() {
         setEditingSlot(null);
         await fetchData();
       } else {
-        alert("Failed to save class slot. Please check your connection.");
+        notify("Failed to save class slot. Please check your connection.");
       }
     } catch (err: any) {
       console.error('Failed to save slot:', err);
-      alert('Error saving class: ' + (err?.message || 'Database connection error'));
+      notify('Error saving class: ' + (err?.message || 'Database connection error'));
     } finally {
       setSaving(false);
     }
   };
 
   const handleDeleteSlot = async (id: string) => {
-    if (confirm("Are you sure you want to delete this schedule slot?")) {
+    if (await confirmDialog({ title: 'Delete schedule slot', message: 'Are you sure you want to delete this schedule slot?', confirmLabel: 'Delete', danger: true })) {
       await deleteTimetableSlot(id);
       setIsSlotModalOpen(false);
       setEditingSlot(null);
@@ -236,28 +238,28 @@ export default function TimetableManager() {
         {/* Top Metrics */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
           <Card className="bg-erp-surface border border-erp-border p-4 flex items-center gap-4">
-            <div className="p-3 bg-blue-500/10 rounded-xl"><BookOpen className="w-6 h-6 text-blue-500" /></div>
+            <div className="p-3 bg-blue-500/10 rounded-xl"><BookOpen className="w-6 h-6 text-blue-700 dark:text-blue-400" /></div>
             <div>
               <p className="text-sm font-bold text-erp-text/50">Weekly Classes</p>
               <h3 className="text-2xl font-bold text-erp-text">{schedule.length}</h3>
             </div>
           </Card>
           <Card className="bg-erp-surface border border-erp-border p-4 flex items-center gap-4">
-            <div className="p-3 bg-emerald-500/10 rounded-xl"><Users className="w-6 h-6 text-emerald-500" /></div>
+            <div className="p-3 bg-emerald-500/10 rounded-xl"><Users className="w-6 h-6 text-emerald-700 dark:text-emerald-400" /></div>
             <div>
               <p className="text-sm font-bold text-erp-text/50">Active Batches</p>
               <h3 className="text-2xl font-bold text-erp-text">{new Set(schedule.map(s => s.batch_id)).size}</h3>
             </div>
           </Card>
           <Card className="bg-erp-surface border border-erp-border p-4 flex items-center gap-4">
-            <div className="p-3 bg-amber-500/10 rounded-xl"><Clock className="w-6 h-6 text-amber-500" /></div>
+            <div className="p-3 bg-amber-500/10 rounded-xl"><Clock className="w-6 h-6 text-amber-800 dark:text-amber-400" /></div>
             <div>
               <p className="text-sm font-bold text-erp-text/50">Classes Today</p>
               <h3 className="text-2xl font-bold text-erp-text">{schedule.filter(s => s.day_of_week === DAYS[new Date().getDay() === 0 ? 6 : new Date().getDay() - 1]).length}</h3>
             </div>
           </Card>
           <Card className="bg-erp-surface border border-erp-border p-4 flex items-center gap-4">
-            <div className="p-3 bg-rose-500/10 rounded-xl"><UserX className="w-6 h-6 text-rose-500" /></div>
+            <div className="p-3 bg-rose-500/10 rounded-xl"><UserX className="w-6 h-6 text-rose-700 dark:text-rose-400" /></div>
             <div>
               <p className="text-sm font-bold text-erp-text/50">Leaves Pending</p>
               <h3 className="text-2xl font-bold text-rose-600">{leaves.filter(l => l.status === 'Pending').length}</h3>
@@ -278,7 +280,7 @@ export default function TimetableManager() {
           >
             Leaves & Substitutes
             {leaves.filter(l => l.status === 'Pending' || l.status === 'Approved').length > 0 && (
-              <span className={`ml-2 text-white text-[10px] px-2 py-0.5 rounded-full font-bold ${leaves.some(l => l.status === 'Approved') ? 'bg-red-500 animate-pulse' : 'bg-yellow-500'}`}>
+              <span className={`ml-2 text-white text-[10px] px-2 py-0.5 rounded-full font-bold ${leaves.some(l => l.status === 'Approved') ? 'bg-red-600 animate-pulse' : 'bg-yellow-500 !text-black'}`}>
                 {leaves.filter(l => l.status === 'Pending' || l.status === 'Approved').length} Action Reqd
               </span>
             )}
@@ -299,14 +301,15 @@ export default function TimetableManager() {
                       d.setDate(d.getDate() - 7);
                       setCurrentWeekStart(d.toISOString().split('T')[0]);
                     }}
+                    aria-label="Previous week"
                     className="p-1.5 hover:bg-erp-primary/10 transition-colors"
                   >
-                    <ChevronLeft className="w-4 h-4 text-erp-text" />
+                    <ChevronLeft className="w-4 h-4 text-erp-text" aria-hidden="true" />
                   </button>
                   <div className="w-px h-4 bg-erp-border"></div>
                   <button 
                     onClick={() => setCurrentWeekStart(getMonday(new Date()))}
-                    className="px-3 py-1 text-xs font-bold text-erp-primary hover:bg-erp-primary/10 transition-colors"
+                    className="px-3 py-1 min-h-[24px] text-xs font-bold text-erp-primary hover:bg-erp-primary/10 transition-colors"
                   >
                     TODAY
                   </button>
@@ -317,9 +320,10 @@ export default function TimetableManager() {
                       d.setDate(d.getDate() + 7);
                       setCurrentWeekStart(d.toISOString().split('T')[0]);
                     }}
+                    aria-label="Next week"
                     className="p-1.5 hover:bg-erp-primary/10 transition-colors"
                   >
-                    <ChevronRight className="w-4 h-4 text-erp-text" />
+                    <ChevronRight className="w-4 h-4 text-erp-text" aria-hidden="true" />
                   </button>
                 </div>
               </div>
@@ -327,10 +331,11 @@ export default function TimetableManager() {
               <div className="flex flex-wrap items-center gap-3">
                 <div className="flex items-center gap-2 bg-erp-background border border-erp-border rounded-lg px-3 py-1">
                   <Book className="w-4 h-4 text-erp-text/50" />
-                  <select 
+                  <select
+                    aria-label="Filter by course"
                     value={filterCourse}
                     onChange={e => setFilterCourse(e.target.value)}
-                    className="bg-transparent text-sm font-bold text-erp-text outline-none w-32"
+                    className="bg-transparent text-sm font-bold text-erp-text outline-none w-32 min-h-[24px]"
                   >
                     <option value="">All Courses</option>
                     {courses.map(c => <option key={c.id} value={c.title}>{c.title}</option>)}
@@ -339,10 +344,11 @@ export default function TimetableManager() {
                 
                 <div className="flex items-center gap-2 bg-erp-background border border-erp-border rounded-lg px-3 py-1">
                   <FileText className="w-4 h-4 text-erp-text/50" />
-                  <select 
+                  <select
+                    aria-label="Filter by module"
                     value={filterModule}
                     onChange={e => setFilterModule(e.target.value)}
-                    className="bg-transparent text-sm font-bold text-erp-text outline-none w-32"
+                    className="bg-transparent text-sm font-bold text-erp-text outline-none w-32 min-h-[24px]"
                   >
                     <option value="">All Modules</option>
                     {modules.map(m => <option key={m.id} value={m.title}>{m.title}</option>)}
@@ -351,10 +357,11 @@ export default function TimetableManager() {
                 
                 <div className="flex items-center gap-2 bg-erp-background border border-erp-border rounded-lg px-3 py-1">
                   <Users className="w-4 h-4 text-erp-text/50" />
-                  <select 
+                  <select
+                    aria-label="Filter by teacher"
                     value={filterTeacher}
                     onChange={e => setFilterTeacher(e.target.value)}
-                    className="bg-transparent text-sm font-bold text-erp-text outline-none w-32"
+                    className="bg-transparent text-sm font-bold text-erp-text outline-none w-32 min-h-[24px]"
                   >
                     <option value="">All Teachers</option>
                     {teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
@@ -415,7 +422,7 @@ export default function TimetableManager() {
                             return (
                               <div 
                                 key={classItem.id}
-                                className={`w-full rounded-xl p-2 z-10 border-2 flex flex-col justify-between shadow-sm cursor-pointer hover:shadow-md transition-shadow
+                                className={`${FOCUS_RING} w-full rounded-xl p-2 z-10 border-2 flex flex-col justify-between shadow-sm cursor-pointer hover:shadow-md transition-shadow
                                   ${alerting 
                                     ? 'bg-red-50 dark:bg-red-950/40 border-red-500 animate-[pulse_1.5s_ease-in-out_infinite]' 
                                     : isOnline 
@@ -428,6 +435,7 @@ export default function TimetableManager() {
                                   setEditingSlot(classItem);
                                   setIsSlotModalOpen(true);
                                 }}
+                                {...keyboardActivate(() => { setEditingSlot(classItem); setIsSlotModalOpen(true); }, { asButton: true })}
                                 title={alerting ? "URGENT: Teacher absent!" : ""}
                               >
                                 <div className="flex-1 overflow-hidden">
@@ -487,7 +495,7 @@ export default function TimetableManager() {
                     <td className="p-4 text-sm font-medium text-erp-text/80">{leave.reason}</td>
                     <td className="p-4">
                       <span className={`px-3 py-1 rounded-full text-[10px] uppercase font-bold tracking-wide flex items-center gap-1.5 w-fit ${
-                        leave.status === 'Approved' ? 'bg-red-100 text-red-700 dark:text-white animate-pulse border border-red-200' :
+                        leave.status === 'Approved' ? 'bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-white animate-pulse border border-red-200' :
                         leave.status === 'Substitute Assigned' ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' :
                         'bg-amber-100 text-amber-700 border border-amber-200'
                       }`}>
@@ -497,12 +505,12 @@ export default function TimetableManager() {
                     </td>
                     <td className="p-4">
                       {leave.status === 'Pending' && (
-                        <Button size="sm" onClick={() => handleApproveLeave(leave.id)} className="bg-amber-500 hover:bg-amber-600 text-white">Approve Leave</Button>
+                        <Button size="sm" onClick={() => handleApproveLeave(leave.id)} className="bg-amber-500 hover:bg-amber-400 !text-black">Approve Leave</Button>
                       )}
                       {leave.status === 'Approved' && (
                         <Button 
                           size="sm" 
-                          className="bg-rose-500 hover:bg-rose-600 text-white shadow-[2px_2px_0px_0px_rgba(0,0,0,0.1)]"
+                          className="bg-rose-600 hover:bg-rose-700 text-white shadow-[2px_2px_0px_0px_rgba(0,0,0,0.1)]"
                           onClick={() => { setSelectedLeave(leave); setIsAssignModalOpen(true); }}
                         >
                           Assign Sub
@@ -610,7 +618,7 @@ export default function TimetableManager() {
 
                       const bObj = batches.find(b => b.id === bId);
                       // Determine course name to assign batch under
-                      let activeCourse = selectedCourses.find(c => courses.some(co => co.title === c));
+                      let activeCourse: string = selectedCourses.find(c => courses.some(co => co.title === c)) || '';
                       if (!activeCourse) {
                         const matchingCourse = courses.find(c => c.id === bObj?.course_id || c.title === bObj?.course_id);
                         activeCourse = matchingCourse ? matchingCourse.title : (courses[0]?.title || 'General');

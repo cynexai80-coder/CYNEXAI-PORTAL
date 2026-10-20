@@ -6,6 +6,7 @@ import { getTeacherCMSModules, getClassesForModules, createClass, updateClassMat
 import { generateAIMaterials } from '../../lib/aiGenerator';
 import { getCurrentUser } from '../../lib/auth';
 import { useNavigate } from 'react-router-dom';
+import { notify } from '../../lib/feedback';
 
 export default function TeacherCMS() {
   const [modules, setModules] = useState<any[]>([]);
@@ -70,7 +71,7 @@ export default function TeacherCMS() {
       await fetchModules();
     } catch (err) {
       console.error(err);
-      alert('Failed to generate materials. Please try again.');
+      notify('Failed to generate materials. Please try again.');
     } finally {
       setGeneratingForClass(null);
     }
@@ -101,7 +102,7 @@ export default function TeacherCMS() {
           </div>
           {modules.length > 0 && (
             <select
-              value={selectedModuleId}
+              aria-label="Filter by module" value={selectedModuleId}
               onChange={(e) => setSelectedModuleId(e.target.value)}
               className="bg-erp-surface border border-erp-border text-erp-text rounded-lg px-4 py-2 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
@@ -114,7 +115,7 @@ export default function TeacherCMS() {
         </div>
 
         {modules.length === 0 ? (
-          <div className="bg-white dark:bg-black/5 border border-white/10 rounded-2xl p-12 text-center">
+          <div className="bg-white/5 border border-white/10 rounded-2xl p-12 text-center">
             <BookOpen className="w-12 h-12 text-erp-text/30 mx-auto mb-4" />
             <h2 className="text-xl font-bold text-erp-text mb-2">No modules assigned</h2>
             <p className="text-erp-text/50">Please contact the manager to assign modules to your account.</p>
@@ -167,7 +168,7 @@ export default function TeacherCMS() {
                             <div className="flex items-center gap-2">
                               <span className="font-bold text-sm text-slate-800 dark:text-white">{cls.title}</span>
                               {cls.status === 'in_progress' && (
-                                <span className="bg-red-500 text-white text-[9px] font-extrabold px-1.5 py-0.5 rounded uppercase tracking-wider animate-pulse">
+                                <span className="bg-red-600 text-white text-[9px] font-extrabold px-1.5 py-0.5 rounded uppercase tracking-wider animate-pulse">
                                   Live Now
                                 </span>
                               )}

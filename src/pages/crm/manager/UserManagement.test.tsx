@@ -46,7 +46,7 @@ describe('UserManagement', () => {
     expect(screen.getByText('Name')).toBeInTheDocument();
     expect(screen.getByText('Email')).toBeInTheDocument();
     expect(screen.getByText('Role')).toBeInTheDocument();
-    expect(screen.getByText('Salary')).toBeInTheDocument();
+    expect(screen.getByText('Salary (₹)')).toBeInTheDocument();
   });
 
   it('fetches users with sortBy and sortDir state', async () => {

@@ -5,6 +5,7 @@ import { Settings, Award, Flame, Zap, Database, ArrowRight } from 'lucide-react'
 import { client } from '../../../lib/turso';
 
 import { getGamificationSettings, updateGamificationSetting, awardCoinsManually, GameSetting } from '../../../lib/api/gamification';
+import { notify } from '../../../lib/feedback';
 
 export default function GamificationSettings() {
   const [settings, setSettings] = useState<GameSetting[]>([]);
@@ -80,11 +81,11 @@ export default function GamificationSettings() {
     if (!targetStudentId || rewardAmount <= 0) return;
     try {
       await awardCoinsManually(targetStudentId, rewardAmount);
-      alert(`Successfully awarded ${rewardAmount} coins to student!`);
+      notify(`Successfully awarded ${rewardAmount} coins to student!`);
       setTargetStudentId('');
     } catch (e) {
       console.error("Failed to manual reward", e);
-      alert("Failed to award coins. Please check the student ID.");
+      notify("Failed to award coins. Please check the student ID.");
     }
   };
 
@@ -121,13 +122,17 @@ export default function GamificationSettings() {
                       </div>
                       
                       <div className="flex items-center gap-4">
-                        <input 
-                          type="number" 
+                        <input
+                          type="number"
                           value={setting.reward_amount}
                           onChange={(e) => updateReward(setting.task_type, Number(e.target.value))}
-                          className="w-20 bg-erp-surface border border-erp-border rounded-lg px-2 py-1 text-sm text-erp-text text-center focus:outline-none"
+                          aria-label={`${setting.task_type.replace(/_/g, ' ')} coin amount`}
+                          className="w-20 bg-erp-surface border border-erp-border rounded-lg px-2 py-1 text-sm text-erp-text text-center focus:outline-none focus-visible:ring-2 focus-visible:ring-erp-primary"
                         />
-                        <button 
+                        <button
+                          role="switch"
+                          aria-checked={!!setting.is_enabled}
+                          aria-label={`Enable ${setting.task_type.replace(/_/g, ' ')}`}
                           onClick={() => toggleSetting(setting.task_type, setting.is_enabled)}
                           className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${setting.is_enabled ? 'bg-green-500' : 'bg-slate-700'}`}
                         >
@@ -148,9 +153,10 @@ export default function GamificationSettings() {
               </h2>
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-bold text-white/70 mb-2">Student ID / Code</label>
-                  <input 
-                    type="text" 
+                  <label htmlFor="manual-reward-student" className="block text-sm font-bold text-white/70 mb-2">Student ID / Code</label>
+                  <input
+                    id="manual-reward-student"
+                    type="text"
                     value={targetStudentId}
                     onChange={(e) => setTargetStudentId(e.target.value)}
                     placeholder="e.g. CNX-2026-0001"
@@ -158,9 +164,10 @@ export default function GamificationSettings() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-bold text-white/70 mb-2">Coins to Award</label>
-                  <input 
-                    type="number" 
+                  <label htmlFor="manual-reward-coins" className="block text-sm font-bold text-white/70 mb-2">Coins to Award</label>
+                  <input
+                    id="manual-reward-coins"
+                    type="number"
                     value={rewardAmount}
                     onChange={(e) => setRewardAmount(Number(e.target.value))}
                     className="w-full bg-black/30 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none"

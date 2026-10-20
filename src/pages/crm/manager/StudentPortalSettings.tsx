@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { safeLink } from '../../../lib/urlUtils';
 import {
   Settings, Bell, Briefcase, FileText, ToggleLeft, ToggleRight,
   Plus, Trash2, Check, Loader2, Upload, ExternalLink,
@@ -51,7 +52,7 @@ function SectionHeader({ icon: Icon, title, desc }: { icon: any; title: string; 
 function SaveToast({ show }: { show: boolean }) {
   if (!show) return null;
   return (
-    <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-3 rounded-2xl bg-emerald-500 text-white font-bold text-sm shadow-xl animate-in fade-in slide-in-from-bottom-2">
+    <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-3 rounded-2xl bg-emerald-700 text-white font-bold text-sm shadow-xl animate-in fade-in slide-in-from-bottom-2">
       <Check className="w-4 h-4" /> Saved!
     </div>
   );
@@ -228,12 +229,15 @@ export default function StudentPortalSettings() {
                     </div>
                   </div>
                   <button
+                    role="switch"
+                    aria-checked={isOn}
+                    aria-label={flag.label}
                     onClick={() => toggleFeature(flag.key)}
-                    className="flex-shrink-0 transition-transform hover:scale-105"
+                    className="flex-shrink-0 transition-transform hover:scale-105 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-erp-primary"
                   >
                     {isOn
-                      ? <ToggleRight className="w-8 h-8 text-erp-primary" />
-                      : <ToggleLeft className="w-8 h-8 text-erp-text/30" />
+                      ? <ToggleRight className="w-8 h-8 text-erp-primary" aria-hidden="true" />
+                      : <ToggleLeft className="w-8 h-8 text-erp-text/30" aria-hidden="true" />
                     }
                   </button>
                 </div>
@@ -330,7 +334,7 @@ export default function StudentPortalSettings() {
                       <p className="text-sm font-bold text-erp-text">{job.title}</p>
                       <p className="text-erp-text/50 text-xs mt-0.5">{job.company} {job.location && `· ${job.location}`}</p>
                       {job.source_url && (
-                        <a href={job.source_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[11px] text-erp-primary/70 mt-1 hover:text-erp-primary">
+                        <a href={safeLink(job.source_url)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[11px] text-erp-primary/70 mt-1 hover:text-erp-primary">
                           <ExternalLink className="w-3 h-3" /> Apply Link
                         </a>
                       )}
@@ -397,7 +401,7 @@ export default function StudentPortalSettings() {
                       <div className="flex items-center gap-2 mt-1">
                         <span className="text-[10px] font-bold uppercase tracking-wider text-erp-primary/50">{mat.material_type}</span>
                         {mat.file_url && (
-                          <a href={mat.file_url} target="_blank" rel="noopener noreferrer" className="text-[11px] text-erp-primary/60 hover:text-erp-primary flex items-center gap-1">
+                          <a href={safeLink(mat.file_url)} target="_blank" rel="noopener noreferrer" className="text-[11px] text-erp-primary/60 hover:text-erp-primary flex items-center gap-1">
                             <ExternalLink className="w-3 h-3" /> Preview
                           </a>
                         )}

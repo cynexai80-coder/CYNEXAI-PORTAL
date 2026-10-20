@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { getEmployeeReports, getProjectHierarchyReport, EmployeeReport } from '../../../lib/api/reports';
+import { keyboardActivate, FOCUS_RING } from '../../../lib/a11y';
 import { getAllTasks, Task } from '../../../lib/api/tasks';
 import { StaffAttendanceModal } from '../../../components/crm/attendance/StaffAttendanceModal';
 import {
@@ -7,7 +8,8 @@ import {
   ChevronDown, ChevronRight, Calendar, Filter, RefreshCw,
   Shield, User, Star, Briefcase, CheckCircle2, Circle,
   Loader2, BarChart2
-} from 'lucide-react';
+} from 'lucide-react';
+import { todayIST } from '../../../lib/dateUtils';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 const fmtMin = (mins: number) => {
@@ -17,22 +19,22 @@ const fmtMin = (mins: number) => {
 };
 
 const PRIORITY_PILL: Record<string, string> = {
-  Urgent: 'bg-red-100 text-red-700 dark:text-white border border-red-200',
+  Urgent: 'bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-white border border-red-200',
   High: 'bg-orange-100 text-orange-700 border border-orange-200',
-  Medium: 'bg-blue-100 text-blue-700 dark:text-white border border-blue-200',
+  Medium: 'bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-white border border-blue-200',
   Low: 'bg-slate-100 dark:bg-zinc-900/50 text-slate-600 border border-slate-200 dark:border-white/10',
 };
 
 const STATUS_PILL: Record<string, string> = {
   'To Do': 'bg-slate-100 dark:bg-zinc-900/50 text-slate-600',
-  'In Progress': 'bg-blue-100 text-blue-700 dark:text-white',
+  'In Progress': 'bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-white',
   'Review': 'bg-purple-100 text-purple-700',
   'Done': 'bg-emerald-100 text-emerald-700',
 };
 
 const ROLE_BADGE: Record<string, string> = {
   CEO: 'bg-amber-100 text-amber-700 border border-amber-200',
-  Manager: 'bg-blue-100 text-blue-700 dark:text-white border border-blue-200',
+  Manager: 'bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-white border border-blue-200',
   'Sales/HR': 'bg-emerald-100 text-emerald-700 border border-emerald-200',
   Teacher: 'bg-purple-100 text-purple-700 border border-purple-200',
   DM: 'bg-pink-100 text-pink-700 border border-pink-200',
@@ -53,7 +55,7 @@ function StatCard({ label, value, icon, color }: { label: string; value: string 
 
 // ── Task Mini Card ─────────────────────────────────────────────────────────────
 function TaskMiniCard({ task }: { task: Task }) {
-  const today = new Date().toISOString().split('T')[0];
+  const today = todayIST();
   const isOverdue = task.due_date && task.due_date < today && task.status !== 'Done';
 
   return (
@@ -63,7 +65,7 @@ function TaskMiniCard({ task }: { task: Task }) {
         <p className={`text-xs font-semibold truncate ${task.status === 'Done' ? 'line-through text-erp-text/40' : 'text-erp-text'}`}>{task.title}</p>
         <div className="flex flex-wrap items-center gap-2 mt-0.5">
           {task.due_date && (
-            <span className={`text-[10px] font-bold ${isOverdue ? 'text-red-500' : 'text-erp-text/40'}`}>
+            <span className={`text-[10px] font-bold ${isOverdue ? 'text-red-700 dark:text-red-500' : 'text-erp-text/40'}`}>
               {isOverdue ? '⚠ ' : ''}{new Date(task.due_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
             </span>
           )}
@@ -76,7 +78,7 @@ function TaskMiniCard({ task }: { task: Task }) {
         </div>
       </div>
       <div className="flex items-center gap-1.5 flex-shrink-0">
-        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${PRIORITY_PILL[task.priority] || 'bg-slate-100 dark:bg-zinc-900/50 text-slate-500'}`}>{task.priority}</span>
+        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${PRIORITY_PILL[task.priority] || 'bg-slate-100 dark:bg-zinc-900/50 text-slate-600'}`}>{task.priority}</span>
         <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${STATUS_PILL[task.status] || ''}`}>{task.status}</span>
       </div>
     </div>
@@ -100,12 +102,14 @@ function EmployeeRow({ report, rank, allTasks, dateFrom, dateTo, onOpenCalendar 
   const doneTasks = myTasks.filter(t => t.status === 'Done');
   const activeTasks = myTasks.filter(t => t.status !== 'Done');
 
-  const rankColor = rank === 1 ? 'text-amber-500' : rank === 2 ? 'text-slate-400' : rank === 3 ? 'text-amber-700' : 'text-erp-text/30';
+  const rankColor = rank === 1 ? 'text-amber-700 dark:text-amber-400' : rank === 2 ? 'text-slate-600 dark:text-slate-300' : rank === 3 ? 'text-orange-700 dark:text-orange-400' : 'text-erp-text/60';
 
   return (
     <>
       <tr
-        className="border-b border-erp-border/40 hover:bg-erp-primary/5 cursor-pointer transition-colors"
+        className={`border-b border-erp-border/40 hover:bg-erp-primary/5 cursor-pointer transition-colors ${FOCUS_RING}`}
+        aria-expanded={expanded}
+        {...keyboardActivate(() => setExpanded(!expanded))}
         onClick={() => setExpanded(!expanded)}
       >
         <td className="px-4 py-3.5">
@@ -118,7 +122,7 @@ function EmployeeRow({ report, rank, allTasks, dateFrom, dateTo, onOpenCalendar 
             </div>
             <div>
               <p className="font-bold text-erp-text text-sm">{report.user_name}</p>
-              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${ROLE_BADGE[report.user_role] || 'bg-slate-100 dark:bg-zinc-900/50 text-slate-500'}`}>
+              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${ROLE_BADGE[report.user_role] || 'bg-slate-100 dark:bg-zinc-900/50 text-slate-600'}`}>
                 {report.user_role}
               </span>
             </div>
@@ -141,7 +145,7 @@ function EmployeeRow({ report, rank, allTasks, dateFrom, dateTo, onOpenCalendar 
             {report.logout_time ? (
               <span className="text-[10px] text-erp-text/40">{new Date(report.logout_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
             ) : report.login_time ? (
-              <span className="text-[9px] font-black text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 rounded-full mt-0.5 inline-block">Active</span>
+              <span className="text-[9px] font-black text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 px-2 py-0.5 rounded-full mt-0.5 inline-block">Active</span>
             ) : null}
             {onOpenCalendar && (
               <button
@@ -150,7 +154,7 @@ function EmployeeRow({ report, rank, allTasks, dateFrom, dateTo, onOpenCalendar 
                   e.stopPropagation();
                   onOpenCalendar(report);
                 }}
-                className="mt-1 flex items-center gap-1 text-[10px] font-bold text-blue-600 hover:text-blue-700 bg-blue-500/10 hover:bg-blue-500/20 px-2 py-0.5 rounded-md transition-colors cursor-pointer"
+                className="mt-1 flex items-center gap-1 text-[10px] font-bold text-blue-700 dark:text-blue-400 hover:text-blue-700 bg-blue-500/10 hover:bg-blue-500/20 px-2 min-h-[24px] rounded-md transition-colors cursor-pointer"
                 title="Open Staff Attendance Calendar"
               >
                 <Calendar className="w-2.5 h-2.5" />
@@ -160,12 +164,12 @@ function EmployeeRow({ report, rank, allTasks, dateFrom, dateTo, onOpenCalendar 
           </div>
         </td>
         <td className="px-4 py-3.5 text-center">
-          <span className={`font-bold text-sm ${report.tasks_overdue > 0 ? 'text-red-500' : 'text-erp-text/30'}`}>
+          <span className={`font-bold text-sm ${report.tasks_overdue > 0 ? 'text-red-700 dark:text-red-500' : 'text-erp-text/30'}`}>
             {report.tasks_overdue > 0 ? report.tasks_overdue : '—'}
           </span>
         </td>
         <td className="px-4 py-3.5 text-center">
-          <span className={`font-bold text-sm ${report.conversions > 0 ? 'text-emerald-600' : 'text-erp-text/30'}`}>
+          <span className={`font-bold text-sm ${report.conversions > 0 ? 'text-emerald-700 dark:text-emerald-600' : 'text-erp-text/30'}`}>
             {report.conversions > 0 ? report.conversions : '—'}
           </span>
         </td>
@@ -177,7 +181,7 @@ function EmployeeRow({ report, rank, allTasks, dateFrom, dateTo, onOpenCalendar 
             <span className={`text-xs font-bold px-2 py-1 rounded-full ${
               report.completion_rate >= 80 ? 'bg-emerald-100 text-emerald-700' :
               report.completion_rate >= 50 ? 'bg-amber-100 text-amber-700' :
-              'bg-red-100 text-red-600'
+              'bg-red-100 text-red-700'
             }`}>{report.completion_rate}%</span>
             {expanded ? <ChevronDown className="w-4 h-4 text-erp-text/40" /> : <ChevronRight className="w-4 h-4 text-erp-text/40" />}
           </div>
@@ -191,11 +195,11 @@ function EmployeeRow({ report, rank, allTasks, dateFrom, dateTo, onOpenCalendar 
             <div className="grid grid-cols-2 sm:grid-cols-6 gap-2 mb-4">
               <div className="bg-erp-surface border border-erp-border rounded-xl p-3 text-center">
                 <p className="text-[10px] text-erp-text/40 font-bold uppercase mb-1">In Progress</p>
-                <p className="text-lg font-black text-blue-600">{report.tasks_in_progress}</p>
+                <p className="text-lg font-black text-blue-700 dark:text-blue-400">{report.tasks_in_progress}</p>
               </div>
               <div className="bg-erp-surface border border-erp-border rounded-xl p-3 text-center">
                 <p className="text-[10px] text-erp-text/40 font-bold uppercase mb-1">Overdue</p>
-                <p className={`text-lg font-black ${report.tasks_overdue > 0 ? 'text-red-500' : 'text-erp-text/30'}`}>{report.tasks_overdue}</p>
+                <p className={`text-lg font-black ${report.tasks_overdue > 0 ? 'text-red-700 dark:text-red-500' : 'text-erp-text/30'}`}>{report.tasks_overdue}</p>
               </div>
               <div className="bg-erp-surface border border-erp-border rounded-xl p-3 text-center">
                 <p className="text-[10px] text-erp-text/40 font-bold uppercase mb-1">Time Logged</p>
@@ -203,7 +207,7 @@ function EmployeeRow({ report, rank, allTasks, dateFrom, dateTo, onOpenCalendar 
               </div>
               <div className="bg-erp-surface border border-erp-border rounded-xl p-3 text-center">
                 <p className="text-[10px] text-erp-text/40 font-bold uppercase mb-1">Conversions</p>
-                <p className="text-lg font-black text-emerald-600">{report.conversions}</p>
+                <p className="text-lg font-black text-emerald-700 dark:text-emerald-600">{report.conversions}</p>
               </div>
               <div className="bg-erp-surface border border-erp-border rounded-xl p-3 text-center">
                 <p className="text-[10px] text-erp-text/40 font-bold uppercase mb-1">Subtasks Done</p>
@@ -211,7 +215,7 @@ function EmployeeRow({ report, rank, allTasks, dateFrom, dateTo, onOpenCalendar 
               </div>
               <div className="bg-erp-surface border border-erp-border rounded-xl p-3 text-center">
                 <p className="text-[10px] text-erp-text/40 font-bold uppercase mb-1">Missed Daily</p>
-                <p className={`text-lg font-black ${report.daily_tasks_missed > 0 ? 'text-red-500' : 'text-erp-text/30'}`}>{report.daily_tasks_missed}</p>
+                <p className={`text-lg font-black ${report.daily_tasks_missed > 0 ? 'text-red-700 dark:text-red-500' : 'text-erp-text/30'}`}>{report.daily_tasks_missed}</p>
               </div>
             </div>
 
@@ -291,7 +295,7 @@ function ProjectHierarchyCard({ group }: { group: ProjectGroup }) {
       >
         <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: group.project_color || '#6366f1' }} />
         <span className="font-bold text-erp-text flex-1">{group.project_name}</span>
-        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${group.project_status === 'Active' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-slate-50 dark:bg-zinc-900/50 text-slate-500 border-slate-200 dark:border-white/10'}`}>
+        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${group.project_status === 'Active' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-slate-50 dark:bg-zinc-900/50 text-slate-600 border-slate-200 dark:border-white/10'}`}>
           {group.project_status}
         </span>
         <div className="flex items-center gap-1 text-erp-text/40 text-xs">
@@ -440,10 +444,10 @@ export default function ReportsPage() {
           <>
             {/* Stats */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <StatCard label="Total Calls" value={totalCalls} icon={<Phone className="w-5 h-5 text-sky-600" />} color="bg-sky-50 border-2 border-sky-100" />
+              <StatCard label="Total Calls" value={totalCalls} icon={<Phone className="w-5 h-5 text-sky-700" />} color="bg-sky-50 border-2 border-sky-100" />
               <StatCard label="Total Tasks" value={totalTasks} icon={<CheckSquare className="w-5 h-5 text-indigo-600" />} color="bg-indigo-50 border-2 border-indigo-100" />
-              <StatCard label="Conversions" value={totalConversions} icon={<TrendingUp className="w-5 h-5 text-emerald-600" />} color="bg-emerald-50 border-2 border-emerald-100" />
-              <StatCard label="Avg Completion" value={`${avgCompletion}%`} icon={<Award className="w-5 h-5 text-amber-600" />} color="bg-amber-50 border-2 border-amber-100" />
+              <StatCard label="Conversions" value={totalConversions} icon={<TrendingUp className="w-5 h-5 text-emerald-700" />} color="bg-emerald-50 border-2 border-emerald-100" />
+              <StatCard label="Avg Completion" value={`${avgCompletion}%`} icon={<Award className="w-5 h-5 text-amber-800" />} color="bg-amber-50 border-2 border-amber-100" />
             </div>
 
             {/* Filters */}
@@ -453,7 +457,7 @@ export default function ReportsPage() {
                   setDateFrom(''); setDateTo('');
                 }} className="text-xs font-bold px-3 py-1.5 rounded-lg bg-erp-surface hover:bg-erp-primary/10">All Time</button>
                 <button onClick={() => {
-                  const t = new Date().toISOString().split('T')[0];
+                  const t = todayIST();
                   setDateFrom(t); setDateTo(t);
                 }} className="text-xs font-bold px-3 py-1.5 rounded-lg bg-erp-surface hover:bg-erp-primary/10">Today</button>
                 <button onClick={() => {
@@ -463,17 +467,17 @@ export default function ReportsPage() {
                 }} className="text-xs font-bold px-3 py-1.5 rounded-lg bg-erp-surface hover:bg-erp-primary/10">Yesterday</button>
               </div>
               <Calendar className="w-4 h-4 text-erp-text/40 flex-shrink-0" />
-              <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
+              <input type="date" aria-label="From date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
                 className="bg-erp-surface border border-erp-border rounded-xl px-3 py-1.5 text-sm text-erp-text outline-none font-medium" />
               <span className="text-erp-text/30 font-bold">—</span>
-              <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
+              <input type="date" aria-label="To date" value={dateTo} onChange={e => setDateTo(e.target.value)}
                 className="bg-erp-surface border border-erp-border rounded-xl px-3 py-1.5 text-sm text-erp-text outline-none font-medium" />
-              <select value={roleFilter} onChange={e => setRoleFilter(e.target.value)}
+              <select aria-label="Filter by role" value={roleFilter} onChange={e => setRoleFilter(e.target.value)}
                 className="bg-erp-surface border border-erp-border rounded-xl px-3 py-1.5 text-sm text-erp-text outline-none font-medium">
                 <option value="">All Roles</option>
                 {roles.map(r => <option key={r} value={r}>{r}</option>)}
               </select>
-              <select value={sortBy as string} onChange={e => setSortBy(e.target.value as any)}
+              <select aria-label="Sort report by" value={sortBy as string} onChange={e => setSortBy(e.target.value as any)}
                 className="bg-erp-surface border border-erp-border rounded-xl px-3 py-1.5 text-sm text-erp-text outline-none font-medium">
                 <option value="completion_rate">Sort: Completion Rate</option>
                 <option value="total_calls">Sort: Calls</option>

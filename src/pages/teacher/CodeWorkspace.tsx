@@ -103,9 +103,9 @@ export const CodeWorkspace: React.FC = () => {
         
         {isDrawMode && (
           <div className="flex items-center gap-1.5 bg-black/20 px-3 py-1 rounded-lg">
-            <button onClick={() => setDrawTool('pen')} className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors ${drawTool === 'pen' ? 'bg-indigo-600' : 'bg-white dark:bg-black/5 hover:bg-white dark:bg-black/10'}`}><Pencil className="w-3.5 h-3.5" /></button>
-            <button onClick={() => setDrawTool('eraser')} className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors ${drawTool === 'eraser' ? 'bg-indigo-600' : 'bg-white dark:bg-black/5 hover:bg-white dark:bg-black/10'}`}><Eraser className="w-3.5 h-3.5" /></button>
-            <div className="w-px h-4 bg-white dark:bg-black/10 mx-1" />
+            <button onClick={() => setDrawTool('pen')} className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors ${drawTool === 'pen' ? 'bg-indigo-600' : 'bg-white/5 hover:bg-white/10'}`}><Pencil className="w-3.5 h-3.5" /></button>
+            <button onClick={() => setDrawTool('eraser')} className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors ${drawTool === 'eraser' ? 'bg-indigo-600' : 'bg-white/5 hover:bg-white/10'}`}><Eraser className="w-3.5 h-3.5" /></button>
+            <div className="w-px h-4 bg-white/10 mx-1" />
             {['#ef4444', '#22c55e', '#3b82f6', '#facc15', '#ffffff'].map(c => (
               <button key={c} onClick={() => { setDrawColor(c); setDrawTool('pen'); }} className="w-5 h-5 rounded-full border-2 transition-all hover:scale-110" style={{ backgroundColor: c, borderColor: drawColor === c ? 'white' : 'transparent' }} />
             ))}
@@ -159,7 +159,7 @@ export const CodeWorkspace: React.FC = () => {
           <Button
             onClick={runCode}
             disabled={isExecuting}
-            className="h-8 px-4 text-xs font-bold bg-green-600 hover:bg-green-500 text-white"
+            className="h-8 px-4 text-xs font-bold bg-green-700 hover:bg-green-800 text-white"
           >
             {isExecuting ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-2" /> : <Play className="w-3.5 h-3.5 mr-2" />}
             {isExecuting ? 'Running...' : 'Run Code'}

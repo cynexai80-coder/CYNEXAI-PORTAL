@@ -7,7 +7,9 @@ import {
   BookOpen, ChevronRight, Play, RefreshCw, Trophy, Star, AlertCircle, 
   ArrowLeft, Search, Filter, Layers, Terminal, Check, X, Zap, Cpu
 } from 'lucide-react';
+import { gradePython, formatGrade, parseTestCases } from '../../lib/pyGrader';
 import { PythonEditor } from '../../components/ui/erp/PythonEditor';
+import { notify } from '../../lib/feedback';
 
 interface QuizQuestion {
   id: string;
@@ -146,8 +148,8 @@ export default function QuizzesPage() {
           order_index: cls.order_index,
           isUnlocked: state.isUnlocked,
           isCompleted: state.isCompleted,
-          mcqCount: mcqs.length > 0 ? mcqs.length : 4,
-          codingCount: codings.length > 0 ? codings.length : 2,
+          mcqCount: mcqs.length,
+          codingCount: codings.length,
           questions: questionsForClass,
         };
       });
@@ -253,36 +255,17 @@ export default function QuizzesPage() {
     fetchQuizzesData();
   };
 
-  const handleRunCode = () => {
+  const handleRunCode = async () => {
     if (!activeQuizClass) return;
     const codingQs = activeQuizClass.questions.filter(q => q.type === 'coding' || q.type === 'code');
     const currentQ = codingQs[activeCodeQIdx];
-    
-    let testCases: any[] = [];
-    if (currentQ?.test_cases_json) {
-      try { testCases = JSON.parse(currentQ.test_cases_json); } catch {}
-    }
+    const testCases = parseTestCases(currentQ?.test_cases_json);
 
-    if (testCases.length === 0) {
-      testCases = [
-        { input: "[10, 20, 30]", expected: "60", desc: "Test Case 1: Standard Numeric Processing" },
-        { input: "'cynexai'", expected: "CYNEXAI", desc: "Test Case 2: String Formatting Verification" }
-      ];
-    }
-
-    let logLines = [`⚡ Running Python 3.11 Automated Verification Engine...`, `──────────────────────────────────────────────────`];
-    let allPassed = true;
-
-    testCases.forEach((tc, idx) => {
-      logLines.push(`✔ Test Case ${idx + 1}: ${tc.desc || 'Validation'}`);
-      logLines.push(`  Input: ${tc.input} ➔ Expected Output: ${tc.expected} ➔ PASSED (0.01s)`);
-    });
-
-    logLines.push(`──────────────────────────────────────────────────`);
-    logLines.push(`🎉 ALL ${testCases.length} TEST CASES PASSED SUCCESSFULLY! Solution verified.`);
-
-    setCodeOutput(logLines.join('\n'));
-    setCodeSuccess(true);
+    setCodeOutput('⏳ Loading Python runtime and running your code…');
+    setCodeSuccess(false);
+    const graded = await gradePython(userCode, testCases);
+    setCodeOutput(formatGrade(graded));
+    setCodeSuccess(graded.allPassed);
   };
 
   const handleSubmitCode = async () => {
@@ -292,16 +275,19 @@ export default function QuizzesPage() {
       const codingQs = activeQuizClass.questions.filter(q => q.type === 'coding' || q.type === 'code');
       const currentQ = codingQs[activeCodeQIdx];
       const qId = currentQ?.id || `code_${activeQuizClass.id}_${activeCodeQIdx}`;
+      const gradedSubmit = await gradePython(userCode, parseTestCases(currentQ?.test_cases_json));
+      const submitCorrect = gradedSubmit.allPassed ? 1 : 0;
 
       await executeWithRetry(
         `INSERT OR REPLACE INTO qa_responses (id, student_id, class_id, question_id, answer_text, is_correct, created_at)
-         VALUES (?, ?, ?, ?, ?, 1, ?)`,
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
         [
           `qr_code_${Date.now()}`,
           studentId,
           activeQuizClass.id,
           qId,
           userCode,
+          submitCorrect,
           new Date().toISOString()
         ]
       ).catch(() => {});
@@ -328,10 +314,10 @@ export default function QuizzesPage() {
         ).catch(() => {});
       }
 
-      alert('🎉 Solution verified and submitted successfully!');
+      if (submitCorrect) notify.success('🎉 All test cases passed — solution submitted!'); else notify.warning('Solution submitted, but not all test cases passed yet. Review the output and try again.');
       fetchQuizzesData();
     } catch {
-      alert('Failed to save code submission.');
+      notify('Failed to save code submission.');
     } finally {
       setSubmittingCode(false);
     }
@@ -371,7 +357,7 @@ export default function QuizzesPage() {
           <div className="w-12 h-12 rounded-2xl bg-blue-600/10 border border-blue-500/30 flex items-center justify-center text-blue-500 animate-spin">
             <Cpu className="w-6 h-6" />
           </div>
-          <p className="text-xs font-black uppercase tracking-widest text-slate-400">Loading Assessment Hub...</p>
+          <p className="text-xs font-black uppercase tracking-widest text-slate-600 dark:text-slate-400">Loading Assessment Hub...</p>
         </div>
       </div>
     );
@@ -403,7 +389,7 @@ export default function QuizzesPage() {
                   <Trophy className="w-4 h-4 text-yellow-400" /> Completed
                 </div>
                 <div className="text-3xl font-black text-white">{totalCompleted}</div>
-                <div className="text-[10px] text-slate-500 font-bold mt-0.5">Lessons Solved</div>
+                <div className="text-[10px] text-slate-400 font-bold mt-0.5">Lessons Solved</div>
               </div>
 
               <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-4 text-center">
@@ -411,7 +397,7 @@ export default function QuizzesPage() {
                   <Sparkles className="w-4 h-4 text-blue-400" /> Unlocked
                 </div>
                 <div className="text-3xl font-black text-blue-400">{totalUnlocked}</div>
-                <div className="text-[10px] text-slate-500 font-bold mt-0.5">Ready to Attempt</div>
+                <div className="text-[10px] text-slate-400 font-bold mt-0.5">Ready to Attempt</div>
               </div>
 
               <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-4 text-center col-span-2 sm:col-span-1">
@@ -419,7 +405,7 @@ export default function QuizzesPage() {
                   <Award className="w-4 h-4 text-emerald-400" /> Assessments
                 </div>
                 <div className="text-3xl font-black text-emerald-400">{classesWithQuizzes.length * 6}</div>
-                <div className="text-[10px] text-slate-500 font-bold mt-0.5">MCQs & Coding Items</div>
+                <div className="text-[10px] text-slate-400 font-bold mt-0.5">MCQs & Coding Items</div>
               </div>
             </div>
           </div>
@@ -432,11 +418,11 @@ export default function QuizzesPage() {
             
             {/* 1. Module Filter Dropdown */}
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-600 dark:text-blue-400 flex items-center justify-center flex-shrink-0">
+              <div className="w-9 h-9 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-700 dark:text-blue-400 flex items-center justify-center flex-shrink-0">
                 <Layers className="w-4 h-4" />
               </div>
               <div className="flex-1 min-w-[200px]">
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">Module Filter</label>
+                <label className="block text-[10px] font-black text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-1">Module Filter</label>
                 <select
                   value={selectedModule}
                   onChange={(e) => setSelectedModule(e.target.value)}
@@ -491,7 +477,7 @@ export default function QuizzesPage() {
                 >
                   <Icon className="w-3.5 h-3.5" />
                   <span>{f.label}</span>
-                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-extrabold ${active ? 'bg-white/20 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-300'}`}>
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-extrabold ${active ? 'bg-black/25 text-white' : 'bg-slate-200 dark:bg-slate-700 text-zinc-700 dark:text-zinc-100'}`}>
                     {f.count}
                   </span>
                 </button>
@@ -533,7 +519,7 @@ export default function QuizzesPage() {
                       {item.module_title}
                     </span>
                     {item.isCompleted ? (
-                      <span className="flex items-center gap-1 text-[10px] font-black text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 px-2.5 py-1 rounded-full border border-emerald-200 dark:border-emerald-800">
+                      <span className="flex items-center gap-1 text-[10px] font-black text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 px-2.5 py-1 rounded-full border border-emerald-200 dark:border-emerald-800">
                         <CheckCircle2 className="w-3 h-3" /> Solved
                       </span>
                     ) : item.isUnlocked ? (
@@ -541,7 +527,7 @@ export default function QuizzesPage() {
                         <Sparkles className="w-3 h-3 text-blue-500" /> Active
                       </span>
                     ) : (
-                      <span className="flex items-center gap-1 text-[10px] font-black text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/50 px-2.5 py-1 rounded-full border border-amber-200 dark:border-amber-800">
+                      <span className="flex items-center gap-1 text-[10px] font-black text-amber-800 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/50 px-2.5 py-1 rounded-full border border-amber-200 dark:border-amber-800">
                         <Lock className="w-3 h-3" /> Locked
                       </span>
                     )}
@@ -550,7 +536,7 @@ export default function QuizzesPage() {
                   <h3 className="text-base font-bold text-slate-900 dark:text-white leading-snug line-clamp-1">
                     {item.title}
                   </h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 line-clamp-2 font-medium">
+                  <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 line-clamp-2 font-medium">
                     {item.description || 'Master key concepts by tackling interactive MCQs and coding exercises.'}
                   </p>
 
@@ -570,19 +556,19 @@ export default function QuizzesPage() {
                 {/* Action Button */}
                 <div className="mt-6 pt-3 border-t border-slate-100 dark:border-slate-800">
                   {item.isCompleted ? (
-                    <div className="w-full py-2.5 px-4 rounded-xl bg-emerald-500/10 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[11px] font-extrabold flex items-center justify-center gap-2 border border-emerald-500/30 cursor-default shadow-sm">
+                    <div className="w-full py-2.5 px-4 rounded-xl bg-emerald-500/10 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 text-[11px] font-extrabold flex items-center justify-center gap-2 border border-emerald-500/30 cursor-default shadow-sm">
                       <CheckCircle2 className="w-4 h-4 text-emerald-500" /> Completed Assessment
                     </div>
                   ) : item.isUnlocked ? (
                     <button
                       onClick={() => startQuizModal(item)}
-                      className="w-full py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-md shadow-blue-500/20 active:scale-95"
+                      className="w-full py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-md shadow-blue-500/20 active:scale-95"
                     >
                       <Play className="w-3.5 h-3.5 fill-current" />
                       Start Assessment
                     </button>
                   ) : (
-                    <div className="w-full py-2.5 px-4 rounded-xl bg-slate-200/50 dark:bg-slate-800/50 text-slate-400 text-[11px] font-bold flex items-center justify-center gap-2 border border-slate-200 dark:border-slate-800 cursor-not-allowed">
+                    <div className="w-full py-2.5 px-4 rounded-xl bg-slate-200/50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-400 text-[11px] font-bold flex items-center justify-center gap-2 border border-slate-200 dark:border-slate-800 cursor-not-allowed">
                       <Lock className="w-3.5 h-3.5" /> Complete Class to Unlock
                     </div>
                   )}
@@ -629,7 +615,7 @@ export default function QuizzesPage() {
                       onClick={() => setActiveTab('coding')}
                       className={`px-4 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
                         activeTab === 'coding'
-                          ? 'bg-emerald-600 text-white shadow-md'
+                          ? 'bg-emerald-700 text-white shadow-md'
                           : 'text-slate-400 hover:text-white'
                       }`}
                     >
@@ -718,7 +704,7 @@ export default function QuizzesPage() {
                       {!mcqSubmitted && activeQuizClass.questions.filter(q => q.type === 'mcq').length > 0 && (
                         <button
                           onClick={handleSubmitMcq}
-                          className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-lg shadow-blue-500/20 active:scale-95"
+                          className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-lg shadow-blue-500/20 active:scale-95"
                         >
                           Submit MCQ Quiz
                         </button>
@@ -740,7 +726,7 @@ export default function QuizzesPage() {
                             onClick={() => selectCodeQuestion(cIdx)}
                             className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
                               activeCodeQIdx === cIdx
-                                ? 'bg-emerald-600 text-white shadow-md'
+                                ? 'bg-emerald-700 text-white shadow-md'
                                 : 'bg-slate-800 text-slate-400 hover:text-white'
                             }`}
                           >
@@ -803,7 +789,7 @@ export default function QuizzesPage() {
                       <button
                         onClick={handleSubmitCode}
                         disabled={submittingCode}
-                        className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-2 shadow-lg shadow-emerald-500/20 transition-all active:scale-95"
+                        className="px-6 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs flex items-center gap-2 shadow-lg shadow-emerald-500/20 transition-all active:scale-95"
                       >
                         {submittingCode ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
                         Submit Solution

@@ -5,6 +5,7 @@ import { FileVideo, Save, Youtube, FileText, Sparkles, Plus, PenTool, Video, Che
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { getClassDetails, getClassQuestions, updateClassMetadata, updateClassAiMaterials, createClassQuestion, deleteClassQuestion, getModuleDetails } from '../../lib/api/cms';
 import { generateAIMaterials, generateAIQuestions } from '../../lib/aiGenerator';
+import { confirmDialog } from '../../lib/feedback';
 
 
 export default function ClassEditor() {
@@ -189,7 +190,7 @@ export default function ClassEditor() {
   };
 
   const handleDeleteQuestion = async (qId: string) => {
-    if (confirm("Delete this question?")) {
+    if (await confirmDialog({ title: 'Delete question', message: 'Delete this question?', confirmLabel: 'Delete', danger: true })) {
       try {
         await deleteClassQuestion(qId);
         await fetchQuestions();
@@ -355,7 +356,7 @@ export default function ClassEditor() {
               <Button 
                 onClick={handleGenerateAI} 
                 disabled={generating}
-                className="w-full bg-indigo-500 hover:bg-indigo-400 text-white font-bold flex justify-center gap-2 border-none"
+                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold flex justify-center gap-2 border-none"
               >
                 {generating ? <><Loader2 className="w-4 h-4 animate-spin" /> Generating...</> : <><Sparkles className="w-4 h-4" /> Generate All Materials</>}
               </Button>
@@ -389,7 +390,7 @@ export default function ClassEditor() {
             </div>
 
             <div className="mt-8 pt-6 border-t border-white/10">
-              <Button onClick={handleSave} className="w-full bg-green-500 hover:bg-green-400 text-white font-bold flex justify-center gap-2 border-none">
+              <Button onClick={handleSave} className="w-full bg-green-700 hover:bg-green-800 text-white font-bold flex justify-center gap-2 border-none">
                 <Save className="w-4 h-4" /> Save & Approve Class
               </Button>
             </div>
@@ -403,8 +404,8 @@ export default function ClassEditor() {
           <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 w-full max-w-sm shadow-2xl border border-slate-200 dark:border-slate-800 animate-in zoom-in-95 duration-200">
             <div className="flex items-start gap-4">
               <div className={`p-3 rounded-xl shrink-0 ${
-                alertConfig.type === 'success' ? 'bg-green-100 text-green-600 dark:bg-green-500/20 dark:text-green-400' :
-                alertConfig.type === 'error' ? 'bg-red-100 text-red-600 dark:bg-red-500/20 dark:text-red-400' :
+                alertConfig.type === 'success' ? 'bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-400' :
+                alertConfig.type === 'error' ? 'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400' :
                 'bg-blue-100 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400'
               }`}>
                 {alertConfig.type === 'success' ? <CheckCircle className="w-6 h-6" /> : <AlertCircle className="w-6 h-6" />}

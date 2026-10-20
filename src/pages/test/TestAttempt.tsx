@@ -4,6 +4,7 @@ import { batch1Questions, batch23Questions, AssessmentData } from '../../data/sq
 import { submitSQLTest } from '../../lib/api/assessment';
 import Editor from '@monaco-editor/react';
 import { initSQLSandbox } from '../../lib/alasqlSandbox';
+import { notify, confirmDialog } from '../../lib/feedback';
 
 export default function TestAttempt() {
   const navigate = useNavigate();
@@ -104,10 +105,10 @@ export default function TestAttempt() {
     
     if (res.success) {
       sessionStorage.clear();
-      alert("Test submitted successfully. Your responses have been recorded.");
+      notify("Test submitted successfully. Your responses have been recorded.");
       navigate('/');
     } else {
-      alert("Error submitting test. Please contact invigilator.");
+      notify("Error submitting test. Please contact invigilator.");
       setSubmitting(false);
     }
   };
@@ -134,13 +135,13 @@ export default function TestAttempt() {
             <span className="font-mono text-2xl font-bold">{formatTime(timeLeft)}</span>
           </div>
           <button 
-            onClick={() => {
-              if (window.confirm("Are you sure you want to submit your test? This cannot be undone.")) {
+            onClick={async () => {
+              if (await confirmDialog({ title: 'Submit test', message: 'Are you sure you want to submit your test? This cannot be undone.', confirmLabel: 'Submit' })) {
                 handleSubmit();
               }
             }}
             disabled={submitting}
-            className="bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-6 rounded shadow"
+            className="bg-green-700 hover:bg-green-800 text-white font-bold py-2 px-6 rounded shadow"
           >
             {submitting ? 'Submitting...' : 'Submit Test'}
           </button>
@@ -288,7 +289,7 @@ export default function TestAttempt() {
                     {queryResults[q.id] && (
                       <div className="p-4 bg-white max-h-64 overflow-auto">
                         {queryResults[q.id].error ? (
-                          <div className="text-red-600 font-mono text-sm p-3 bg-red-50 rounded border border-red-200">
+                          <div className="text-red-700 font-mono text-sm p-3 bg-red-50 rounded border border-red-200">
                             {queryResults[q.id].error}
                           </div>
                         ) : queryResults[q.id].data.length === 0 ? (

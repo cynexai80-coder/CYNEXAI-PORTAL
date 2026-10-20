@@ -156,8 +156,8 @@ export default function TeacherTimetable() {
         {/* Header */}
         <div className="flex justify-between items-end mb-8">
           <div className="flex items-center gap-4">
-            <Button variant="ghost" onClick={() => navigate(-1)} className="p-2 h-auto text-erp-text/60">
-              <ArrowLeft className="w-5 h-5" />
+            <Button variant="ghost" aria-label="Go back" onClick={() => navigate(-1)} className="p-2 h-auto text-erp-text/60">
+              <ArrowLeft className="w-5 h-5" aria-hidden="true" />
             </Button>
             <div>
               <h1 className="text-3xl font-display font-bold text-erp-text flex items-center gap-3">
@@ -175,14 +175,15 @@ export default function TeacherTimetable() {
                   d.setDate(d.getDate() - 7);
                   setCurrentWeekStart(d.toISOString().split('T')[0]);
                 }}
+                aria-label="Previous week"
                 className="p-1.5 hover:bg-erp-primary/10 transition-colors"
               >
-                <ChevronLeft className="w-4 h-4 text-erp-text" />
+                <ChevronLeft className="w-4 h-4 text-erp-text" aria-hidden="true" />
               </button>
               <div className="w-px h-4 bg-erp-border"></div>
               <button 
                 onClick={() => setCurrentWeekStart(getMonday(new Date()))}
-                className="px-3 py-1 text-xs font-bold text-erp-primary hover:bg-erp-primary/10 transition-colors"
+                className="px-3 py-1 min-h-[24px] text-xs font-bold text-erp-primary hover:bg-erp-primary/10 transition-colors"
               >
                 TODAY
               </button>
@@ -193,9 +194,10 @@ export default function TeacherTimetable() {
                   d.setDate(d.getDate() + 7);
                   setCurrentWeekStart(d.toISOString().split('T')[0]);
                 }}
+                aria-label="Next week"
                 className="p-1.5 hover:bg-erp-primary/10 transition-colors"
               >
-                <ChevronRight className="w-4 h-4 text-erp-text" />
+                <ChevronRight className="w-4 h-4 text-erp-text" aria-hidden="true" />
               </button>
             </div>
             <p className="text-xs text-erp-text/50 font-bold text-right">
@@ -220,9 +222,9 @@ export default function TeacherTimetable() {
                   const normToday = today === 0 ? 6 : today - 1;
                   const isCurrentDay = DAYS.indexOf(day) === normToday && currentWeekStart === getMonday(currentTime);
                   return (
-                    <div key={day} className={`p-4 border-r border-erp-border font-bold text-sm text-center last:border-r-0 ${isCurrentDay ? 'text-blue-600 bg-blue-50/50 dark:bg-blue-950/40' : 'text-erp-text bg-erp-surface'}`}>
+                    <div key={day} className={`p-4 border-r border-erp-border font-bold text-sm text-center last:border-r-0 ${isCurrentDay ? 'text-blue-600 dark:text-blue-300 bg-blue-50/50 dark:bg-blue-950/40' : 'text-erp-text bg-erp-surface'}`}>
                       {day}
-                      {isCurrentDay && <div className="text-[10px] uppercase text-blue-500 mt-0.5">Today</div>}
+                      {isCurrentDay && <div className="text-[10px] uppercase text-blue-700 dark:text-blue-500 mt-0.5">Today</div>}
                     </div>
                   );
                 })}
@@ -273,7 +275,7 @@ export default function TeacherTimetable() {
                                 {renderClassTags(classItem, batches, isOnline)}
                                 <div className="text-[10px] font-bold text-erp-text/60 mt-1.5 flex justify-between items-center">
                                   <span>{classItem.start_time} - {classItem.end_time}</span>
-                                  {statusColor === 'live' && <span className="text-red-600 bg-red-100 px-1.5 rounded uppercase tracking-wider animate-bounce">Live</span>}
+                                  {statusColor === 'live' && <span className="text-red-700 bg-red-100 px-1.5 rounded uppercase tracking-wider animate-bounce">Live</span>}
                                 </div>
                               </div>
                               <div className="mt-3 pt-2 border-t border-black/5 flex flex-col gap-2">
@@ -298,7 +300,7 @@ export default function TeacherTimetable() {
                                     </Button>
                                     <button
                                       onClick={(e) => { e.stopPropagation(); setReschedulingSlot(classItem); }}
-                                      className="w-full py-1 text-[10px] font-bold text-orange-600 bg-orange-50 hover:bg-orange-100 border border-orange-200 rounded-lg flex items-center justify-center gap-1 transition-colors"
+                                      className="w-full py-1 text-[10px] font-bold text-orange-700 bg-orange-50 hover:bg-orange-100 border border-orange-200 rounded-lg flex items-center justify-center gap-1 transition-colors"
                                     >
                                       <AlarmClock className="w-3 h-3" /> Postpone
                                     </button>

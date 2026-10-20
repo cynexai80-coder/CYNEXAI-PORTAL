@@ -93,7 +93,7 @@ export default function AIVoiceSettings() {
           {/* TTS Configuration */}
           <Card>
             <div className="flex items-center gap-3 mb-6 border-b border-erp-border pb-4">
-              <div className="bg-green-100 p-2 rounded-lg text-green-600">
+              <div className="bg-green-100 p-2 rounded-lg text-green-700">
                 <Headphones className="w-5 h-5" />
               </div>
               <h2 className="text-xl font-bold font-display text-erp-text">Text to Speech</h2>

@@ -25,6 +25,7 @@ export const CertificateVerifyPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [copied, setCopied] = useState(false);
   const [showFullImage, setShowFullImage] = useState(false);
+  const [revoked, setRevoked] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -37,8 +38,11 @@ export const CertificateVerifyPage: React.FC = () => {
       try {
         const data = await getCertificateById(id);
         if (isMounted) {
-          setCert(data);
-          if (data) {
+          // A certificate that is not 'active' (revoked / suspended) must never verify as valid.
+          const isRevoked = !!data && !!data.status && data.status.toLowerCase() !== 'active';
+          setRevoked(isRevoked);
+          setCert(isRevoked ? null : data);
+          if (data && !isRevoked) {
             document.title = `${data.student_name} - CynexAI Verified Certificate (${data.certificate_number || data.id})`;
           } else {
             document.title = 'Certificate Verification - CynexAI';
@@ -130,7 +134,7 @@ export const CertificateVerifyPage: React.FC = () => {
               Official Verification Portal
             </span>
             <Link
-              to="/courses"
+              to="/"
               className="text-xs font-medium text-slate-300 hover:text-white transition px-3 py-1.5 rounded-lg border border-slate-700/60 hover:border-slate-600 bg-slate-800/50"
             >
               Explore Programs
@@ -153,9 +157,11 @@ export const CertificateVerifyPage: React.FC = () => {
             <div className="w-16 h-16 bg-amber-500/10 border border-amber-500/30 rounded-2xl flex items-center justify-center mx-auto mb-5 text-amber-400">
               <AlertCircle className="w-8 h-8" />
             </div>
-            <h2 className="text-2xl font-bold text-white mb-2">Certificate Not Found</h2>
+            <h2 className="text-2xl font-bold text-white mb-2">{revoked ? 'Certificate No Longer Valid' : 'Certificate Not Found'}</h2>
             <p className="text-slate-400 mb-8 text-sm">
-              We could not find an official certificate record for ID <code className="text-cyan-400 font-mono font-semibold bg-slate-900 px-2 py-1 rounded border border-slate-800">{id}</code>. Please check the Certificate ID and try again.
+              {revoked
+                ? <>The certificate with ID <code className="text-cyan-400 font-mono font-semibold bg-slate-900 px-2 py-1 rounded border border-slate-800">{id}</code> has been revoked or suspended by CynexAI. Please contact CynexAI to confirm its status.</>
+                : <>We could not find an official certificate record for ID <code className="text-cyan-400 font-mono font-semibold bg-slate-900 px-2 py-1 rounded border border-slate-800">{id}</code>. Please check the Certificate ID and try again.</>}
             </p>
 
             <form
@@ -218,7 +224,7 @@ export const CertificateVerifyPage: React.FC = () => {
                   </button>
                   <button
                     onClick={handleShareLinkedIn}
-                    className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-lg shadow-blue-600/20 transition"
+                    className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-lg shadow-blue-600/20 transition"
                   >
                     <Share2 className="w-4 h-4" />
                     Add to LinkedIn
@@ -468,9 +474,9 @@ export const CertificateVerifyPage: React.FC = () => {
             © {new Date().getFullYear()} CynexAI Technologies Pvt Ltd. All rights reserved.
           </span>
           <div className="flex items-center gap-4">
-            <Link to="/" className="hover:text-slate-300 transition">Home</Link>
-            <Link to="/courses" className="hover:text-slate-300 transition">Courses</Link>
-            <a href="mailto:info@cynexai.in" className="hover:text-slate-300 transition">Verification Support</a>
+            <Link to="/" className="inline-flex items-center min-h-[24px] hover:text-slate-300 transition">Home</Link>
+            <Link to="/" className="inline-flex items-center min-h-[24px] hover:text-slate-300 transition">Courses</Link>
+            <a href="mailto:info@cynexai.in" className="inline-flex items-center min-h-[24px] hover:text-slate-300 transition">Verification Support</a>
           </div>
         </div>
       </footer>

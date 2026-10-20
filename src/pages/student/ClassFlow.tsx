@@ -5,15 +5,17 @@ import { getClassFlowData, saveQaResponse, markClassWatched, submitOnlineAttenda
 import { ArrowLeft, Play, CheckCircle, Lock, Code2, BookOpen, Clock, Star, AlertCircle, Wifi, Video, FileText, ChevronDown, ChevronUp, Download } from 'lucide-react';
 import ReactPlayer from 'react-player';
 import { formatYoutubeUrl } from '../../lib/videoUtils';
+import { safeLink } from '../../lib/urlUtils';
 import ReactMarkdown from 'react-markdown';
 import { cleanAiContent } from '../../lib/aiGenerator';
 import html2pdf from 'html2pdf.js';
 import { PythonEditor } from '../../components/ui/erp/PythonEditor';
+import { gradePython, parseTestCases } from '../../lib/pyGrader';
 
 
 interface Question {
   id: string;
-  type: 'mcq' | 'code';
+  type: 'mcq' | 'code' | 'coding';
   question_text: string;
   options_json: string;
   correct_answer_idx: number;
@@ -178,9 +180,14 @@ export default function ClassFlow() {
 
   const handleSubmitAnswer = async (q: Question) => {
     if (selectedAnswers[q.id] === undefined && q.type !== 'code') return;
-    const isCorrect = q.type === 'mcq'
-      ? selectedAnswers[q.id] === q.correct_answer_idx
-      : true;
+    let isCorrect: boolean;
+    if (q.type === 'mcq') {
+      isCorrect = selectedAnswers[q.id] === q.correct_answer_idx;
+    } else {
+      // Coding question: really execute the code and check the test cases (no free "correct").
+      const graded = await gradePython(codeAnswer, parseTestCases((q as any).test_cases_json));
+      isCorrect = graded.allPassed;
+    }
 
     setSubmittedAnswers(prev => ({ ...prev, [q.id]: isCorrect }));
     if (isCorrect) setScore(s => s + 1);
@@ -264,9 +271,10 @@ export default function ClassFlow() {
       <div className="flex items-center gap-3 mb-6">
         <button
           onClick={() => navigate(-1)}
-          className="w-9 h-9 rounded-xl flex items-center justify-center text-slate-600 dark:text-white/60 hover:bg-slate-200 dark:bg-zinc-900/50 dark:hover:bg-white dark:bg-black/10 transition-all candy-panel !border-2 !p-0 shadow-none"
+          aria-label="Go back"
+          className="w-9 h-9 rounded-xl flex items-center justify-center text-slate-600 dark:text-white/60 hover:bg-slate-200 dark:bg-zinc-900/50 dark:hover:bg-white/10 transition-all candy-panel !border-2 !p-0 shadow-none"
         >
-          <ArrowLeft className="w-4 h-4" />
+          <ArrowLeft className="w-4 h-4" aria-hidden="true" />
         </button>
         <div>
           <p className="text-xs text-slate-800 dark:text-white/80 font-bold uppercase tracking-wider">Class</p>
@@ -275,7 +283,7 @@ export default function ClassFlow() {
         <div className="ml-auto flex items-center gap-2">
           {/* Class type badge */}
           {isLiveNow ? (
-            <span className="flex items-center gap-1 text-xs bg-red-500/10 text-red-500 font-bold px-3 py-1.5 rounded-full border border-red-500/20">
+            <span className="flex items-center gap-1 text-xs bg-red-500/10 text-red-700 dark:text-red-400 font-bold px-3 py-1.5 rounded-full border border-red-500/20">
               <Wifi className="w-3 h-3 animate-pulse" /> Live
             </span>
           ) : isEnded ? (
@@ -283,17 +291,17 @@ export default function ClassFlow() {
               <CheckCircle className="w-3 h-3 text-slate-500" /> Class ended
             </span>
           ) : isWaitingForAccess ? (
-            <span className="flex items-center gap-1 text-xs bg-amber-500/10 text-amber-600 dark:text-amber-400 font-bold px-3 py-1.5 rounded-full border border-amber-500/20">
+            <span className="flex items-center gap-1 text-xs bg-amber-500/10 text-amber-800 dark:text-amber-400 font-bold px-3 py-1.5 rounded-full border border-amber-500/20">
               <Clock className="w-3 h-3 animate-pulse" /> Waiting for Access
             </span>
           ) : (
-            <span className="flex items-center gap-1 text-xs bg-blue-500/10 text-blue-400 font-bold px-3 py-1.5 rounded-full border border-blue-500/20">
+            <span className="flex items-center gap-1 text-xs bg-blue-500/10 text-blue-700 dark:text-blue-400 font-bold px-3 py-1.5 rounded-full border border-blue-500/20">
               <Video className="w-3 h-3" /> Recorded
             </span>
           )}
-          {hasWatched && <span className="flex items-center gap-1 text-xs bg-green-500/10 text-green-400 font-bold px-3 py-1.5 rounded-full border border-green-500/20"><CheckCircle className="w-3 h-3" /> Watched</span>}
-          {attendanceMarked && <span className="flex items-center gap-1 text-xs bg-purple-500/10 text-purple-400 font-bold px-3 py-1.5 rounded-full border border-purple-500/20"><CheckCircle className="w-3 h-3" /> Attendance ✓</span>}
-          {hasAnswered && <span className="flex items-center gap-1 text-xs bg-blue-500/10 text-blue-400 font-bold px-3 py-1.5 rounded-full border border-blue-500/20"><Star className="w-3 h-3" /> Completed</span>}
+          {hasWatched && <span className="flex items-center gap-1 text-xs bg-green-500/10 text-green-700 dark:text-green-400 font-bold px-3 py-1.5 rounded-full border border-green-500/20"><CheckCircle className="w-3 h-3" /> Watched</span>}
+          {attendanceMarked && <span className="flex items-center gap-1 text-xs bg-purple-500/10 text-purple-700 dark:text-purple-400 font-bold px-3 py-1.5 rounded-full border border-purple-500/20"><CheckCircle className="w-3 h-3" /> Attendance ✓</span>}
+          {hasAnswered && <span className="flex items-center gap-1 text-xs bg-blue-500/10 text-blue-700 dark:text-blue-400 font-bold px-3 py-1.5 rounded-full border border-blue-500/20"><Star className="w-3 h-3" /> Completed</span>}
         </div>
       </div>
 
@@ -342,7 +350,7 @@ export default function ClassFlow() {
                   <button
                     onClick={handleMarkVideoCompleted}
                     className={`px-6 py-2 text-sm transition-all ${
-                      hasWatched ? 'bg-green-500/10 text-green-500 border border-green-500/20 font-bold rounded-xl' : 'candy-btn'
+                      hasWatched ? 'bg-green-500/10 text-green-700 dark:text-green-400 border border-green-500/20 font-bold rounded-xl' : 'candy-btn'
                     }`}
                     disabled={hasWatched}
                   >
@@ -367,7 +375,7 @@ export default function ClassFlow() {
                   </p>
                   <button
                     disabled
-                    className="px-6 py-3 text-sm rounded-2xl font-black bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 cursor-not-allowed flex items-center gap-2 mx-auto shadow-sm opacity-90"
+                    className="px-6 py-3 text-sm rounded-2xl font-black bg-amber-500/15 text-amber-800 dark:text-amber-400 border border-amber-500/30 cursor-not-allowed flex items-center gap-2 mx-auto shadow-sm opacity-90"
                   >
                     <Clock className="w-4 h-4 animate-spin" /> Waiting for teacher to give access
                   </button>
@@ -391,7 +399,7 @@ export default function ClassFlow() {
                   <h3 className="font-black text-slate-900 dark:text-white text-lg mb-1">Live Class in Session</h3>
                   <p className="text-slate-600 dark:text-white/60 text-sm mb-4 font-bold">Stay on this page for 5 minutes to mark your attendance automatically.</p>
                   <a
-                    href={classData.meet_link || '#'}
+                    href={safeLink(classData.meet_link)}
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={() => setHasJoinedLiveClass(true)}
@@ -408,7 +416,7 @@ export default function ClassFlow() {
                       <Clock className="w-3.5 h-3.5" /> Attendance Progress
                     </span>
                     {attendanceMarked ? (
-                      <span className="text-xs font-bold text-green-500 flex items-center gap-1">
+                      <span className="text-xs font-bold text-green-700 dark:text-green-500 flex items-center gap-1">
                         <CheckCircle className="w-3 h-3" /> Marked!
                       </span>
                     ) : hasJoinedLiveClass ? (
@@ -469,7 +477,7 @@ export default function ClassFlow() {
               </div>
             </div>
             <a 
-              href={classData.doc_url} 
+              href={safeLink(classData.doc_url)} 
               target="_blank" 
               rel="noopener noreferrer"
               className="candy-btn-blue px-4 py-2"
@@ -500,7 +508,7 @@ export default function ClassFlow() {
                 <h2 className="font-black text-slate-900 dark:text-white flex items-center gap-2">
                   <Star className="w-4 h-4 text-yellow-500" />
                   {currentStep === 'qa' ? 'Post-Class Q&A' : 'Coding Challenge'}
-                  <span className="ml-auto text-xs bg-primary/10 text-primary font-bold px-2 py-1 rounded-full">
+                  <span className="ml-auto text-xs bg-primary/10 text-blue-700 dark:text-blue-400 font-bold px-2 py-1 rounded-full">
                     {qaComplete ? `${score}/${stepQuestions.length} correct` : `${currentQIdx + 1} of ${stepQuestions.length}`}
                   </span>
                 </h2>
@@ -519,7 +527,7 @@ export default function ClassFlow() {
                   </div>
                   <h3 className="font-black text-slate-900 dark:text-white text-xl mb-1">Section Complete!</h3>
                   <p className="text-slate-600 dark:text-white/60 text-sm mb-3 font-bold">You scored {score} out of {stepQuestions.length}</p>
-                  <p className="text-yellow-500 font-black text-lg">+{score * 5} coins earned! 🪙</p>
+                  <p className="text-amber-700 dark:text-yellow-500 font-black text-lg">+{score * 5} coins earned! 🪙</p>
                   <button onClick={() => navigate(-1)} className="mt-4 px-6 py-2 candy-btn-blue text-sm">
                     Return to Quest Map
                   </button>
@@ -536,10 +544,10 @@ export default function ClassFlow() {
                         const isCorrect = idx === currentQ.correct_answer_idx;
                         let btnClass = 'border-border text-foreground';
                         if (isSubmitted) {
-                          if (isCorrect) btnClass = 'border-green-500 bg-green-500/10 text-green-400';
-                          else if (isSelected) btnClass = 'border-red-500 bg-red-500/10 text-red-400';
+                          if (isCorrect) btnClass = 'border-green-500 bg-green-500/10 text-green-800 dark:text-green-400';
+                          else if (isSelected) btnClass = 'border-red-500 bg-red-500/10 text-red-800 dark:text-red-400';
                         } else if (isSelected) {
-                          btnClass = 'border-primary bg-primary/10 text-primary';
+                          btnClass = 'border-primary bg-primary/10 text-blue-700 dark:text-blue-400';
                         }
                         return (
                           <button
@@ -602,7 +610,7 @@ export default function ClassFlow() {
             <div className="candy-panel p-0 sticky top-8 flow-panel flex flex-col bg-white dark:bg-black overflow-hidden border border-slate-200 dark:border-white/10 shadow-[0_8px_30px_rgb(0,0,0,0.04)]" style={{ maxHeight: 'calc(100vh - 4rem)' }}>
               
               {/* Header */}
-              <div className="p-5 border-b border-slate-100 dark:border-white/10 bg-slate-50/50 dark:bg-white dark:bg-black/5 flex items-center justify-between shrink-0">
+              <div className="p-5 border-b border-slate-100 dark:border-white/10 bg-slate-50/50 dark:bg-white/5 flex items-center justify-between shrink-0">
                 <h2 className="font-black text-slate-900 dark:text-white flex items-center gap-2">
                   <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center border border-blue-500/20">
                     <BookOpen className="w-4 h-4 text-blue-500" />
@@ -612,7 +620,7 @@ export default function ClassFlow() {
                 <button 
                   onClick={handleDownloadNotes} 
                   title="Download Notes"
-                  className="w-8 h-8 rounded-full bg-slate-200/50 dark:bg-white/10 hover:bg-slate-200 dark:bg-zinc-900/50 dark:hover:bg-white dark:bg-black/20 flex items-center justify-center text-slate-600 dark:text-white/60 transition-all hover:scale-105 active:scale-95"
+                  className="w-8 h-8 rounded-full bg-slate-200/50 dark:bg-white/10 hover:bg-slate-200 dark:bg-zinc-900/50 dark:hover:bg-white/20 flex items-center justify-center text-slate-600 dark:text-white/60 transition-all hover:scale-105 active:scale-95"
                 >
                   <Download className="w-4 h-4" />
                 </button>
@@ -633,7 +641,7 @@ export default function ClassFlow() {
                     li: ({node, ...props}) => <li className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed" {...props} />,
                     code: ({node, inline, className, children, ...props}: any) => {
                       return inline ? (
-                        <code className="px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-white dark:bg-black/10 text-pink-600 dark:text-pink-400 text-xs font-mono font-bold" {...props}>
+                        <code className="px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-white/10 text-pink-600 dark:text-pink-400 text-xs font-mono font-bold" {...props}>
                           {children}
                         </code>
                       ) : (
@@ -709,7 +717,7 @@ export default function ClassFlow() {
               },
               blockquote: ({node, ...props}) => (
                 <blockquote 
-                  className="border-l-4 border-blue-500 bg-blue-50 p-5 rounded-r-xl my-6 text-slate-800 dark:text-white italic text-base" 
+                  className="border-l-4 border-blue-500 bg-blue-50 dark:bg-blue-500/10 p-5 rounded-r-xl my-6 text-slate-800 dark:text-white italic text-base" 
                   style={{ pageBreakInside: 'avoid' }} 
                   {...props} 
                 />

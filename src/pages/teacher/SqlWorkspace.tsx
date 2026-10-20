@@ -1,35 +1,79 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
+import alasql from 'alasql';
 import { Play, Database, Upload, Loader2, Table } from 'lucide-react';
 import { Button } from '../../components/ui/erp/Button';
 
+// A real in-browser SQL engine (alasql) over a small demo dataset - results are computed, not canned.
+const buildGeneralDataset = () => {
+  const db = new alasql.Database();
+  db.exec('CREATE TABLE products (id INT, name STRING, category STRING, price INT)');
+  db.exec(`INSERT INTO products VALUES
+    (1, 'Laptop', 'Electronics', 55000), (2, 'Headphones', 'Electronics', 2500),
+    (3, 'Python Book', 'Books', 600), (4, 'SQL Book', 'Books', 550),
+    (5, 'T-Shirt', 'Clothing', 700), (6, 'Jeans', 'Clothing', 1800)`);
+  db.exec('CREATE TABLE users (id INT, name STRING, city STRING)');
+  db.exec(`INSERT INTO users VALUES
+    (1, 'Asha', 'Hyderabad'), (2, 'Ravi', 'Bengaluru'), (3, 'Meena', 'Chennai'), (4, 'Kiran', 'Hyderabad')`);
+  db.exec('CREATE TABLE sales (id INT, user_id INT, product_id INT, qty INT, sale_date STRING)');
+  db.exec(`INSERT INTO sales VALUES
+    (1, 1, 1, 1, '2026-01-05'), (2, 2, 3, 2, '2026-01-07'), (3, 3, 5, 3, '2026-02-11'),
+    (4, 4, 2, 1, '2026-02-14'), (5, 1, 4, 1, '2026-03-02'), (6, 2, 6, 2, '2026-03-09')`);
+  return db;
+};
+
+const formatRows = (rows: any[]): string => {
+  if (!rows.length) return 'Query executed successfully. 0 rows returned.';
+  const cols = Object.keys(rows[0]);
+  const widths = cols.map(c => Math.max(c.length, ...rows.map(r => String(r[c] ?? '').length)));
+  const line = (vals: string[]) => vals.map((v, i) => v.padEnd(widths[i])).join(' | ');
+  return [
+    `Results (${rows.length} row${rows.length === 1 ? '' : 's'}):`,
+    '',
+    line(cols),
+    widths.map(w => '-'.repeat(w)).join('-|-'),
+    ...rows.map(r => line(cols.map(c => String(r[c] ?? 'NULL')))),
+  ].join('\n');
+};
+
 export const SqlWorkspace: React.FC = () => {
-  const [query, setQuery] = useState('-- Interactive SQL Terminal\n\nSELECT * FROM general_dataset LIMIT 10;');
+  const [query, setQuery] = useState('-- Interactive SQL Terminal\n-- Tables: products, users, sales\n\nSELECT * FROM products LIMIT 10;');
   const [output, setOutput] = useState<string | null>(null);
   const [isExecuting, setIsExecuting] = useState(false);
   const [datasetLoaded, setDatasetLoaded] = useState(false);
+  const dbRef = useRef<any>(null);
 
   const loadDataset = () => {
+    dbRef.current = buildGeneralDataset();
     setDatasetLoaded(true);
-    setOutput('Dataset "general_dataset" (Sales, Users, Products) loaded successfully into memory. You can now query it.');
+    setOutput('Dataset loaded into memory: tables "products", "users" and "sales". You can now query them.');
   };
 
   const runQuery = async () => {
     setIsExecuting(true);
     setOutput(null);
-    
-    // Mocking execution delay
-    await new Promise(resolve => setTimeout(resolve, 800));
-    
-    if (!datasetLoaded) {
-      setOutput('Error: No dataset loaded. Please upload or load a dataset first.');
-    } else {
-      if (query.toLowerCase().includes('select')) {
-        setOutput('Results:\n\nid | name | amount | category\n---|------|--------|---------\n1  | Item A | 100  | Electronics\n2  | Item B | 150  | Books\n3  | Item C | 200  | Clothing');
-      } else {
-        setOutput('Query executed successfully. 0 rows returned.');
-      }
+    if (!datasetLoaded || !dbRef.current) {
+      setOutput('Error: No dataset loaded. Please load the dataset first.');
+      setIsExecuting(false);
+      return;
     }
-    setIsExecuting(false);
+    try {
+      const statements = query
+        .split('\n')
+        .filter(l => !l.trim().startsWith('--'))
+        .join('\n')
+        .split(';')
+        .map(q => q.trim())
+        .filter(Boolean);
+      let last: any = [];
+      for (const stmt of statements) {
+        last = dbRef.current.exec(stmt);
+      }
+      setOutput(Array.isArray(last) ? formatRows(last) : 'Query executed successfully.');
+    } catch (e: any) {
+      setOutput(`Error: ${e?.message || String(e)}`);
+    } finally {
+      setIsExecuting(false);
+    }
   };
 
   return (
@@ -42,7 +86,7 @@ export const SqlWorkspace: React.FC = () => {
         
         <div className="flex items-center gap-2">
           {!datasetLoaded ? (
-            <Button onClick={loadDataset} className="h-8 px-3 text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white">
+            <Button onClick={loadDataset} className="h-8 px-3 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white">
               <Upload className="w-3.5 h-3.5 mr-2" /> Load General Dataset
             </Button>
           ) : (
@@ -69,7 +113,7 @@ export const SqlWorkspace: React.FC = () => {
           <Button
             onClick={runQuery}
             disabled={isExecuting}
-            className="h-8 px-4 text-xs font-bold bg-green-600 hover:bg-green-500 text-white"
+            className="h-8 px-4 text-xs font-bold bg-green-700 hover:bg-green-800 text-white"
           >
             {isExecuting ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-2" /> : <Play className="w-3.5 h-3.5 mr-2" />}
             {isExecuting ? 'Executing...' : 'Run Query'}

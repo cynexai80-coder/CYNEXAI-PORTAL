@@ -16,12 +16,24 @@ export const AdmissionForm: React.FC<AdmissionFormProps> = ({ isOpen, onClose, l
   const [expiry, setExpiry] = useState('');
   const [expectedSale, setExpectedSale] = useState('');
   const [referredBy, setReferredBy] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await recordAdmission(leadId, Number(amount), discount, expiry, expectedSale, referredBy || null);
-    onSuccess();
-    onClose();
+    if (submitting) return;
+    if (!(Number(amount) > 0)) { setFormError('Reservation fee must be greater than 0.'); return; }
+    if (expiry && expectedSale && expectedSale > expiry) { setFormError('Expected sale date cannot be after the offer expiry.'); return; }
+    setFormError('');
+    setSubmitting(true);
+    try {
+      const id = await recordAdmission(leadId, Number(amount), discount, expiry, expectedSale, referredBy || null);
+      if (!id) { setFormError('The admission could not be saved. Please try again.'); return; }
+      onSuccess();
+      onClose();
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -50,9 +62,10 @@ export const AdmissionForm: React.FC<AdmissionFormProps> = ({ isOpen, onClose, l
           <input placeholder="e.g. stu_demo_1" className="w-full bg-erp-surface border-2 border-erp-border rounded-xl p-3 font-bold" value={referredBy} onChange={e => setReferredBy(e.target.value)} />
         </div>
         <div className="bg-erp-secondary/10 p-3 rounded-xl border border-erp-secondary mt-2">
-          <p className="text-xs font-bold text-erp-secondary">Note: Admission does not create a student account. It only reserves a seat and locks the discount.</p>
+          <p className="text-xs font-bold text-sky-700 dark:text-erp-secondary">Note: Admission does not create a student account. It only reserves a seat and locks the discount.</p>
         </div>
-        <Button type="submit" variant="secondary" fullWidth className="mt-2">Confirm Admission</Button>
+        {formError && <p className="text-red-700 dark:text-red-500 text-xs font-bold">{formError}</p>}
+        <Button type="submit" variant="secondary" fullWidth className="mt-2" disabled={submitting}>{submitting ? 'Saving…' : 'Confirm Admission'}</Button>
       </form>
     </BottomSheet>
   );

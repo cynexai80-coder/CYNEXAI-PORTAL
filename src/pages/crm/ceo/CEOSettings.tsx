@@ -4,6 +4,7 @@ import { Button } from '../../../components/ui/erp/Button';
 import { Database, Save, Key, Building } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getSettingsGroup, setSetting } from '../../../lib/api/settings';
+import { notify } from '../../../lib/feedback';
 
 export default function CEOSettings() {
   const navigate = useNavigate();
@@ -48,7 +49,7 @@ export default function CEOSettings() {
     await setSetting('global', 'twilio_api_key', twilioKey);
 
     setSaving(false);
-    alert('Settings saved successfully.');
+    notify('Settings saved successfully.');
   };
 
   return (
@@ -153,9 +154,9 @@ export default function CEOSettings() {
                 />
               </div>
             </div>
-            <div className="mt-4 bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r-xl">
+            <div className="mt-4 bg-blue-50 dark:bg-blue-500/10 border-l-4 border-blue-500 p-4 rounded-r-xl">
               <h4 className="font-bold text-blue-800 dark:text-white text-sm mb-1">Security Notice</h4>
-              <p className="text-xs font-medium text-blue-600/80 leading-relaxed">
+              <p className="text-xs font-medium text-blue-700 dark:text-blue-200 leading-relaxed">
                 These credentials give full access to the production database. Only CEO and authorized DevOps personnel should have access to this page. Do not share your Auth Token.
               </p>
             </div>

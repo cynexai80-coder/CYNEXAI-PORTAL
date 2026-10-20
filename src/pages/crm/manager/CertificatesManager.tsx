@@ -23,6 +23,8 @@ import {
   CertificateRecord 
 } from '../../../lib/api/certificates';
 import { QRCodeSVG } from 'qrcode.react';
+import { confirmDialog } from '../../../lib/feedback';
+import { todayIST } from '../../../lib/dateUtils';
 
 export const CertificatesManager: React.FC = () => {
   const [certificates, setCertificates] = useState<CertificateRecord[]>([]);
@@ -35,7 +37,7 @@ export const CertificatesManager: React.FC = () => {
   const [formId, setFormId] = useState('');
   const [formStudentName, setFormStudentName] = useState('');
   const [formCourseTitle, setFormCourseTitle] = useState('Python Programming');
-  const [formIssueDate, setFormIssueDate] = useState(new Date().toISOString().split('T')[0]);
+  const [formIssueDate, setFormIssueDate] = useState(todayIST());
   const [rawImageBase64, setRawImageBase64] = useState<string | null>(null);
   const [stampedImageBase64, setStampedImageBase64] = useState<string | null>(null);
   
@@ -117,7 +119,7 @@ export const CertificatesManager: React.FC = () => {
     setFormId(`CX${Math.floor(10000 + Math.random() * 90000)}`);
     setFormStudentName('');
     setFormCourseTitle('Python Programming');
-    setFormIssueDate(new Date().toISOString().split('T')[0]);
+    setFormIssueDate(todayIST());
     setRawImageBase64(null);
     setStampedImageBase64(null);
     setQrSize(88);
@@ -175,7 +177,7 @@ export const CertificatesManager: React.FC = () => {
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm(`Are you sure you want to delete certificate ${id}?`)) return;
+    if (!(await confirmDialog({ title: 'Delete certificate', message: `Are you sure you want to delete certificate ${id}?`, confirmLabel: 'Delete', danger: true }))) return;
     await deleteCertificate(id);
     await fetchCertificates();
   };

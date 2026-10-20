@@ -10,6 +10,7 @@ import {
   getCourseModulesWithClassCounts, 
   updateBatchSubjectProgress 
 } from '../../../lib/api/batches';
+import { notify, confirmDialog, promptDialog } from '../../../lib/feedback';
 
 interface Batch {
   id: string;
@@ -110,14 +111,14 @@ export function BatchesTab({ onBatchChange }: BatchesTabProps) {
     }));
   };
 
-  const handleAddSubject = () => {
-    const newName = prompt("Enter new subject or module name (e.g. React, Node.js, Generative AI):");
+  const handleAddSubject = async () => {
+    const newName = await promptDialog({ title: 'Add subject', message: 'Enter new subject or module name (e.g. React, Node.js, Generative AI):', confirmLabel: 'Add', validate: v => (!v.trim() ? 'Enter a subject name.' : subjects.some(s => s.subject.toLowerCase() === v.trim().toLowerCase()) ? 'Subject already exists in this batch.' : null) });
     if (!newName || !newName.trim()) return;
     if (subjects.some(s => s.subject.toLowerCase() === newName.trim().toLowerCase())) {
-      alert("Subject already exists in this batch");
+      notify("Subject already exists in this batch");
       return;
     }
-    const countStr = prompt("Total classes in this module (optional, default 10):", "10");
+    const countStr = await promptDialog({ title: 'Classes in module', message: 'Total classes in this module (optional, default 10):', defaultValue: '10', inputType: 'number', confirmLabel: 'Save', validate: v => (v.trim() === '' || Number(v) >= 1 ? null : 'Enter a number of 1 or more.') });
     const totalCount = Math.max(1, parseInt(countStr || '10', 10) || 10);
     setSubjects(prev => [...prev, { subject: newName.trim(), completed: 0, total: totalCount }]);
   };
@@ -127,7 +128,7 @@ export function BatchesTab({ onBatchChange }: BatchesTabProps) {
   };
 
   const handleSave = async () => {
-    if (!name || !courseId) return alert('Name and Course are required');
+    if (!name || !courseId) return notify('Name and Course are required');
     
     let finalSubjects = subjects;
     let finalModuleMap: Record<string, number> = {};
@@ -141,7 +142,7 @@ export function BatchesTab({ onBatchChange }: BatchesTabProps) {
           total: subjects.find(s => s.subject.toLowerCase() === k.toLowerCase())?.total || 10
         }));
       } catch {
-        return alert('Invalid JSON in Module Progress');
+        return notify('Invalid JSON in Module Progress');
       }
     } else {
       finalSubjects.forEach(s => {
@@ -166,14 +167,14 @@ export function BatchesTab({ onBatchChange }: BatchesTabProps) {
       onBatchChange?.();
     } catch (e) {
       console.error(e);
-      alert('Failed to save batch');
+      notify('Failed to save batch');
     } finally {
       setSaving(false);
     }
   };
 
   const handleDelete = async (batch: Batch) => {
-    if (!confirm(`Are you sure you want to delete batch "${batch.name}"?`)) return;
+    if (!(await confirmDialog({ title: 'Delete batch', message: `Are you sure you want to delete batch "${batch.name}"?`, confirmLabel: 'Delete', danger: true }))) return;
     try {
       if (!client) return;
       await client.execute({
@@ -184,7 +185,7 @@ export function BatchesTab({ onBatchChange }: BatchesTabProps) {
       onBatchChange?.();
     } catch (e) {
       console.error(e);
-      alert('Failed to delete batch');
+      notify('Failed to delete batch');
     }
   };
 
@@ -214,7 +215,7 @@ export function BatchesTab({ onBatchChange }: BatchesTabProps) {
                     {list.map(s => (
                       <span 
                         key={s.subject} 
-                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20"
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-bold bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-500/20"
                       >
                         <span>{s.subject}:</span>
                         <span className="font-black">{s.completed}</span>
@@ -293,7 +294,7 @@ export function BatchesTab({ onBatchChange }: BatchesTabProps) {
                     <button
                       type="button"
                       onClick={handleAddSubject}
-                      className="text-[11px] font-bold px-2 py-0.5 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 hover:bg-blue-500/20 flex items-center gap-1"
+                      className="text-[11px] font-bold px-2 py-0.5 rounded-lg bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-500/20 hover:bg-blue-500/20 flex items-center gap-1"
                     >
                       <Plus className="w-3 h-3" /> Add Module
                     </button>

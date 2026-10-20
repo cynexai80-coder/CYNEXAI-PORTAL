@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { decryptPassword } from '../../../lib/crypto';
 import { getCurrentUser, updateCurrentUserSession, getUserPermissions } from '../../../lib/auth';
+import { keyboardActivate, FOCUS_RING } from '../../../lib/a11y';
 import { getUsers, saveUser, deleteUser, patchUser, getFilterOptions } from '../../../lib/api/users';
 import { getErpModules, assignModulesToInstructor } from '../../../lib/api/manager';
 import { 
@@ -18,6 +19,7 @@ import {
 import { DataTable } from '../../../components/ui/erp/DataTable';
 
 import { SYSTEM_MODULES, DEFAULT_PERMISSIONS, AccessLevel } from '../../../lib/permissionsRegistry';
+import { notify, confirmDialog, promptDialog } from '../../../lib/feedback';
 
 interface ERPUser {
   id: string; name: string; email: string;
@@ -261,11 +263,11 @@ export default function UserManagement() {
   };
 
   const handleAddSubjectToBatch = async (batch: BatchItem) => {
-    const subjectName = prompt("Enter new subject name (e.g. React, Node.js, DSA):");
+    const subjectName = await promptDialog({ title: 'Add subject', message: 'Enter new subject name (e.g. React, Node.js, DSA):', confirmLabel: 'Add', validate: v => (v.trim() ? null : 'Enter a subject name.') });
     if (!subjectName || !subjectName.trim()) return;
     const currentList = parseBatchSubjectProgress(batch);
     if (currentList.some(s => s.subject.toLowerCase().trim() === subjectName.toLowerCase().trim())) {
-      alert("Subject already exists in this batch.");
+      notify("Subject already exists in this batch.");
       return;
     }
     const updated = [...currentList, { subject: subjectName.trim(), completed: 0, total: 10 }];
@@ -380,7 +382,7 @@ export default function UserManagement() {
   };
 
   const handleSaveUser = async () => {
-    if (!name.trim() || !email.trim()) { alert('Name and email are required.'); return; }
+    if (!name.trim() || !email.trim()) { notify('Name and email are required.'); return; }
     try {
       const targetId = editUser?.id || `usr_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
       const permissionsStr = JSON.stringify(permissions);
@@ -410,16 +412,16 @@ export default function UserManagement() {
       setIsStaffModalOpen(false);
     } catch (e) {
       console.error('Failed to save user', e);
-      alert('Failed to save staff member. Check if email is already in use.');
+      notify('Failed to save staff member. Check if email is already in use.');
     }
   };
 
   const handleDelete = async (row: ERPUser) => {
-    if (!window.confirm(`Delete ${row.name}? This cannot be undone.`)) return;
+    if (!(await confirmDialog({ title: 'Delete staff member', message: `Delete ${row.name}? This cannot be undone.`, confirmLabel: 'Delete', danger: true }))) return;
     try {
       await deleteUser(row.id, row.email);
       setUsers(prev => prev.filter(u => u.id !== row.id));
-    } catch (e) { alert('Failed to delete user.'); }
+    } catch (e) { notify('Failed to delete user.'); }
   };
 
   // --- Batch CRUD Handlers ---
@@ -448,7 +450,7 @@ export default function UserManagement() {
 
   const handleSaveBatch = async () => {
     if (!batchName.trim()) {
-      alert('Batch Name is required.');
+      notify('Batch Name is required.');
       return;
     }
     try {
@@ -479,17 +481,17 @@ export default function UserManagement() {
       setIsBatchModalOpen(false);
     } catch (e) {
       console.error('Failed to save batch', e);
-      alert('Failed to save batch.');
+      notify('Failed to save batch.');
     }
   };
 
   const handleDeleteBatch = async (batch: BatchItem) => {
-    if (!window.confirm(`Delete batch "${batch.name}"? This cannot be undone.`)) return;
+    if (!(await confirmDialog({ title: 'Delete batch', message: `Delete batch "${batch.name}"? This cannot be undone.`, confirmLabel: 'Delete', danger: true }))) return;
     try {
       await deleteBatch(batch.id);
       setBatchesList(prev => prev.filter(b => b.id !== batch.id));
     } catch (e) {
-      alert('Failed to delete batch.');
+      notify('Failed to delete batch.');
     }
   };
 
@@ -534,7 +536,7 @@ export default function UserManagement() {
       setStudentModalTab('enrolled');
     } catch (e) {
       console.error('Error assigning students', e);
-      alert('Failed to assign students to batch.');
+      notify('Failed to assign students to batch.');
     } finally {
       setStudentModalLoading(false);
     }
@@ -542,7 +544,7 @@ export default function UserManagement() {
 
   const handleRemoveStudentFromBatch = async (studentId: string) => {
     if (!activeBatchForStudents) return;
-    if (!window.confirm('Remove this student from the batch?')) return;
+    if (!(await confirmDialog({ title: 'Remove student', message: 'Remove this student from the batch?', confirmLabel: 'Remove', danger: true }))) return;
     try {
       setStudentModalLoading(true);
       await removeStudentFromBatch(studentId, activeBatchForStudents.name, activeBatchForStudents.id);
@@ -550,7 +552,7 @@ export default function UserManagement() {
       await fetchBatchesData();
     } catch (e) {
       console.error('Error removing student', e);
-      alert('Failed to remove student.');
+      notify('Failed to remove student.');
     } finally {
       setStudentModalLoading(false);
     }
@@ -585,17 +587,17 @@ export default function UserManagement() {
   const getRoleBadgeClass = (role: string) => {
     switch (role) {
       case 'CEO':
-        return 'bg-purple-500/15 text-purple-600 dark:text-purple-400 border-purple-500/30';
+        return 'bg-purple-500/15 text-purple-700 dark:text-purple-400 border-purple-500/30';
       case 'Admin':
-        return 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border-indigo-500/30';
+        return 'bg-indigo-500/15 text-indigo-700 dark:text-indigo-400 border-indigo-500/30';
       case 'Manager':
-        return 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30';
+        return 'bg-amber-500/15 text-amber-800 dark:text-amber-400 border-amber-500/30';
       case 'Teacher':
-        return 'bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/30';
+        return 'bg-blue-500/15 text-blue-700 dark:text-blue-400 border-blue-500/30';
       case 'Sales/HR':
-        return 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30';
+        return 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30';
       case 'DM':
-        return 'bg-cyan-500/15 text-cyan-600 dark:text-cyan-400 border-cyan-500/30';
+        return 'bg-cyan-500/15 text-cyan-700 dark:text-cyan-400 border-cyan-500/30';
       default:
         return 'bg-slate-500/15 text-slate-600 dark:text-slate-400 border-slate-500/30';
     }
@@ -612,7 +614,7 @@ export default function UserManagement() {
     { key: 'status', header: 'Status', render: (row: any) => {
       const isAct = (row.status || 'Active') === 'Active';
       return (
-        <span className={`font-bold text-xs px-2.5 py-0.5 rounded-full border ${isAct ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/30' : 'bg-red-500/10 text-red-600 border-red-500/30'}`}>
+        <span className={`font-bold text-xs px-2.5 py-0.5 rounded-full border ${isAct ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30' : 'bg-red-500/10 text-red-600 border-red-500/30'}`}>
           {row.status || 'Active'}
         </span>
       );
@@ -722,11 +724,12 @@ export default function UserManagement() {
             <div className="bg-erp-surface border border-erp-border p-4 rounded-xl mb-5 flex flex-wrap gap-3 items-end">
               <div className="flex-1 min-w-[200px] relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-erp-text/50" />
-                <input type="text" value={filters.search || ''} placeholder="Search by Name, Email, or ID..."
+                <input type="text" value={filters.search || ''} placeholder="Search by Name, Email, or ID..." aria-label="Search staff by name, email or ID"
                   className={`${inputCls} pl-10`} onChange={e => handleFilter('search', e.target.value)} />
               </div>
               <div className="w-40">
                 <select
+                  aria-label="Filter by role"
                   value={filters.role || ''}
                   onChange={e => handleFilter('role', e.target.value)}
                   className={inputCls}
@@ -742,6 +745,7 @@ export default function UserManagement() {
               </div>
               <div className="w-36">
                 <select
+                  aria-label="Filter by status"
                   value={filters.status || ''}
                   onChange={e => handleFilter('status', e.target.value)}
                   className={inputCls}
@@ -779,7 +783,7 @@ export default function UserManagement() {
             {/* Metric Summary Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="bg-erp-surface border border-erp-border rounded-2xl p-4 flex items-center gap-4 shadow-sm">
-                <div className="w-12 h-12 rounded-xl bg-blue-500/10 text-blue-500 flex items-center justify-center flex-shrink-0">
+                <div className="w-12 h-12 rounded-xl bg-blue-500/10 text-blue-700 dark:text-blue-400 flex items-center justify-center flex-shrink-0">
                   <Layers className="w-6 h-6" />
                 </div>
                 <div>
@@ -789,7 +793,7 @@ export default function UserManagement() {
               </div>
 
               <div className="bg-erp-surface border border-erp-border rounded-2xl p-4 flex items-center gap-4 shadow-sm">
-                <div className="w-12 h-12 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center flex-shrink-0">
+                <div className="w-12 h-12 rounded-xl bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 flex items-center justify-center flex-shrink-0">
                   <GraduationCap className="w-6 h-6" />
                 </div>
                 <div>
@@ -799,7 +803,7 @@ export default function UserManagement() {
               </div>
 
               <div className="bg-erp-surface border border-erp-border rounded-2xl p-4 flex items-center gap-4 shadow-sm">
-                <div className="w-12 h-12 rounded-xl bg-blue-500/10 text-blue-500 flex items-center justify-center flex-shrink-0">
+                <div className="w-12 h-12 rounded-xl bg-blue-500/10 text-blue-700 dark:text-blue-400 flex items-center justify-center flex-shrink-0">
                   <UserCheck className="w-6 h-6" />
                 </div>
                 <div>
@@ -809,7 +813,7 @@ export default function UserManagement() {
               </div>
 
               <div className="bg-erp-surface border border-erp-border rounded-2xl p-4 flex items-center gap-4 shadow-sm">
-                <div className="w-12 h-12 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center flex-shrink-0">
+                <div className="w-12 h-12 rounded-xl bg-amber-500/10 text-amber-800 dark:text-amber-400 flex items-center justify-center flex-shrink-0">
                   <Calendar className="w-6 h-6" />
                 </div>
                 <div>
@@ -834,6 +838,7 @@ export default function UserManagement() {
 
               <div className="flex gap-2 flex-wrap items-center">
                 <select
+                  aria-label="Filter batches by status"
                   value={batchStatusFilter}
                   onChange={e => setBatchStatusFilter(e.target.value)}
                   className="bg-erp-background border border-erp-border rounded-xl px-3 py-2 text-sm text-erp-text font-medium focus:outline-none focus:border-blue-500"
@@ -917,16 +922,18 @@ export default function UserManagement() {
 
                         const isExpanded = expandedBatchIds.has(batch.id);
 
-                        let statusBg = 'bg-emerald-500/10 text-emerald-500 border-emerald-500/30';
-                        if (batch.status === 'Upcoming') statusBg = 'bg-blue-500/10 text-blue-500 border-blue-500/30';
+                        let statusBg = 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30';
+                        if (batch.status === 'Upcoming') statusBg = 'bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/30';
                         else if (batch.status === 'Completed') statusBg = 'bg-gray-500/10 text-gray-400 border-gray-500/30';
-                        else if (batch.status === 'Paused') statusBg = 'bg-amber-500/10 text-amber-500 border-amber-500/30';
+                        else if (batch.status === 'Paused') statusBg = 'bg-amber-500/10 text-amber-800 dark:text-amber-400 border-amber-500/30';
 
                         return (
                           <React.Fragment key={batch.id}>
                             <tr 
                               onClick={() => toggleBatchExpand(batch.id)}
-                              className={`hover:bg-erp-background/60 transition-colors cursor-pointer ${
+                              aria-expanded={isExpanded}
+                              {...keyboardActivate(() => toggleBatchExpand(batch.id))}
+                              className={`${FOCUS_RING} hover:bg-erp-background/60 transition-colors cursor-pointer ${
                                 isExpanded ? 'bg-blue-500/5 dark:bg-blue-950/20 font-medium' : ''
                               }`}
                             >
@@ -985,7 +992,7 @@ export default function UserManagement() {
                               </td>
                               <td className="py-3.5 px-4">
                                 <div className="flex items-center gap-2">
-                                  <span className="text-xs font-black text-blue-600 dark:text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded-full border border-blue-500/20">
+                                  <span className="text-xs font-black text-blue-700 dark:text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded-full border border-blue-500/20">
                                     {overallCompletionPct}%
                                   </span>
                                   <span className="text-[10px] text-erp-text/50 hidden sm:inline">
@@ -1037,13 +1044,13 @@ export default function UserManagement() {
                                         <h4 className="font-bold text-xs text-erp-text uppercase tracking-wider">
                                           {batch.name} — Class Progress & Subject Breakdown
                                         </h4>
-                                        <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-500 border border-blue-500/30">
+                                        <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-500/30">
                                           Overall Progress: {overallCompletionPct}%
                                         </span>
                                       </div>
                                       <button
                                         onClick={() => handleAddSubjectToBatch(batch)}
-                                        className="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-blue-500/10 text-blue-600 hover:bg-blue-500/20 border border-blue-500/30 flex items-center gap-1 transition-colors"
+                                        className="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-blue-500/10 text-blue-700 dark:text-blue-400 hover:bg-blue-500/20 border border-blue-500/30 flex items-center gap-1 transition-colors"
                                       >
                                         <Plus className="w-3.5 h-3.5" /> Add Subject
                                       </button>
@@ -1153,7 +1160,7 @@ export default function UserManagement() {
                 <div>
                   <label className="block text-xs font-bold text-erp-text/60 mb-1.5">Role</label>
                   <select value={role} onChange={e => setRole(e.target.value)} className={inputCls}>
-                    {['Sales/HR', 'Manager', 'Teacher', 'CEO', 'DM', 'Admin'].map(r => <option key={r} value={r}>{r}</option>)}
+                    {(currentUser?.role === 'CEO' ? ['Sales/HR', 'Manager', 'Teacher', 'CEO', 'DM', 'Admin'] : ['Sales/HR', 'Teacher', 'DM']).map(r => <option key={r} value={r}>{r}</option>)}
                   </select>
                 </div>
                 {currentUser?.role === 'CEO' && (
@@ -1198,7 +1205,7 @@ export default function UserManagement() {
                         const allFull = SYSTEM_MODULES.reduce((acc, m) => ({ ...acc, [m.id]: 'full' }), {});
                         setPermissions(allFull as any);
                       }}
-                      className="text-[10px] font-bold px-2 py-1 rounded-md bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 border border-emerald-500/30 transition-colors"
+                      className="text-[10px] font-bold px-2 py-1 rounded-md bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/30 transition-colors"
                     >
                       ⚡ Grant All Full Access
                     </button>
@@ -1208,7 +1215,7 @@ export default function UserManagement() {
                         const allView = SYSTEM_MODULES.reduce((acc, m) => ({ ...acc, [m.id]: 'view' }), {});
                         setPermissions(allView as any);
                       }}
-                      className="text-[10px] font-bold px-2 py-1 rounded-md bg-blue-500/10 text-blue-600 hover:bg-blue-500/20 border border-blue-500/30 transition-colors"
+                      className="text-[10px] font-bold px-2 py-1 rounded-md bg-blue-500/10 text-blue-700 dark:text-blue-400 hover:bg-blue-500/20 border border-blue-500/30 transition-colors"
                     >
                       👁️ Grant All View Only
                     </button>
@@ -1218,7 +1225,7 @@ export default function UserManagement() {
                         const allNone = SYSTEM_MODULES.reduce((acc, m) => ({ ...acc, [m.id]: 'none' }), {});
                         setPermissions(allNone as any);
                       }}
-                      className="text-[10px] font-bold px-2 py-1 rounded-md bg-red-500/10 text-red-600 hover:bg-red-500/20 border border-red-500/30 transition-colors"
+                      className="text-[10px] font-bold px-2 py-1 rounded-md bg-red-500/10 text-red-700 dark:text-red-400 hover:bg-red-500/20 border border-red-500/30 transition-colors"
                     >
                       🔒 Revoke All Access
                     </button>
@@ -1427,7 +1434,7 @@ export default function UserManagement() {
                 onClick={() => setStudentModalTab('enrolled')}
                 className={`px-4 py-2 font-bold text-xs rounded-t-xl transition-all border-b-2 ${
                   studentModalTab === 'enrolled'
-                    ? 'border-blue-500 text-blue-500 bg-blue-500/10'
+                    ? 'border-blue-500 text-blue-700 dark:text-blue-400 bg-blue-500/10'
                     : 'border-transparent text-erp-text/60 hover:text-erp-text'
                 }`}
               >
@@ -1437,7 +1444,7 @@ export default function UserManagement() {
                 onClick={() => setStudentModalTab('add')}
                 className={`px-4 py-2 font-bold text-xs rounded-t-xl transition-all border-b-2 ${
                   studentModalTab === 'add'
-                    ? 'border-blue-500 text-blue-500 bg-blue-500/10'
+                    ? 'border-blue-500 text-blue-700 dark:text-blue-400 bg-blue-500/10'
                     : 'border-transparent text-erp-text/60 hover:text-erp-text'
                 }`}
               >
@@ -1475,7 +1482,7 @@ export default function UserManagement() {
                           className="flex items-center justify-between p-3 bg-erp-background border border-erp-border rounded-xl hover:border-blue-500/30 transition-colors"
                         >
                           <div className="flex items-center gap-3">
-                            <div className="w-9 h-9 rounded-full bg-blue-500/10 text-blue-500 font-bold text-xs flex items-center justify-center flex-shrink-0">
+                            <div className="w-9 h-9 rounded-full bg-blue-500/10 text-blue-700 dark:text-blue-400 font-bold text-xs flex items-center justify-center flex-shrink-0">
                               {student.name.charAt(0).toUpperCase()}
                             </div>
                             <div>
@@ -1574,7 +1581,7 @@ export default function UserManagement() {
                 <Button
                   onClick={handleAssignSelectedStudents}
                   disabled={selectedStudentIds.size === 0}
-                  className="flex items-center gap-2 text-sm bg-emerald-600 hover:bg-emerald-500 text-white disabled:opacity-50"
+                  className="flex items-center gap-2 text-sm bg-emerald-700 hover:bg-emerald-800 text-white disabled:opacity-50"
                 >
                   <UserPlus className="w-4 h-4" />
                   <span>Assign Selected ({selectedStudentIds.size})</span>

@@ -132,11 +132,11 @@ export default function Leaderboard() {
       {/* ── Page Header ──────────────────────────────────────────────────── */}
       <div className="relative overflow-hidden candy-panel p-6 bg-gradient-to-br from-blue-600 to-sky-600 !border-white text-white">
         {/* decorative circles */}
-        <div className="pointer-events-none absolute -top-10 -right-10 w-48 h-48 rounded-full bg-white dark:bg-black/5" />
-        <div className="pointer-events-none absolute bottom-0 left-1/2 w-32 h-32 rounded-full bg-white dark:bg-black/5" />
+        <div className="pointer-events-none absolute -top-10 -right-10 w-48 h-48 rounded-full bg-white/5" />
+        <div className="pointer-events-none absolute bottom-0 left-1/2 w-32 h-32 rounded-full bg-white/5" />
 
         <div className="relative flex items-center gap-4">
-          <div className="w-14 h-14 rounded-2xl bg-white dark:bg-black/15 backdrop-blur-sm flex items-center justify-center shadow-inner">
+          <div className="w-14 h-14 rounded-2xl bg-white/15 backdrop-blur-sm flex items-center justify-center shadow-inner">
             <Trophy className="w-7 h-7 text-yellow-300 fill-yellow-300/30" />
           </div>
           <div>
@@ -147,7 +147,7 @@ export default function Leaderboard() {
 
         {/* Current user badge (if on board) */}
         {currentUserIdx >= 0 && (
-          <div className="relative mt-4 inline-flex items-center gap-2 bg-white dark:bg-black/15 rounded-xl px-3 py-1.5 text-white text-xs font-bold">
+          <div className="relative mt-4 inline-flex items-center gap-2 bg-white/15 rounded-xl px-3 py-1.5 text-white text-xs font-bold">
             <Star className="w-3.5 h-3.5 fill-yellow-300 text-yellow-300" />
             Your rank: #{currentUserIdx + 1}
           </div>
@@ -225,7 +225,7 @@ export default function Leaderboard() {
                     <p className={`text-sm font-bold truncate ${isCurrentUser ? 'text-blue-500' : 'text-foreground'}`}>
                       {entry.student_name}
                       {isCurrentUser && (
-                        <span className="ml-2 text-[10px] bg-blue-500/20 text-blue-500 rounded-full px-1.5 py-0.5 font-bold">You</span>
+                        <span className="ml-2 text-[10px] bg-blue-500/20 text-blue-700 dark:text-blue-400 rounded-full px-1.5 py-0.5 font-bold">You</span>
                       )}
                     </p>
                     <p className="text-xs text-muted-foreground font-medium">

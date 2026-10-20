@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { toWhatsAppNumber } from '../../lib/phoneUtils';
 import { Card } from '../../components/ui/erp/Card';
 import { Button } from '../../components/ui/erp/Button';
 import { MessageCircle, FileText, Send, Download, Users, Server, QrCode, Plus, Edit2, Trash2 } from 'lucide-react';
@@ -7,6 +8,10 @@ import { Lead } from '../../lib/types';
 import { QRCodeSVG } from 'qrcode.react';
 import { getTemplates, createTemplate, updateTemplate, deleteTemplate, WhatsAppTemplate } from '../../lib/api/whatsapp';
 import { getCurrentUser } from '../../lib/auth';
+import { notify, confirmDialog, promptDialog } from '../../lib/feedback';
+
+// WhatsApp service (backend/server.js on Render). Dev falls back to the local backend; production needs VITE_WHATSAPP_API_URL.
+const WHATSAPP_API = String(import.meta.env.VITE_WHATSAPP_API_URL || (import.meta.env.DEV ? 'http://localhost:5000' : '')).replace(/\/$/, '');
 
 export default function ChatPortal() {
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -37,8 +42,9 @@ export default function ChatPortal() {
   };
 
   const checkWhatsAppStatus = async () => {
+    if (!WHATSAPP_API) { setWaStatus('offline'); return; }
     try {
-      const res = await fetch('http://localhost:5000/api/whatsapp/status');
+      const res = await fetch(`${WHATSAPP_API}/api/whatsapp/status`);
       const data = await res.json();
       setWaStatus(data.status);
       if (data.qr) setQrCode(data.qr);
@@ -47,17 +53,17 @@ export default function ChatPortal() {
     }
   };
 
-  const handleOpenWhatsApp = (templateText: string, name?: string, course?: string, phoneInput?: string) => {
+  const handleOpenWhatsApp = async (templateText: string, name?: string, course?: string, phoneInput?: string) => {
     const finalName = name || "[Name]";
     const finalCourse = course || "[Course]";
     const msg = encodeURIComponent(templateText.replace(/\[Name\]/g, finalName).replace(/\[Course\]/g, finalCourse));
     
     let phone = phoneInput;
     if (!phone) {
-      phone = window.prompt("Enter the 10-digit phone number:");
+      phone = (await promptDialog({ title: 'Phone number', message: 'Enter the 10-digit phone number:', inputType: 'tel', placeholder: '9876543210', confirmLabel: 'Open WhatsApp', validate: v => (v.replace(/\D/g, '').length >= 10 ? null : 'Enter a valid 10-digit phone number.') })) ?? undefined;
     }
     if (phone) {
-      const cleanPhone = phone.replace(/[^0-9]/g, '');
+      const cleanPhone = toWhatsAppNumber(phone);
       window.open(`https://wa.me/${cleanPhone}?text=${msg}`, '_blank');
     }
   };
@@ -76,14 +82,16 @@ export default function ChatPortal() {
 
   const handleBulkSend = async (templateText: string) => {
     const selected = leads.filter(l => selectedLeads.includes(l.id));
-    if (selected.length === 0) return alert("Select leads first");
+    if (selected.length === 0) return notify("Select leads first");
     
     if (waStatus === 'ready') {
-       const confirm = window.confirm(`Ready to automatically send to ${selected.length} leads using the server? There will be a 30-second delay between each message to prevent account blocking.`);
-       if (!confirm) return;
+       const confirmed = await confirmDialog({ title: 'Send bulk messages', message: `Ready to automatically send to ${selected.length} leads using the server? There will be a 30-second delay between each message to prevent account blocking.`, confirmLabel: 'Send' });
+       if (!confirmed) return;
        
        setIsSending(true);
        let count = 1;
+       let sentOk = 0;
+       const failedNames: string[] = [];
        
        for (const lead of selected) {
           const finalName = lead.name || "[Name]";
@@ -93,16 +101,20 @@ export default function ChatPortal() {
           setSendProgress(`Sending to ${lead.name} (${count} of ${selected.length})...`);
           
           try {
-             const res = await fetch('http://localhost:5000/api/whatsapp/send', {
+             const res = await fetch(`${WHATSAPP_API}/api/whatsapp/send`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ phone: lead.phone, message: msg })
+                body: JSON.stringify({ phone: toWhatsAppNumber(lead.phone), message: msg })
              });
-             if (res.ok && user) {
-                await addActivity(lead.id, user.id, 'WhatsApp Sent', msg);
+             if (res.ok) {
+                sentOk++;
+                if (user) await addActivity(lead.id, user.id, 'WhatsApp Sent', msg);
+             } else {
+                failedNames.push(lead.name);
              }
           } catch(e) {
              console.error("Failed to send to", lead.phone);
+             failedNames.push(lead.name);
           }
           
           if (count < selected.length) {
@@ -112,12 +124,14 @@ export default function ChatPortal() {
           count++;
        }
        setIsSending(false);
-       alert("Bulk sending complete!");
+       notify(failedNames.length === 0
+         ? `Bulk sending complete! ${sentOk} message(s) sent.`
+         : `Done: ${sentOk} sent, ${failedNames.length} failed (${failedNames.slice(0, 5).join(', ')}${failedNames.length > 5 ? ', …' : ''}).`);
        setSelectedLeads([]);
        setSendProgress('');
     } else {
-       const confirm = window.confirm(`Server offline. Ready to send to ${selected.length} leads manually? A new window will open for the first lead. Come back and click next for the rest.`);
-       if (confirm) {
+       const confirmed = await confirmDialog({ title: 'Server offline', message: `Server offline. Ready to send to ${selected.length} leads manually? A new window will open for the first lead. Come back and click next for the rest.`, confirmLabel: 'Continue' });
+       if (confirmed) {
          handleOpenWhatsApp(templateText, selected[0].name, selected[0].course_interest, selected[0].phone);
          setSelectedLeads(selectedLeads.filter(id => id !== selected[0].id));
        }
@@ -125,7 +139,7 @@ export default function ChatPortal() {
   };
   
   const handleSaveTemplate = async () => {
-    if (!editingTemplate?.name || !editingTemplate?.body) return alert('Name and body are required');
+    if (!editingTemplate?.name || !editingTemplate?.body) return notify('Name and body are required');
     if (editingTemplate.id) {
        await updateTemplate(editingTemplate.id, editingTemplate.name, editingTemplate.body, editingTemplate.category || 'General');
     } else {
@@ -136,7 +150,7 @@ export default function ChatPortal() {
   };
 
   const handleDeleteTemplate = async (id: string) => {
-    if (window.confirm('Delete this template?')) {
+    if (await confirmDialog({ title: 'Delete template', message: 'Delete this template?', confirmLabel: 'Delete', danger: true })) {
        await deleteTemplate(id);
        loadTemplates();
     }
@@ -188,7 +202,7 @@ export default function ChatPortal() {
               </p>
 
               {waStatus === 'offline' && (
-                <div className="bg-red-500/10 text-red-500 p-4 rounded-xl border border-red-500/20 font-bold">
+                <div className="bg-red-500/10 text-red-700 dark:text-red-400 p-4 rounded-xl border border-red-500/20 font-bold">
                   The local backend server is offline. Please run "node server.js" in the backend folder.
                 </div>
               )}
@@ -206,7 +220,7 @@ export default function ChatPortal() {
               )}
 
               {waStatus === 'ready' && (
-                <div className="bg-green-500/10 text-green-500 p-6 rounded-xl border border-green-500/20">
+                <div className="bg-green-500/10 text-green-700 dark:text-green-400 p-6 rounded-xl border border-green-500/20">
                   <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-4">
                     <MessageCircle className="w-8 h-8 text-white" />
                   </div>

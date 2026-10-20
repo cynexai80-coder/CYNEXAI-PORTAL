@@ -26,20 +26,10 @@ import { getManagerStudents } from '../../lib/api/student';
 import { getUsers } from '../../lib/api/users';
 import { generateQRAttendance, QRCodeResult } from '../../lib/api/ux';
 import { QRCodeSVG } from 'qrcode.react';
+import { isPresentLog, isPendingLog } from '../../lib/attendanceUtils';
 import { StaffAttendanceModal } from '../../components/crm/attendance/StaffAttendanceModal';
+import { notify } from '../../lib/feedback';
 
-const DEFAULT_DEMO_STUDENTS = [
-  { id: 'stu_1', name: 'Aarav Sharma', email: 'aarav.sharma@cynexai.com', student_code: 'CNX-STU-001', batch_number: 'Batch 1', role: 'Student' },
-  { id: 'stu_2', name: 'Ananya Verma', email: 'ananya.v@cynexai.com', student_code: 'CNX-STU-002', batch_number: 'Batch 1', role: 'Student' },
-  { id: 'stu_3', name: 'Vikram Reddy', email: 'vikram.r@cynexai.com', student_code: 'CNX-STU-003', batch_number: 'Batch 1', role: 'Student' },
-  { id: 'stu_4', name: 'Priya Patel', email: 'priya.patel@cynexai.com', student_code: 'CNX-STU-004', batch_number: 'Batch 2', role: 'Student' },
-  { id: 'stu_5', name: 'Rahul Kumar', email: 'rahul.k@cynexai.com', student_code: 'CNX-STU-005', batch_number: 'Batch 2', role: 'Student' },
-  { id: 'stu_6', name: 'Sneha Gupta', email: 'sneha.g@cynexai.com', student_code: 'CNX-STU-006', batch_number: 'Batch 2', role: 'Student' },
-  { id: 'stu_7', name: 'Sai Krishna', email: 'sai.k@cynexai.com', student_code: 'CNX-STU-007', batch_number: 'Batch 3', role: 'Student' },
-  { id: 'stu_8', name: 'Divya Nair', email: 'divya.n@cynexai.com', student_code: 'CNX-STU-008', batch_number: 'Batch 3', role: 'Student' },
-  { id: 'stu_9', name: 'Rohan Mehta', email: 'rohan.m@cynexai.com', student_code: 'CNX-STU-009', batch_number: 'Batch 3', role: 'Student' },
-  { id: 'stu_10', name: 'Kavya Singh', email: 'kavya.s@cynexai.com', student_code: 'CNX-STU-010', batch_number: 'Batch 1', role: 'Student' },
-];
 
 const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -165,13 +155,13 @@ export default function AttendanceSystem() {
         if (loadedStudents.length > 0) {
           setStudents(loadedStudents);
         } else {
-          setStudents(DEFAULT_DEMO_STUDENTS);
+          setStudents([]);
         }
 
         await syncAttendanceFromDB(currentClass?.id || 'default', 'all');
       } catch (e) {
         console.error('Error initializing attendance system:', e);
-        if (isMounted) setStudents(DEFAULT_DEMO_STUDENTS);
+        if (isMounted) setStudents([]);
       } finally {
         if (isMounted) setLoading(false);
       }
@@ -216,7 +206,7 @@ export default function AttendanceSystem() {
   };
 
   const handleGenerateQR = async () => {
-    const sessionToken = activeClass?.id || selectedBatch?.id || `batch_session_${Date.now()}`;
+    const sessionToken = activeClass?.id || selectedBatch?.id || 'batch_session';
     try {
       const data = await generateQRAttendance(sessionToken);
       setQrData(data);
@@ -280,7 +270,7 @@ export default function AttendanceSystem() {
       setSyncing(true);
       const absentStudents = batchStudents.filter(s => {
         const log = presentStudentMap.get(s.id) || presentStudentMap.get(s.email?.toLowerCase());
-        const isPresent = log && (log.duration_minutes >= 5 || log.status === 'Present' || log.attendance_type === 'Offline_QR');
+        const isPresent = isPresentLog(log);
         return !isPresent;
       });
       await Promise.all(absentStudents.map(s => logAttendance(s.id, targetClassId, 'Manual')));
@@ -293,9 +283,11 @@ export default function AttendanceSystem() {
   };
 
   const handleCopyMeetLink = () => {
-    const link = activeClass 
-      ? `https://meet.google.com/cnx-${activeClass.id.substring(0, 8)}`
-      : `https://meet.google.com/cnx-${selectedBatch?.name?.toLowerCase().replace(/\s+/g, '-') || 'live'}`;
+    const link = (activeClass?.meet_link as string) || '';
+    if (!link) {
+      notify('No meeting link is set for this class. Add one in the Course CMS first.');
+      return;
+    }
     navigator.clipboard.writeText(link);
     setCopiedLink(true);
     setTimeout(() => setCopiedLink(false), 2000);
@@ -318,8 +310,7 @@ export default function AttendanceSystem() {
     liveLogs.forEach(log => {
       if (log.student_id && (log.class_id || log.batch_id)) {
         const classIdKey = log.class_id || log.batch_id;
-        const duration = Number(log.duration_minutes) || 0;
-        const isPresent = duration >= 5 || log.status === 'Present' || log.attendance_type === 'Offline_QR' || log.attendance_type === 'Manual';
+        const isPresent = isPresentLog(log);
         map.set(`${log.student_id}_${classIdKey}`, { isPresent, status: isPresent ? 'Present' : 'Absent', log });
         if (log.student_email) {
           map.set(`${log.student_email.toLowerCase()}_${classIdKey}`, { isPresent, status: isPresent ? 'Present' : 'Absent', log });
@@ -331,8 +322,7 @@ export default function AttendanceSystem() {
       const studentIdKey = log.student_id;
       const classIdKey = log.class_id || log.batch_id;
       if (studentIdKey && classIdKey) {
-        const duration = Number(log.duration_minutes) || 0;
-        const isPresent = duration >= 5 || log.status === 'Present' || log.attendance_type === 'Offline_QR' || log.attendance_type === 'Manual';
+        const isPresent = isPresentLog(log);
         map.set(`${studentIdKey}_${classIdKey}`, { isPresent, status: isPresent ? 'Present' : 'Absent', log });
       }
     });
@@ -357,8 +347,8 @@ export default function AttendanceSystem() {
       const cleanStudentBatch = studentBatch.replace(/\s*\([^)]*\)/g, '');
       const studentNum = extractNum(cleanStudentBatch);
 
-      // Exact numeric match e.g. '1' matches 'Batch 1'
-      if (selectedNum && studentNum && selectedNum === studentNum) return true;
+      // When both sides carry a batch number, the number alone decides ('Batch 1' must NOT match 'Batch 10').
+      if (selectedNum && studentNum) return selectedNum === studentNum;
 
       return (
         cleanStudentBatch === cleanSelectedBatchName ||
@@ -376,9 +366,8 @@ export default function AttendanceSystem() {
                             (s.email || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
                             (s.student_code || '').toLowerCase().includes(searchQuery.toLowerCase());
       const log = presentStudentMap.get(s.id) || presentStudentMap.get(s.email?.toLowerCase());
-      const duration = Number(log?.duration_minutes) || 0;
-      const isPresent = log && (duration >= 5 || log.status === 'Present' || log.attendance_type === 'Offline_QR' || log.attendance_type === 'Manual');
-      const isPending = log && duration > 0 && duration < 5 && !isPresent;
+      const isPresent = isPresentLog(log);
+      const isPending = isPendingLog(log);
       const isAbsent = !isPresent && !isPending;
 
       if (filterStatus === 'present') return matchesSearch && isPresent;
@@ -395,8 +384,7 @@ export default function AttendanceSystem() {
     return batchStudents.filter(s => {
       const log = presentStudentMap.get(s.id) || presentStudentMap.get(s.email?.toLowerCase());
       if (!log) return false;
-      const duration = Number(log.duration_minutes) || 0;
-      return duration >= 5 || log.status === 'Present' || log.attendance_type === 'Offline_QR' || log.attendance_type === 'Manual';
+      return isPresentLog(log);
     }).length;
   }, [batchStudents, presentStudentMap]);
 
@@ -404,8 +392,7 @@ export default function AttendanceSystem() {
     return batchStudents.filter(s => {
       const log = presentStudentMap.get(s.id) || presentStudentMap.get(s.email?.toLowerCase());
       if (!log) return false;
-      const duration = Number(log.duration_minutes) || 0;
-      return duration > 0 && duration < 5 && log.status !== 'Present' && log.attendance_type !== 'Offline_QR' && log.attendance_type !== 'Manual';
+      return isPendingLog(log);
     }).length;
   }, [batchStudents, presentStudentMap]);
 
@@ -431,26 +418,6 @@ export default function AttendanceSystem() {
           courseTitle
         });
       });
-    }
-
-    // Fallback: If DB query for a specific course is empty, populate 28 classes for Python and 30 for SQL (exact DB counts)
-    if (Object.keys(groups).length === 0) {
-      if (matrixFilterCourse === 'all' || matrixFilterCourse.toLowerCase() === 'python') {
-        groups['Python'] = Array.from({ length: 28 }, (_, i) => ({
-          id: `py_c${i + 1}`,
-          title: `Python - Class ${i + 1}`,
-          classNum: i + 1,
-          courseTitle: 'Python'
-        }));
-      }
-      if (matrixFilterCourse === 'all' || matrixFilterCourse.toLowerCase() === 'sql') {
-        groups['SQL'] = Array.from({ length: 30 }, (_, i) => ({
-          id: `sql_c${i + 1}`,
-          title: `SQL - Class ${i + 1}`,
-          classNum: i + 1,
-          courseTitle: 'SQL'
-        }));
-      }
     }
 
     return groups;
@@ -498,9 +465,7 @@ export default function AttendanceSystem() {
     });
 
     if (!match) return 'Unmarked';
-    const duration = Number(match.duration_minutes) || 0;
-    const isPresent = duration >= 5 || match.status === 'Present' || match.attendance_type === 'Offline_QR' || match.attendance_type === 'Manual';
-    return isPresent ? 'Present' : 'Absent';
+    return isPresentLog(match) ? 'Present' : 'Absent';
   }, [matrixLogs]);
 
   const handleToggleDateStudent = async (studentId: string, classId: string, dateStr: string, targetStatus: 'Present' | 'Absent') => {
@@ -733,6 +698,7 @@ export default function AttendanceSystem() {
       });
     }
 
+    return days;
   }, [calYear, calMonth, today, batchStudents, getStudentDateStatus, calendarSelectedClassId]);
 
   // Statistics for the selected calendar date
@@ -769,7 +735,7 @@ export default function AttendanceSystem() {
   // Export ALL Attendance Matrix (All 28+ Classes) to CSV File
   const handleExportCSV = () => {
     if (filteredStudents.length === 0) {
-      alert('No student records available to export.');
+      notify('No student records available to export.');
       return;
     }
 
@@ -823,9 +789,7 @@ export default function AttendanceSystem() {
     document.body.removeChild(link);
   };
 
-  const meetUrl = activeClass 
-    ? `https://meet.google.com/cnx-${activeClass.id.substring(0, 8)}`
-    : `https://meet.google.com/cnx-${selectedBatch?.name?.toLowerCase().replace(/\s+/g, '-') || 'live'}`;
+  const meetUrl = (activeClass?.meet_link as string) || '';
 
   const currentWindowSize = classPageSize === 'all' ? allFlatClasses.length : Number(classPageSize) || 8;
 
@@ -838,7 +802,7 @@ export default function AttendanceSystem() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
           <div className="flex items-center gap-2 mb-1.5">
-            <span className="text-[10px] font-black uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+            <span className="text-[10px] font-black uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-500/20">
               {roleBadgeLabel}
             </span>
           </div>
@@ -853,7 +817,7 @@ export default function AttendanceSystem() {
         <div className="flex items-center gap-2 flex-wrap">
           <Button
             onClick={() => setShowStaffModal(true)}
-            variant="secondary"
+            variant="outline"
             size="md"
             className="flex items-center gap-2 font-bold shadow-xs text-blue-600 dark:text-blue-400 border-blue-500/30 hover:bg-blue-500/10 cursor-pointer"
           >
@@ -865,7 +829,7 @@ export default function AttendanceSystem() {
             onClick={handleExportCSV} 
             variant="primary" 
             size="md"
-            className="flex items-center gap-2 font-bold shadow-md bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer"
+            className="flex items-center gap-2 font-bold shadow-md bg-emerald-700 hover:bg-emerald-800 text-white cursor-pointer"
           >
             <Download className="w-4 h-4" />
             Export All Classes (CSV)
@@ -917,24 +881,24 @@ export default function AttendanceSystem() {
       <Card className="bg-erp-surface border-erp-border p-5 mb-8 shadow-sm flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-            <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-blue-500/10 text-blue-500 border border-blue-500/20 flex items-center gap-1">
+            <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-500/20 flex items-center gap-1">
               <Layers className="w-3 h-3" /> Batch Focus
             </span>
 
             {/* Mode Badge */}
             <span className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded border flex items-center gap-1 ${
               batchMode === 'Online'
-                ? 'bg-cyan-500/10 text-cyan-500 border-cyan-500/30'
+                ? 'bg-cyan-500/10 text-cyan-700 dark:text-cyan-400 border-cyan-500/30'
                 : batchMode === 'Offline'
-                ? 'bg-amber-500/10 text-amber-500 border-amber-500/30'
-                : 'bg-purple-500/10 text-purple-500 border-purple-500/30'
+                ? 'bg-amber-500/10 text-amber-800 dark:text-amber-400 border-amber-500/30'
+                : 'bg-purple-500/10 text-purple-700 dark:text-purple-400 border-purple-500/30'
             }`}>
               {batchMode === 'Online' ? <Laptop className="w-3 h-3" /> : batchMode === 'Offline' ? <MapPin className="w-3 h-3" /> : <Sparkles className="w-3 h-3" />}
               {batchMode} Mode
             </span>
 
             {activeClass?.status && (
-              <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+              <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20">
                 Class: {activeClass.status}
               </span>
             )}
@@ -964,6 +928,7 @@ export default function AttendanceSystem() {
           <div className="flex items-center gap-1.5">
             <span className="text-xs font-bold text-erp-text/60 hidden sm:inline">Batch:</span>
             <select
+              aria-label="Batch"
               value={selectedBatchId}
               onChange={(e) => handleSelectBatch(e.target.value)}
               className="bg-erp-background border border-erp-border text-erp-text font-bold rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 max-w-[180px] truncate"
@@ -994,7 +959,7 @@ export default function AttendanceSystem() {
       {/* Sync & Stats Banner */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <Card className="bg-erp-surface border-erp-border p-5 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-blue-500/10 text-blue-500 flex items-center justify-center font-bold text-xl shrink-0">
+          <div className="w-12 h-12 rounded-xl bg-blue-500/10 text-blue-700 dark:text-blue-400 flex items-center justify-center font-bold text-xl shrink-0">
             <Users className="w-6 h-6" />
           </div>
           <div className="min-w-0 flex-1">
@@ -1004,33 +969,33 @@ export default function AttendanceSystem() {
         </Card>
 
         <Card className="bg-erp-surface border-erp-border p-5 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center font-bold text-xl shrink-0">
+          <div className="w-12 h-12 rounded-xl bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 flex items-center justify-center font-bold text-xl shrink-0">
             <UserCheck className="w-6 h-6" />
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-xs font-semibold text-erp-text/60 uppercase tracking-wider">Present (&gt;=5m / QR)</p>
-            <h3 className="text-2xl font-black text-emerald-500 mt-0.5">{presentCount}</h3>
+            <h3 className="text-2xl font-black text-emerald-700 dark:text-emerald-400 mt-0.5">{presentCount}</h3>
           </div>
         </Card>
 
         <Card className="bg-erp-surface border-erp-border p-5 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center font-bold text-xl shrink-0">
+          <div className="w-12 h-12 rounded-xl bg-amber-500/10 text-amber-800 dark:text-amber-400 flex items-center justify-center font-bold text-xl shrink-0">
             <Clock className="w-6 h-6" />
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-xs font-semibold text-erp-text/60 uppercase tracking-wider">Pending (&lt;5m)</p>
-            <h3 className="text-2xl font-black text-amber-500 mt-0.5">{pendingCount}</h3>
+            <h3 className="text-2xl font-black text-amber-700 dark:text-amber-400 mt-0.5">{pendingCount}</h3>
           </div>
         </Card>
 
         <Card className="bg-erp-surface border-erp-border p-5 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-purple-500/10 text-purple-500 flex items-center justify-center font-bold text-xl shrink-0">
+          <div className="w-12 h-12 rounded-xl bg-purple-500/10 text-purple-700 dark:text-purple-400 flex items-center justify-center font-bold text-xl shrink-0">
             <Sparkles className="w-6 h-6" />
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-xs font-semibold text-erp-text/60 uppercase tracking-wider">Attendance Rate</p>
             <div className="flex items-center justify-between gap-2 mt-0.5">
-              <h3 className="text-2xl font-black text-purple-500">{presentPercentage}%</h3>
+              <h3 className="text-2xl font-black text-purple-600 dark:text-purple-400">{presentPercentage}%</h3>
               {lastSyncedTime && (
                 <span className="text-[10px] font-mono text-erp-text/50 truncate">
                   Synced {lastSyncedTime}
@@ -1047,14 +1012,14 @@ export default function AttendanceSystem() {
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6">
             <div>
               <h2 className="text-xl font-bold font-display text-erp-text flex items-center gap-2">
-                <FileSpreadsheet className="w-5 h-5 text-emerald-500" />
+                <FileSpreadsheet className="w-5 h-5 text-emerald-700 dark:text-emerald-400" />
                 Batch & Course Attendance Matrix
-                <span className="text-xs bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 px-2.5 py-0.5 rounded-full font-mono font-bold">
+                <span className="text-xs bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 px-2.5 py-0.5 rounded-full font-mono font-bold">
                   {filteredStudents.length} Students
                 </span>
               </h2>
               <p className="text-xs text-erp-text/60 mt-1">
-                Course breakdown with green <strong className="text-emerald-500">P</strong> (Present) and red <strong className="text-rose-500">A</strong> (Absent) status boxes. Click any box to toggle.
+                Course breakdown with green <strong className="text-emerald-700 dark:text-emerald-400">P</strong> (Present) and red <strong className="text-rose-600 dark:text-rose-400">A</strong> (Absent) status boxes. Click any box to toggle.
               </p>
             </div>
 
@@ -1063,6 +1028,7 @@ export default function AttendanceSystem() {
               <div className="flex items-center gap-1.5">
                 <span className="text-xs font-bold text-erp-text/60 hidden sm:inline">Course:</span>
                 <select
+                  aria-label="Course"
                   value={matrixFilterCourse}
                   onChange={(e) => {
                     setMatrixFilterCourse(e.target.value);
@@ -1082,7 +1048,7 @@ export default function AttendanceSystem() {
                 <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-erp-text/40" />
                 <input
                   type="text"
-                  placeholder="Search student..."
+                  placeholder="Search student..." aria-label="Search student"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full pl-8 pr-3 py-1.5 text-xs bg-erp-background border border-erp-border rounded-xl text-erp-text focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -1090,7 +1056,7 @@ export default function AttendanceSystem() {
               </div>
 
               {/* Export Matrix Button */}
-              <Button onClick={handleExportCSV} variant="secondary" size="sm" className="font-bold text-xs flex items-center gap-1.5 border border-emerald-500/30 text-emerald-500 hover:bg-emerald-500/10">
+              <Button onClick={handleExportCSV} variant="ghost" size="sm" className="font-bold text-xs flex items-center gap-1.5 border border-emerald-500/30 !text-emerald-700 dark:!text-emerald-400 hover:!bg-emerald-500/10">
                 <Download className="w-3.5 h-3.5" />
                 Export CSV (All Classes)
               </Button>
@@ -1156,6 +1122,7 @@ export default function AttendanceSystem() {
               <div className="flex items-center gap-1.5">
                 <span className="text-xs font-bold text-erp-text/60 hidden sm:inline">Classes per page:</span>
                 <select
+                  aria-label="Classes per page"
                   value={classPageSize}
                   onChange={(e) => {
                     const val = e.target.value;
@@ -1179,15 +1146,15 @@ export default function AttendanceSystem() {
           <div className="flex items-center gap-4 bg-erp-background border border-erp-border p-3 rounded-xl mb-5 text-xs font-medium">
             <span className="font-bold text-erp-text">Legend:</span>
             <div className="flex items-center gap-1.5">
-              <span className="w-6 h-6 rounded-md bg-emerald-500 text-white font-black text-[11px] flex items-center justify-center">P</span>
+              <span className="w-6 h-6 rounded-md bg-emerald-700 text-white font-black text-[11px] flex items-center justify-center">P</span>
               <span className="text-erp-text/70">Present</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <span className="w-6 h-6 rounded-md bg-rose-500 text-white font-black text-[11px] flex items-center justify-center">A</span>
+              <span className="w-6 h-6 rounded-md bg-rose-600 text-white font-black text-[11px] flex items-center justify-center">A</span>
               <span className="text-erp-text/70">Absent</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <span className="w-6 h-6 rounded-md bg-slate-200 dark:bg-zinc-800 text-slate-400 font-bold text-[11px] flex items-center justify-center">-</span>
+              <span className="w-6 h-6 rounded-md bg-slate-200 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 font-bold text-[11px] flex items-center justify-center">-</span>
               <span className="text-erp-text/70">Unmarked</span>
             </div>
           </div>
@@ -1202,7 +1169,7 @@ export default function AttendanceSystem() {
                     Batch: {selectedBatch ? selectedBatch.name : 'All Batches'}
                   </th>
                   {Object.entries(visibleCourseGroups).map(([courseName, classesList]) => (
-                    <th key={courseName} colSpan={classesList.length} className="py-2 px-2 text-center border-r border-erp-border bg-blue-500/10 text-blue-500 font-extrabold text-[11px] uppercase tracking-wider truncate">
+                    <th key={courseName} colSpan={classesList.length} className="py-2 px-2 text-center border-r border-erp-border bg-blue-500/10 text-blue-700 dark:text-blue-400 font-extrabold text-[11px] uppercase tracking-wider truncate">
                       {courseName}
                     </th>
                   ))}
@@ -1229,9 +1196,9 @@ export default function AttendanceSystem() {
                       </th>
                     );
                   })}
-                  <th className="py-2 px-1 text-center text-emerald-500 font-bold min-w-[38px]">P</th>
-                  <th className="py-2 px-1 text-center text-rose-500 font-bold min-w-[38px]">A</th>
-                  <th className="py-2 px-1 text-center text-purple-500 font-bold min-w-[48px]">%</th>
+                  <th className="py-2 px-1 text-center text-emerald-700 dark:text-emerald-400 font-bold min-w-[38px]">P</th>
+                  <th className="py-2 px-1 text-center text-rose-600 dark:text-rose-400 font-bold min-w-[38px]">A</th>
+                  <th className="py-2 px-1 text-center text-purple-600 dark:text-purple-400 font-bold min-w-[48px]">%</th>
                 </tr>
               </thead>
 
@@ -1285,7 +1252,7 @@ export default function AttendanceSystem() {
                               {isPresent ? (
                                 <button
                                   onClick={() => handleToggleMatrixCell(student.id, cls.id, true)}
-                                  className="w-6 h-6 mx-auto rounded-md bg-emerald-500 hover:bg-emerald-600 text-white font-black text-xs flex items-center justify-center shadow-2xs hover:scale-105 active:scale-95 transition-all cursor-pointer"
+                                  className="w-6 h-6 min-w-[24px] min-h-[24px] mx-auto rounded-md bg-emerald-700 hover:bg-emerald-800 text-white font-black text-xs flex items-center justify-center shadow-2xs hover:scale-105 active:scale-95 transition-all cursor-pointer"
                                   title={`${student.name} - ${cls.title || 'Class'}: PRESENT (Click to toggle)`}
                                 >
                                   P
@@ -1293,7 +1260,7 @@ export default function AttendanceSystem() {
                               ) : isExplicitAbsent ? (
                                 <button
                                   onClick={() => handleToggleMatrixCell(student.id, cls.id, false)}
-                                  className="w-6 h-6 mx-auto rounded-md bg-rose-500 hover:bg-rose-600 text-white font-black text-xs flex items-center justify-center shadow-2xs hover:scale-105 active:scale-95 transition-all cursor-pointer"
+                                  className="w-6 h-6 min-w-[24px] min-h-[24px] mx-auto rounded-md bg-rose-600 hover:bg-rose-700 text-white font-black text-xs flex items-center justify-center shadow-2xs hover:scale-105 active:scale-95 transition-all cursor-pointer"
                                   title={`${student.name} - ${cls.title || 'Class'}: ABSENT (Click to toggle)`}
                                 >
                                   A
@@ -1301,7 +1268,7 @@ export default function AttendanceSystem() {
                               ) : (
                                 <button
                                   onClick={() => handleToggleMatrixCell(student.id, cls.id, false)}
-                                  className="w-6 h-6 mx-auto rounded-md bg-slate-100 dark:bg-zinc-800/80 text-slate-400 dark:text-zinc-500 font-bold text-xs flex items-center justify-center hover:bg-emerald-500/20 hover:text-emerald-500 transition-all cursor-pointer"
+                                  className="w-6 h-6 min-w-[24px] min-h-[24px] mx-auto rounded-md bg-slate-100 dark:bg-zinc-800/80 text-slate-600 dark:text-zinc-400 font-bold text-xs flex items-center justify-center hover:bg-emerald-500/20 hover:text-emerald-500 transition-all cursor-pointer"
                                   title={`${student.name} - ${cls.title || 'Class'}: Unmarked (Click to mark Present)`}
                                 >
                                   -
@@ -1312,13 +1279,13 @@ export default function AttendanceSystem() {
                         })}
 
                         {/* Summary Columns */}
-                        <td className="py-2 px-1 text-center font-bold text-emerald-500 font-mono text-xs min-w-[38px]">
+                        <td className="py-2 px-1 text-center font-bold text-emerald-700 dark:text-emerald-400 font-mono text-xs min-w-[38px]">
                           {totalPresentForStudent}
                         </td>
-                        <td className="py-2 px-1 text-center font-bold text-rose-500 font-mono text-xs min-w-[38px]">
+                        <td className="py-2 px-1 text-center font-bold text-rose-600 dark:text-rose-400 font-mono text-xs min-w-[38px]">
                           {totalAbsentForStudent}
                         </td>
-                        <td className="py-2 px-1 text-center font-mono font-black text-purple-500 text-xs min-w-[48px]">
+                        <td className="py-2 px-1 text-center font-mono font-black text-purple-600 dark:text-purple-400 text-xs min-w-[48px]">
                           {totalClassesForStudent > 0 ? Math.round((totalPresentForStudent / totalClassesForStudent) * 100) : 0}%
                         </td>
                       </tr>
@@ -1340,11 +1307,11 @@ export default function AttendanceSystem() {
             {/* Offline Attendance (QR Code) Card */}
             <Card className={`bg-erp-surface border-erp-border flex flex-col items-center p-6 md:p-8 text-center shadow-sm relative ${batchMode === 'Online' ? 'opacity-70' : ''}`}>
               {batchMode === 'Online' && (
-                <div className="absolute top-3 right-3 bg-amber-500/10 text-amber-500 text-[10px] font-black uppercase px-2 py-0.5 rounded border border-amber-500/20">
+                <div className="absolute top-3 right-3 bg-amber-500/10 text-amber-800 dark:text-amber-400 text-[10px] font-black uppercase px-2 py-0.5 rounded border border-amber-500/20">
                   Batch is Online Mode
                 </div>
               )}
-              <div className="w-14 h-14 bg-amber-500/10 text-amber-500 rounded-2xl flex items-center justify-center mb-4 shrink-0">
+              <div className="w-14 h-14 bg-amber-500/10 text-amber-800 dark:text-amber-400 rounded-2xl flex items-center justify-center mb-4 shrink-0">
                 <QrCode className="w-7 h-7" />
               </div>
               <h2 className="text-xl font-bold font-display text-erp-text mb-1">Offline QR Attendance</h2>
@@ -1360,8 +1327,11 @@ export default function AttendanceSystem() {
                       size={160} 
                       level="H" 
                     />
-                    <div className="text-slate-500 dark:text-zinc-400 font-mono text-[11px] mt-3 flex items-center gap-1.5 bg-slate-100 dark:bg-zinc-800/80 px-3 py-1 rounded-full">
-                      <Clock className="w-3 h-3 text-amber-500" />
+                    <div className="text-slate-800 dark:text-white font-mono font-black text-lg tracking-[0.3em] mt-3" title="Students can also type this code">
+                      {qrData.qrCode}
+                    </div>
+                    <div className="text-slate-600 dark:text-zinc-400 font-mono text-[11px] mt-2 flex items-center gap-1.5 bg-slate-100 dark:bg-zinc-800/80 px-3 py-1 rounded-full">
+                      <Clock className="w-3 h-3 text-amber-700 dark:text-amber-400" />
                       Expires: {new Date(qrData.expiresAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                     </div>
                   </>
@@ -1381,11 +1351,11 @@ export default function AttendanceSystem() {
             {/* Online Attendance (5-Min Threshold Rule & Live Meet) Card */}
             <Card className={`bg-erp-surface border-erp-border flex flex-col items-center p-6 md:p-8 text-center shadow-sm relative ${batchMode === 'Offline' ? 'opacity-70' : ''}`}>
               {batchMode === 'Offline' && (
-                <div className="absolute top-3 right-3 bg-amber-500/10 text-amber-500 text-[10px] font-black uppercase px-2 py-0.5 rounded border border-amber-500/20">
+                <div className="absolute top-3 right-3 bg-amber-500/10 text-amber-800 dark:text-amber-400 text-[10px] font-black uppercase px-2 py-0.5 rounded border border-amber-500/20">
                   Batch is Offline Mode
                 </div>
               )}
-              <div className="w-14 h-14 bg-cyan-500/10 text-cyan-500 rounded-2xl flex items-center justify-center mb-4 shrink-0">
+              <div className="w-14 h-14 bg-cyan-500/10 text-cyan-700 dark:text-cyan-400 rounded-2xl flex items-center justify-center mb-4 shrink-0">
                 <Video className="w-7 h-7" />
               </div>
               <h2 className="text-xl font-bold font-display text-erp-text mb-1">Online Attendance (5-Min Rule)</h2>
@@ -1395,17 +1365,17 @@ export default function AttendanceSystem() {
               
               <div className="w-full flex items-center gap-2 bg-erp-background border border-erp-border p-3 rounded-xl mb-5 text-left">
                 <div className="flex-1 font-mono text-xs text-erp-text/90 truncate">
-                  {meetUrl}
+                  {meetUrl || 'No meeting link set for this class (add it in the Course CMS)'}
                 </div>
                 <Button 
                   variant="ghost" 
                   onClick={handleCopyMeetLink} 
                   className="p-2 h-auto text-blue-500 hover:bg-blue-500/10" 
                 >
-                  {copiedLink ? <CheckCircle className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
+                  {copiedLink ? <CheckCircle className="w-4 h-4 text-emerald-700 dark:text-emerald-400" /> : <Copy className="w-4 h-4" />}
                 </Button>
                 <a
-                  href={meetUrl}
+                  href={meetUrl || undefined}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="p-2 rounded-lg text-cyan-500 hover:bg-cyan-500/10 font-bold text-xs flex items-center gap-1 shrink-0"
@@ -1449,7 +1419,7 @@ export default function AttendanceSystem() {
                     <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-erp-text/40" />
                     <input
                       type="text"
-                      placeholder="Search student..."
+                      placeholder="Search student..." aria-label="Search student"
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       className="w-full pl-9 pr-3 py-1.5 text-xs bg-erp-background border border-erp-border rounded-xl text-erp-text focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -1460,25 +1430,25 @@ export default function AttendanceSystem() {
                   <div className="flex items-center bg-erp-background border border-erp-border rounded-xl p-0.5 text-xs font-semibold">
                     <button
                       onClick={() => setFilterStatus('all')}
-                      className={`px-2.5 py-1 rounded-lg transition-colors ${filterStatus === 'all' ? 'bg-blue-500 text-white' : 'text-erp-text/70 hover:text-erp-text'}`}
+                      className={`px-2.5 py-1 rounded-lg transition-colors ${filterStatus === 'all' ? 'bg-blue-600 text-white' : 'text-erp-text/70 hover:text-erp-text'}`}
                     >
                       All
                     </button>
                     <button
                       onClick={() => setFilterStatus('present')}
-                      className={`px-2.5 py-1 rounded-lg transition-colors ${filterStatus === 'present' ? 'bg-emerald-500 text-white' : 'text-erp-text/70 hover:text-erp-text'}`}
+                      className={`px-2.5 py-1 rounded-lg transition-colors ${filterStatus === 'present' ? 'bg-emerald-700 text-white' : 'text-erp-text/70 hover:text-erp-text'}`}
                     >
                       Present
                     </button>
                     <button
                       onClick={() => setFilterStatus('pending')}
-                      className={`px-2.5 py-1 rounded-lg transition-colors ${filterStatus === 'pending' ? 'bg-amber-500 text-white' : 'text-erp-text/70 hover:text-erp-text'}`}
+                      className={`px-2.5 py-1 rounded-lg transition-colors ${filterStatus === 'pending' ? 'bg-amber-500 text-black' : 'text-erp-text/70 hover:text-erp-text'}`}
                     >
                       Pending (&lt;5m)
                     </button>
                     <button
                       onClick={() => setFilterStatus('absent')}
-                      className={`px-2.5 py-1 rounded-lg transition-colors ${filterStatus === 'absent' ? 'bg-red-500 text-white' : 'text-erp-text/70 hover:text-erp-text'}`}
+                      className={`px-2.5 py-1 rounded-lg transition-colors ${filterStatus === 'absent' ? 'bg-red-600 text-white' : 'text-erp-text/70 hover:text-erp-text'}`}
                     >
                       Absent
                     </button>
@@ -1514,8 +1484,8 @@ export default function AttendanceSystem() {
                       filteredStudents.map(student => {
                         const log = presentStudentMap.get(student.id) || presentStudentMap.get(student.email?.toLowerCase());
                         const durationMins = Number(log?.duration_minutes) || 0;
-                        const isPresent = log && (durationMins >= 5 || log.status === 'Present' || log.attendance_type === 'Offline_QR' || log.attendance_type === 'Manual');
-                        const isPending = log && durationMins > 0 && durationMins < 5 && !isPresent;
+                        const isPresent = isPresentLog(log);
+                        const isPending = isPendingLog(log);
                         const attType = log?.attendance_type || (isPresent ? 'Manual' : '-');
 
                         return (
@@ -1525,13 +1495,13 @@ export default function AttendanceSystem() {
                               <div className="text-[10px] text-erp-text/50">{student.email || student.student_code || 'No email'}</div>
                             </td>
                             <td className="py-3 px-4">
-                              <span className="px-2 py-0.5 rounded bg-blue-500/10 text-blue-500 font-bold text-[10px]">
+                              <span className="px-2 py-0.5 rounded bg-blue-500/10 text-blue-700 dark:text-blue-400 font-bold text-[10px]">
                                 {student.batch_number || selectedBatch?.name || 'Global'}
                               </span>
                             </td>
                             <td className="py-3 px-4 font-mono font-bold">
                               {durationMins > 0 ? (
-                                <span className={durationMins >= 5 ? 'text-emerald-500 flex items-center gap-1' : 'text-amber-500 flex items-center gap-1'}>
+                                <span className={durationMins >= 5 ? 'text-emerald-700 dark:text-emerald-400 flex items-center gap-1' : 'text-amber-700 dark:text-amber-400 flex items-center gap-1'}>
                                   <Clock className="w-3.5 h-3.5" />
                                   {durationMins} min {durationMins >= 5 ? '✓ (>=5m Threshold Passed)' : '⏳ (Needs 5m)'}
                                 </span>
@@ -1546,15 +1516,15 @@ export default function AttendanceSystem() {
                             </td>
                             <td className="py-3 px-4">
                               {isPresent ? (
-                                <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-500 bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20">
+                                <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20">
                                   <UserCheck className="w-3.5 h-3.5" /> Present
                                 </span>
                               ) : isPending ? (
-                                <span className="inline-flex items-center gap-1 text-xs font-bold text-amber-500 bg-amber-500/10 px-2.5 py-1 rounded-full border border-amber-500/20">
+                                <span className="inline-flex items-center gap-1 text-xs font-bold text-amber-800 dark:text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-full border border-amber-500/20">
                                   <Clock className="w-3.5 h-3.5" /> Pending ({5 - durationMins}m left)
                                 </span>
                               ) : (
-                                <span className="inline-flex items-center gap-1 text-xs font-bold text-red-500 bg-red-500/10 px-2.5 py-1 rounded-full border border-red-500/20">
+                                <span className="inline-flex items-center gap-1 text-xs font-bold text-red-700 dark:text-red-400 bg-red-500/10 px-2.5 py-1 rounded-full border border-red-500/20">
                                   <UserX className="w-3.5 h-3.5" /> Absent
                                 </span>
                               )}
@@ -1574,7 +1544,7 @@ export default function AttendanceSystem() {
                                   onClick={() => handleMarkPresent(student.id)}
                                   variant="secondary"
                                   size="sm"
-                                  className="text-xs text-emerald-500 hover:bg-emerald-500/10 font-bold px-2.5 py-1"
+                                  className="text-xs text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/10 font-bold px-2.5 py-1"
                                 >
                                   Mark Present
                                 </Button>
@@ -1603,7 +1573,7 @@ export default function AttendanceSystem() {
                 <h2 className="text-xl font-bold font-display text-erp-text flex items-center gap-2">
                   <CalendarIcon className="w-5 h-5 text-blue-500" />
                   Interactive Class Calendar & Roll Call
-                  <span className="text-xs bg-blue-500/10 text-blue-500 border border-blue-500/20 px-2.5 py-0.5 rounded-full font-mono font-bold">
+                  <span className="text-xs bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-500/20 px-2.5 py-0.5 rounded-full font-mono font-bold">
                     {batchStudents.length} Students in Batch
                   </span>
                 </h2>
@@ -1727,7 +1697,7 @@ export default function AttendanceSystem() {
                           day.isToday 
                             ? 'bg-blue-600 text-white' 
                             : isSelected
-                            ? 'bg-blue-500/20 text-blue-600 dark:text-blue-400'
+                            ? 'bg-blue-500/20 text-blue-700 dark:text-blue-400'
                             : 'text-erp-text'
                         }`}>
                           {day.dayNum}
@@ -1743,12 +1713,12 @@ export default function AttendanceSystem() {
                         {hasAttendance ? (
                           <div className="space-y-0.5">
                             {day.presentCount > 0 && (
-                              <div className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 truncate">
+                              <div className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 truncate">
                                 ✓ {day.presentCount} Present ({rate}%)
                               </div>
                             )}
                             {day.absentCount > 0 && (
-                              <div className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30 truncate">
+                              <div className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-rose-500/15 text-rose-700 dark:text-rose-400 border border-rose-500/30 truncate">
                                 ✗ {day.absentCount} Absent
                               </div>
                             )}
@@ -1769,7 +1739,7 @@ export default function AttendanceSystem() {
             <div className="bg-erp-background border-2 border-erp-border rounded-2xl p-5 shadow-sm">
               <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-erp-border">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-blue-500/10 text-blue-500 flex items-center justify-center font-bold">
+                  <div className="w-10 h-10 rounded-xl bg-blue-500/10 text-blue-700 dark:text-blue-400 flex items-center justify-center font-bold">
                     <CalendarIcon className="w-5 h-5" />
                   </div>
                   <div>
@@ -1788,11 +1758,11 @@ export default function AttendanceSystem() {
                     <Users className="w-3.5 h-3.5 text-blue-500" />
                     <span>Enrolled: <strong className="text-erp-text">{selectedDateStats.total}</strong></span>
                   </div>
-                  <div className="bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 rounded-xl text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+                  <div className="bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 rounded-xl text-xs font-bold text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5">
                     <UserCheck className="w-3.5 h-3.5" />
                     <span>Present: <strong>{selectedDateStats.present}</strong> ({selectedDateStats.rate}%)</span>
                   </div>
-                  <div className="bg-rose-500/10 border border-rose-500/20 px-3 py-1.5 rounded-xl text-xs font-bold text-rose-600 dark:text-rose-400 flex items-center gap-1.5">
+                  <div className="bg-rose-500/10 border border-rose-500/20 px-3 py-1.5 rounded-xl text-xs font-bold text-rose-700 dark:text-rose-400 flex items-center gap-1.5">
                     <UserX className="w-3.5 h-3.5" />
                     <span>Absent: <strong>{selectedDateStats.absent}</strong></span>
                   </div>
@@ -1806,7 +1776,7 @@ export default function AttendanceSystem() {
                     onClick={() => handleBulkMarkDatePresent(calendarSelectedClassId, calendarSelectedDate)}
                     variant="primary"
                     size="sm"
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs"
+                    className="bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs"
                     disabled={syncing}
                   >
                     <CheckCircle className="w-3.5 h-3.5" />
@@ -1840,7 +1810,7 @@ export default function AttendanceSystem() {
                   <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-erp-text/40" />
                   <input
                     type="text"
-                    placeholder="Search student..."
+                    placeholder="Search student..." aria-label="Search student"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="w-full pl-8 pr-3 py-1.5 text-xs bg-erp-surface border border-erp-border rounded-xl text-erp-text focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -1883,21 +1853,21 @@ export default function AttendanceSystem() {
                               <div className="text-[10px] text-erp-text/50">{student.student_code || student.email || ''}</div>
                             </td>
                             <td className="py-2.5 px-4">
-                              <span className="px-2 py-0.5 rounded bg-blue-500/10 text-blue-500 font-bold text-[10px]">
+                              <span className="px-2 py-0.5 rounded bg-blue-500/10 text-blue-700 dark:text-blue-400 font-bold text-[10px]">
                                 {student.batch_number || selectedBatch?.name || 'Batch'}
                               </span>
                             </td>
                             <td className="py-2.5 px-4 text-center">
                               {isPresent ? (
-                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-black bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-black bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30">
                                   <Check className="w-3 h-3" /> Present
                                 </span>
                               ) : isAbsent ? (
-                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-black bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/30">
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-black bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/30">
                                   <X className="w-3 h-3" /> Absent
                                 </span>
                               ) : (
-                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 dark:bg-zinc-800 text-slate-500">
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 dark:bg-zinc-800 text-slate-600">
                                   Unmarked
                                 </span>
                               )}
@@ -1908,7 +1878,7 @@ export default function AttendanceSystem() {
                                   onClick={() => handleToggleDateStudent(student.id, calendarSelectedClassId, calendarSelectedDate, 'Present')}
                                   className={`px-3 py-1 rounded-lg text-xs font-black transition-all cursor-pointer ${
                                     isPresent
-                                      ? 'bg-emerald-600 text-white shadow-xs scale-105'
+                                      ? 'bg-emerald-700 text-white shadow-xs scale-105'
                                       : 'bg-erp-background border border-erp-border text-emerald-600 hover:bg-emerald-500/10'
                                   }`}
                                   title="Mark Present"

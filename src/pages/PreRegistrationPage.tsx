@@ -28,6 +28,7 @@ import {
   ArrowRight
 } from 'lucide-react';
 import { openRazorpayCheckout } from '../lib/razorpay';
+import { notify } from '../lib/feedback';
 
 interface Coupon {
   code: string;
@@ -161,7 +162,7 @@ export default function PreRegistrationPage() {
       },
       onError: (err) => {
         setIsProcessingPayment(false);
-        alert(err.description || 'Payment could not be completed. Please try again.');
+        notify(err.description || 'Payment could not be completed. Please try again.');
       },
       onDismiss: () => {
         setIsProcessingPayment(false);
@@ -203,16 +204,16 @@ export default function PreRegistrationPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-slate-50/70 text-slate-800 font-sans antialiased selection:bg-cyan-500 selection:text-white">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-50/70 text-slate-800 font-sans antialiased selection:bg-cyan-500 selection:text-white">
       
       {/* Top Breadcrumbs & Hero Container */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-10">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-28 pb-10">
         
         {/* Breadcrumb Navigation */}
-        <nav className="flex items-center gap-2 text-sm text-slate-500 mb-6 font-medium">
-          <Link to="/" className="hover:text-cyan-600 transition-colors">Home</Link>
+        <nav className="flex items-center gap-2 text-sm text-slate-600 mb-6 font-medium">
+          <Link to="/" className="inline-flex items-center min-h-[24px] hover:text-cyan-600 transition-colors">Home</Link>
           <ChevronRight className="w-4 h-4 text-slate-400" />
-          <Link to="/courses" className="hover:text-cyan-600 transition-colors">Courses</Link>
+          <Link to="/" className="inline-flex items-center min-h-[24px] hover:text-cyan-600 transition-colors">Courses</Link>
           <ChevronRight className="w-4 h-4 text-slate-400" />
           <span className="text-slate-900 font-semibold">Pre Registration</span>
         </nav>
@@ -223,7 +224,7 @@ export default function PreRegistrationPage() {
           {/* Left Text Content */}
           <div className="w-full lg:w-1/2 space-y-5 text-left">
             
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-50 border border-cyan-200 text-cyan-700 text-xs font-semibold uppercase tracking-wider">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-50 dark:bg-cyan-400/10 border border-cyan-200 text-cyan-700 dark:text-cyan-300 text-xs font-semibold uppercase tracking-wider">
               <Sparkles className="w-3.5 h-3.5" />
               Official Token Reservation
             </div>
@@ -239,27 +240,27 @@ export default function PreRegistrationPage() {
             {/* Badges List */}
             <div className="flex flex-wrap items-center gap-2.5 pt-2 text-xs font-medium text-slate-700">
               
-              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 border border-slate-200">
-                <Video className="w-4 h-4 text-cyan-600" />
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-white/10 border border-slate-200">
+                <Video className="w-4 h-4 text-cyan-600 dark:text-cyan-300" />
                 <span>Self-Paced</span>
               </div>
 
-              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 border border-slate-200">
-                <Globe className="w-4 h-4 text-cyan-600" />
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-white/10 border border-slate-200">
+                <Globe className="w-4 h-4 text-cyan-600 dark:text-cyan-300" />
                 <span>English</span>
               </div>
 
-              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 border border-slate-200">
-                <Clock className="w-4 h-4 text-cyan-600" />
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-white/10 border border-slate-200">
+                <Clock className="w-4 h-4 text-cyan-600 dark:text-cyan-300" />
                 <span>0 Duration</span>
               </div>
 
-              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 border border-slate-200">
-                <CalendarDays className="w-4 h-4 text-cyan-600" />
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-white/10 border border-slate-200">
+                <CalendarDays className="w-4 h-4 text-cyan-600 dark:text-cyan-300" />
                 <span>Access valid for 99999 days</span>
               </div>
 
-              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 font-semibold">
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-50 dark:bg-amber-400/10 border border-amber-200 text-amber-900 dark:text-amber-200 font-semibold">
                 <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
                 <span>4.5</span>
                 <span className="text-slate-500 font-normal">(26,521 ratings)</span>
@@ -271,17 +272,17 @@ export default function PreRegistrationPage() {
 
           {/* Right Hero Graphic Card */}
           <div className="w-full lg:w-1/2">
-            <div className="relative w-full aspect-video sm:aspect-[16/9] rounded-2xl overflow-hidden border border-slate-200 bg-gradient-to-br from-cyan-600 via-sky-600 to-blue-700 p-6 flex flex-col justify-between shadow-xl text-white">
+            <div className="relative w-full min-h-[15rem] sm:min-h-0 sm:aspect-[16/9] rounded-2xl overflow-hidden border border-slate-200 bg-gradient-to-br from-cyan-700 via-sky-700 to-blue-800 p-6 flex flex-col justify-between shadow-xl text-white">
               
               {/* Top Card Badge */}
               <div className="flex justify-between items-center">
                 <div className="flex items-center gap-2">
-                  <div className="h-8 w-8 rounded-lg bg-white/20 backdrop-blur-md flex items-center justify-center font-black text-white text-sm">
+                  <div className="h-8 w-8 rounded-lg bg-black/20 backdrop-blur-md flex items-center justify-center font-black text-white text-sm">
                     CX
                   </div>
                   <span className="font-bold tracking-wider text-sm uppercase">CynexAI Portal</span>
                 </div>
-                <span className="px-3 py-1 rounded-full bg-white/20 backdrop-blur-md text-[11px] font-bold uppercase tracking-wider">
+                <span className="px-3 py-1 rounded-full bg-black/20 backdrop-blur-md text-[11px] font-bold uppercase tracking-wider">
                   Early Bird Token
                 </span>
               </div>
@@ -325,7 +326,7 @@ export default function PreRegistrationPage() {
             {/* 1. This Course Includes Section */}
             <section className="rounded-2xl border border-slate-200/80 bg-white p-6 sm:p-8 shadow-sm">
               <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2.5 mb-6">
-                <div className="p-2 rounded-lg bg-cyan-50 text-cyan-600 border border-cyan-100">
+                <div className="p-2 rounded-lg bg-cyan-50 dark:bg-cyan-400/10 text-cyan-700 dark:text-cyan-300 border border-cyan-100">
                   <Package className="w-5 h-5" />
                 </div>
                 <span>This Course Includes</span>
@@ -333,8 +334,8 @@ export default function PreRegistrationPage() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 
-                <div className="flex items-center gap-3.5 p-4 rounded-xl bg-slate-50 border border-slate-200/70 hover:border-cyan-300 transition-colors">
-                  <div className="h-11 w-11 rounded-xl bg-cyan-600 text-white flex items-center justify-center shadow-md shadow-cyan-600/20">
+                <div className="flex items-center gap-3.5 p-4 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200/70 hover:border-cyan-300 transition-colors">
+                  <div className="h-11 w-11 rounded-xl bg-cyan-700 text-white flex items-center justify-center shadow-md shadow-cyan-600/20">
                     <FileText className="w-5 h-5" />
                   </div>
                   <div>
@@ -343,7 +344,7 @@ export default function PreRegistrationPage() {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3.5 p-4 rounded-xl bg-slate-50 border border-slate-200/70 hover:border-cyan-300 transition-colors">
+                <div className="flex items-center gap-3.5 p-4 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200/70 hover:border-cyan-300 transition-colors">
                   <div className="h-11 w-11 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-md shadow-blue-600/20">
                     <Bot className="w-5 h-5" />
                   </div>
@@ -353,7 +354,7 @@ export default function PreRegistrationPage() {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3.5 p-4 rounded-xl bg-slate-50 border border-slate-200/70 hover:border-cyan-300 transition-colors">
+                <div className="flex items-center gap-3.5 p-4 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200/70 hover:border-cyan-300 transition-colors">
                   <div className="h-11 w-11 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-md shadow-indigo-600/20">
                     <MessageSquare className="w-5 h-5" />
                   </div>
@@ -363,8 +364,8 @@ export default function PreRegistrationPage() {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3.5 p-4 rounded-xl bg-slate-50 border border-slate-200/70 hover:border-cyan-300 transition-colors">
-                  <div className="h-11 w-11 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-md shadow-emerald-600/20">
+                <div className="flex items-center gap-3.5 p-4 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200/70 hover:border-cyan-300 transition-colors">
+                  <div className="h-11 w-11 rounded-xl bg-emerald-700 text-white flex items-center justify-center shadow-md shadow-emerald-600/20">
                     <UserCheck className="w-5 h-5" />
                   </div>
                   <div>
@@ -404,7 +405,7 @@ export default function PreRegistrationPage() {
             {/* 3. Frequently Asked Questions (Accordion) */}
             <section className="rounded-2xl border border-slate-200/80 bg-white p-6 sm:p-8 shadow-sm">
               <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2.5 mb-6">
-                <div className="p-2 rounded-lg bg-cyan-50 text-cyan-600 border border-cyan-100">
+                <div className="p-2 rounded-lg bg-cyan-50 dark:bg-cyan-400/10 text-cyan-700 dark:text-cyan-300 border border-cyan-100">
                   <CircleHelp className="w-5 h-5" />
                 </div>
                 <span>Frequently Asked Questions</span>
@@ -418,7 +419,7 @@ export default function PreRegistrationPage() {
                       key={index}
                       className={`border rounded-xl transition-all duration-200 ${
                         isOpen 
-                          ? 'border-cyan-200 bg-cyan-50/30 shadow-xs' 
+                          ? 'border-cyan-200 bg-cyan-50/30 dark:bg-cyan-400/10 shadow-xs' 
                           : 'border-slate-200 bg-white hover:border-slate-300'
                       }`}
                     >
@@ -430,7 +431,7 @@ export default function PreRegistrationPage() {
                         <span className="pr-4">{faq.question}</span>
                         <ChevronDown
                           className={`w-5 h-5 text-slate-400 shrink-0 transition-transform duration-200 ${
-                            isOpen ? 'transform rotate-180 text-cyan-600' : ''
+                            isOpen ? 'transform rotate-180 text-cyan-600 dark:text-cyan-300' : ''
                           }`}
                         />
                       </button>
@@ -468,7 +469,7 @@ export default function PreRegistrationPage() {
                   )}
                 </div>
                 {appliedCoupon && (
-                  <div className="mt-1.5 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-bold">
+                  <div className="mt-1.5 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-400/10 border border-emerald-200 text-emerald-700 dark:text-emerald-300 text-xs font-bold">
                     <Tag className="w-3.5 h-3.5" />
                     You save ₹{appliedCoupon.discount}!
                   </div>
@@ -479,25 +480,25 @@ export default function PreRegistrationPage() {
               <div className="pt-4 border-t border-slate-100 space-y-3">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
-                    <Tag className="w-3.5 h-3.5 text-cyan-600" />
+                    <Tag className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-300" />
                     Apply Coupon Code
                   </label>
                   <button
                     type="button"
                     onClick={() => setShowCouponsList(!showCouponsList)}
-                    className="text-xs font-semibold text-cyan-600 hover:text-cyan-700 cursor-pointer"
+                    className="text-xs font-semibold text-cyan-700 dark:text-cyan-300 hover:text-cyan-800 cursor-pointer min-h-[24px] px-1"
                   >
                     {showCouponsList ? 'Hide Offers' : 'View Offers'}
                   </button>
                 </div>
 
                 {appliedCoupon ? (
-                  <div className="flex items-center justify-between p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800">
+                  <div className="flex items-center justify-between p-3.5 rounded-xl bg-emerald-50 dark:bg-emerald-400/10 border border-emerald-200 text-emerald-800 dark:text-emerald-300">
                     <div className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-300" />
                       <div>
                         <span className="font-mono font-bold text-xs uppercase block">{appliedCoupon.code}</span>
-                        <span className="text-[11px] text-emerald-700">₹{appliedCoupon.discount} discount applied</span>
+                        <span className="text-[11px] text-emerald-700 dark:text-emerald-300">₹{appliedCoupon.discount} discount applied</span>
                       </div>
                     </div>
                     <button
@@ -514,7 +515,7 @@ export default function PreRegistrationPage() {
                       value={couponCode}
                       onChange={(e) => { setCouponCode(e.target.value); setCouponError(''); }}
                       placeholder="Enter coupon (e.g. LAST10)"
-                      className="flex-1 px-3.5 py-2.5 rounded-xl border border-slate-300 bg-slate-50 text-slate-900 font-mono text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:bg-white uppercase transition-all"
+                      className="flex-1 px-3.5 py-2.5 rounded-xl border border-slate-300 bg-slate-50 dark:bg-white/5 text-slate-900 font-mono text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:bg-white uppercase transition-all"
                     />
                     <button
                       type="submit"
@@ -532,7 +533,7 @@ export default function PreRegistrationPage() {
                 )}
 
                 {couponSuccessMessage && (
-                  <div className="text-xs text-emerald-600 font-medium">
+                  <div className="text-xs text-emerald-600 dark:text-emerald-300 font-medium">
                     {couponSuccessMessage}
                   </div>
                 )}
@@ -547,14 +548,14 @@ export default function PreRegistrationPage() {
                       {AVAILABLE_COUPONS.map((coupon) => (
                         <div
                           key={coupon.code}
-                          className="p-3 rounded-xl border border-dashed border-cyan-200 bg-cyan-50/40 hover:bg-cyan-50 transition-colors flex items-center justify-between gap-3"
+                          className="p-3 rounded-xl border border-dashed border-cyan-200 bg-cyan-50/40 dark:bg-cyan-400/10 hover:bg-cyan-50 dark:hover:bg-cyan-400/20 transition-colors flex items-center justify-between gap-3"
                         >
                           <div className="space-y-0.5">
                             <div className="flex items-center gap-2">
-                              <span className="font-mono font-black text-xs text-cyan-900 bg-cyan-100 px-2 py-0.5 rounded border border-cyan-300">
+                              <span className="font-mono font-black text-xs text-cyan-900 dark:text-cyan-100 bg-cyan-100 dark:bg-cyan-400/20 px-2 py-0.5 rounded border border-cyan-300">
                                 {coupon.code}
                               </span>
-                              <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-amber-100 text-amber-800">
+                              <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-amber-100 dark:bg-amber-400/20 text-amber-800 dark:text-amber-200">
                                 {coupon.badge}
                               </span>
                             </div>
@@ -565,7 +566,7 @@ export default function PreRegistrationPage() {
                           <button
                             type="button"
                             onClick={() => applyCouponCode(coupon.code)}
-                            className="shrink-0 px-3 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-700 text-white font-bold text-[11px] uppercase tracking-wider transition-colors cursor-pointer"
+                            className="shrink-0 px-3 py-1.5 rounded-lg bg-cyan-700 hover:bg-cyan-800 text-white font-bold text-[11px] uppercase tracking-wider transition-colors cursor-pointer"
                           >
                             Apply
                           </button>
@@ -582,7 +583,7 @@ export default function PreRegistrationPage() {
                 {/* Buy Now Button */}
                 <button
                   onClick={handleBuyNow}
-                  className="w-full flex items-center justify-center gap-2.5 py-3.5 px-6 rounded-xl font-bold text-sm uppercase tracking-wider bg-gradient-to-r from-cyan-600 via-sky-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white shadow-lg shadow-cyan-600/20 active:scale-[0.98] transition-all cursor-pointer"
+                  className="w-full flex items-center justify-center gap-2.5 py-3.5 px-6 rounded-xl font-bold text-sm uppercase tracking-wider bg-gradient-to-r from-cyan-700 via-sky-700 to-blue-700 hover:from-cyan-800 hover:to-blue-800 text-white shadow-lg shadow-cyan-600/20 active:scale-[0.98] transition-all cursor-pointer"
                 >
                   <ShoppingCart className="w-4 h-4" />
                   Buy Now (₹{finalPrice.toLocaleString('en-IN')})
@@ -591,12 +592,12 @@ export default function PreRegistrationPage() {
                 {/* Add to Cart Button */}
                 <button
                   onClick={handleAddToCart}
-                  className="w-full py-3 px-4 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-800 font-bold text-xs uppercase tracking-wider transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                  className="w-full py-3 px-4 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 dark:hover:bg-white/10 text-slate-800 font-bold text-xs uppercase tracking-wider transition-colors flex items-center justify-center gap-2 cursor-pointer"
                 >
                   {cartAdded ? (
                     <>
-                      <Check className="w-4 h-4 text-emerald-600" />
-                      <span className="text-emerald-700 font-bold">Added to Cart!</span>
+                      <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-300" />
+                      <span className="text-emerald-700 dark:text-emerald-300 font-bold">Added to Cart!</span>
                     </>
                   ) : (
                     'Add to Cart'
@@ -606,12 +607,12 @@ export default function PreRegistrationPage() {
                 {/* Share Button */}
                 <button
                   onClick={handleShare}
-                  className="w-full py-2.5 px-4 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-600 hover:text-slate-900 font-medium text-xs transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                  className="w-full py-2.5 px-4 rounded-xl border border-slate-200 bg-slate-50 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/15 text-slate-600 hover:text-slate-900 font-medium text-xs transition-colors flex items-center justify-center gap-2 cursor-pointer"
                 >
                   {copied ? (
                     <>
-                      <Check className="w-3.5 h-3.5 text-emerald-600" />
-                      <span className="text-emerald-700">Link Copied!</span>
+                      <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-300" />
+                      <span className="text-emerald-700 dark:text-emerald-300">Link Copied!</span>
                     </>
                   ) : (
                     <>
@@ -624,18 +625,18 @@ export default function PreRegistrationPage() {
 
               {/* Instant Access Banner */}
               <div className="pt-4 border-t border-slate-100 flex items-center justify-center gap-2 text-xs text-slate-600">
-                <Gift className="w-4 h-4 text-cyan-600" />
+                <Gift className="w-4 h-4 text-cyan-600 dark:text-cyan-300" />
                 <span>Get Instant Access after registration</span>
               </div>
 
               {/* Trust Badges */}
               <div className="pt-3 border-t border-slate-100 grid grid-cols-2 gap-2 text-[11px] text-slate-500">
                 <div className="flex items-center gap-1.5">
-                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-300" />
                   <span>SSL 256-Bit Encrypted</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-cyan-600" />
+                  <CheckCircle2 className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-300" />
                   <span>Instant Activation</span>
                 </div>
               </div>
@@ -661,24 +662,24 @@ export default function PreRegistrationPage() {
 
             {paymentSuccessData ? (
               <div className="text-center py-4 space-y-4">
-                <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto border border-emerald-200">
+                <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-400/20 text-emerald-700 dark:text-emerald-300 rounded-full flex items-center justify-center mx-auto border border-emerald-200">
                   <CheckCircle2 className="w-9 h-9" />
                 </div>
                 <div>
                   <h3 className="text-2xl font-black text-slate-900">Payment Verified!</h3>
-                  <p className="text-xs text-emerald-600 font-bold mt-1">
+                  <p className="text-xs text-emerald-600 dark:text-emerald-300 font-bold mt-1">
                     Slot Pre-Registration Successfully Confirmed
                   </p>
                 </div>
 
-                <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 text-left space-y-2.5 text-xs text-slate-700">
+                <div className="p-4 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 text-left space-y-2.5 text-xs text-slate-700">
                   <div className="flex justify-between">
                     <span className="text-slate-500">Amount Paid:</span>
                     <span className="font-bold text-slate-900">₹{finalPrice.toLocaleString('en-IN')}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-500">Payment ID:</span>
-                    <span className="font-mono text-cyan-700 font-bold">{paymentSuccessData.razorpay_payment_id}</span>
+                    <span className="font-mono text-cyan-700 dark:text-cyan-300 font-bold">{paymentSuccessData.razorpay_payment_id}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-500">Order ID:</span>
@@ -686,7 +687,7 @@ export default function PreRegistrationPage() {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-500">Status:</span>
-                    <span className="text-emerald-700 font-semibold flex items-center gap-1">
+                    <span className="text-emerald-700 dark:text-emerald-300 font-semibold flex items-center gap-1">
                       <Check className="w-3.5 h-3.5" /> Captured & Signature Verified
                     </span>
                   </div>
@@ -698,7 +699,7 @@ export default function PreRegistrationPage() {
 
                 <button
                   onClick={() => { setIsModalOpen(false); setPaymentSuccessData(null); }}
-                  className="w-full py-3 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white font-bold text-sm uppercase tracking-wider transition-colors cursor-pointer"
+                  className="w-full py-3 rounded-xl bg-cyan-700 hover:bg-cyan-800 text-white font-bold text-sm uppercase tracking-wider transition-colors cursor-pointer"
                 >
                   Access Student Portal
                 </button>
@@ -706,7 +707,7 @@ export default function PreRegistrationPage() {
             ) : (
               <form onSubmit={handleLeadSubmit} className="space-y-4">
                 <div>
-                  <div className="inline-flex items-center gap-1.5 text-xs text-cyan-700 font-bold uppercase tracking-wider mb-1">
+                  <div className="inline-flex items-center gap-1.5 text-xs text-cyan-700 dark:text-cyan-300 font-bold uppercase tracking-wider mb-1">
                     <Sparkles className="w-3.5 h-3.5" />
                     CynexAI Slot Pre-Registration
                   </div>
@@ -724,7 +725,7 @@ export default function PreRegistrationPage() {
                     placeholder="e.g. Rahul Sharma"
                     value={leadForm.name}
                     onChange={(e) => setLeadForm({ ...leadForm, name: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-300 text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:bg-white"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-300 text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:bg-white"
                   />
                 </div>
 
@@ -736,7 +737,7 @@ export default function PreRegistrationPage() {
                     placeholder="e.g. 9876543210"
                     value={leadForm.phone}
                     onChange={(e) => setLeadForm({ ...leadForm, phone: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-300 text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:bg-white"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-300 text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:bg-white"
                   />
                 </div>
 
@@ -748,7 +749,7 @@ export default function PreRegistrationPage() {
                     placeholder="e.g. rahul@gmail.com"
                     value={leadForm.email}
                     onChange={(e) => setLeadForm({ ...leadForm, email: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-300 text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:bg-white"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-300 text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:bg-white"
                   />
                 </div>
 
@@ -757,7 +758,7 @@ export default function PreRegistrationPage() {
                   <select
                     value={leadForm.courseInterest}
                     onChange={(e) => setLeadForm({ ...leadForm, courseInterest: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-300 text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:bg-white"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-300 text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:bg-white"
                   >
                     <option value="Data Science & AI">Data Science & AI</option>
                     <option value="Full Stack Development">Full Stack Web Development</option>
@@ -770,7 +771,7 @@ export default function PreRegistrationPage() {
                 <button
                   type="submit"
                   disabled={isProcessingPayment}
-                  className="w-full mt-2 py-3.5 rounded-xl bg-gradient-to-r from-cyan-600 via-sky-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold text-sm uppercase tracking-wider shadow-lg shadow-cyan-600/20 disabled:opacity-70 flex items-center justify-center gap-2 cursor-pointer"
+                  className="w-full mt-2 py-3.5 rounded-xl bg-gradient-to-r from-cyan-700 via-sky-700 to-blue-700 hover:from-cyan-800 hover:to-blue-800 text-white font-bold text-sm uppercase tracking-wider shadow-lg shadow-cyan-600/20 disabled:opacity-70 flex items-center justify-center gap-2 cursor-pointer"
                 >
                   {isProcessingPayment ? (
                     'Opening Razorpay...'

@@ -14,6 +14,7 @@ import { getInstructorClasses, updateClassMaterials, updateClassStatus, complete
 import { CodeWorkspace } from './CodeWorkspace';
 import { SqlWorkspace } from './SqlWorkspace';
 import { DataWorkspace } from './DataWorkspace';
+import { notify } from '../../lib/feedback';
 
 const parseKeypoints = (raw: string) => {
   if (!raw) return [];
@@ -121,9 +122,9 @@ export default function LiveStreamDashboard() {
       await ensureClassQuestions(classData.id, classData.title, classData.description || '', keypoints);
     } catch (e: any) {
       if (e?.message === 'QUOTA_EXCEEDED') {
-        alert('❌ Gemini API quota exceeded.\n\nYour free tier API key has run out of daily credits.\n\nTo fix this:\n1. Go to https://aistudio.google.com\n2. Create a new API key with billing enabled, OR\n3. Wait until tomorrow for the free quota to reset.\n\nThen update VITE_GEMINI_API_KEY in your .env file.');
+        notify('❌ Gemini API quota exceeded.\n\nYour free tier API key has run out of daily credits.\n\nTo fix this:\n1. Go to https://aistudio.google.com\n2. Create a new API key with billing enabled, OR\n3. Wait until tomorrow for the free quota to reset.\n\nThen update VITE_GEMINI_API_KEY in your .env file.');
       } else {
-        alert('AI generation failed: ' + (e?.message || 'Unknown error'));
+        notify('AI generation failed: ' + (e?.message || 'Unknown error'));
       }
     } finally {
       setGenerating(false);
@@ -151,10 +152,10 @@ export default function LiveStreamDashboard() {
       localStorage.removeItem('cynexai_live_class_id');
       setIsLive(false);
       setShowEndModal(false);
-      alert('Class ended! AI summary generated.');
+      notify('Class ended! AI summary generated.');
       navigate('/teacher');
     } catch (e) {
-      alert('Failed to end class.');
+      notify('Failed to end class.');
     } finally {
       setEnding(false);
     }
@@ -287,7 +288,7 @@ export default function LiveStreamDashboard() {
               </div>
 
               {!hasAI ? (
-                <Button onClick={handleGenerateMaterials} disabled={generating} className="w-full flex items-center justify-center gap-2 bg-violet-600 hover:bg-violet-500 font-bold text-white">
+                <Button onClick={handleGenerateMaterials} disabled={generating} className="w-full flex items-center justify-center gap-2 bg-violet-600 hover:bg-violet-700 font-bold text-white">
                   {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />} Generate AI Slides
                 </Button>
               ) : !isLive ? (
@@ -298,7 +299,7 @@ export default function LiveStreamDashboard() {
                       window.open('https://studio.youtube.com/channel/UC/livestreaming', '_blank');
                       setYoutubeOpened(true);
                     }} 
-                    className="w-full flex items-center justify-center gap-2 bg-red-600 hover:bg-red-500 font-bold text-white py-2"
+                    className="w-full flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 font-bold text-white py-2"
                   >
                     <Video className="w-4 h-4" /> Open YouTube Studio
                   </Button>
@@ -319,7 +320,7 @@ export default function LiveStreamDashboard() {
                   <Button 
                     onClick={handleStartClass} 
                     disabled={!youtubeConfirmed}
-                    className={`w-full flex items-center justify-center gap-2 font-bold text-white transition-all duration-300 ${youtubeConfirmed ? 'bg-green-600 hover:bg-green-500 shadow-[0_0_15px_rgba(34,197,94,0.4)]' : 'bg-slate-700 opacity-50 cursor-not-allowed'}`}
+                    className={`w-full flex items-center justify-center gap-2 font-bold text-white transition-all duration-300 ${youtubeConfirmed ? 'bg-green-700 hover:bg-green-800 shadow-[0_0_15px_rgba(34,197,94,0.4)]' : 'bg-slate-700 opacity-50 cursor-not-allowed'}`}
                   >
                     <Play className="w-4 h-4" /> Start Live Class
                   </Button>
@@ -343,9 +344,10 @@ export default function LiveStreamDashboard() {
       {/* ── Main Stage ── */}
       <div className="flex-1 flex flex-col h-full overflow-hidden relative bg-[#0B0B1A]">
         {/* Topbar */}
+        <h1 className="sr-only">Live Stream Studio</h1>
         <div className="shrink-0 flex items-center justify-between px-4 py-2 bg-[#111118]/80 backdrop-blur border-b border-white/5 absolute top-0 left-0 right-0 z-50">
           <div className="flex items-center gap-3">
-            <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors">
+            <button onClick={() => setSidebarOpen(!sidebarOpen)} aria-label={sidebarOpen ? 'Hide class panel' : 'Show class panel'} aria-expanded={sidebarOpen} className="p-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors">
               {sidebarOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
             </button>
             <div className="flex gap-1 bg-black/30 rounded-lg p-1">
@@ -481,7 +483,7 @@ export default function LiveStreamDashboard() {
               <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-2 z-20">
                 {slides.map((_, i) => (
                   <button key={i} onClick={() => changeSlide(i + 1)}
-                    className={`h-2 rounded-full transition-all ${slide === i + 1 ? 'bg-[#e77a71] w-6' : 'bg-white dark:bg-black/30 w-2 hover:bg-white dark:bg-black/50'}`}
+                    className={`h-2 rounded-full transition-all ${slide === i + 1 ? 'bg-[#e77a71] w-6' : 'bg-white/30 w-2 hover:bg-white/50'}`}
                   />
                 ))}
               </div>
@@ -549,7 +551,7 @@ export default function LiveStreamDashboard() {
             </div>
             <div className="flex gap-3 mt-6">
               <button onClick={() => setShowEditModal(false)} className="flex-1 bg-white/10 hover:bg-white/20 text-white font-bold py-3 rounded-xl text-sm">Cancel</button>
-              <button onClick={handleUpdateDetails} className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-xl text-sm">Save & Update</button>
+              <button onClick={handleUpdateDetails} className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl text-sm">Save & Update</button>
             </div>
           </div>
         </div>
@@ -564,7 +566,7 @@ export default function LiveStreamDashboard() {
             <input type="url" placeholder="https://youtube.com/watch?v=..." value={ytUrl} onChange={e => setYtUrl(e.target.value)} className="w-full bg-slate-900 border border-white/10 rounded-xl px-4 py-3 text-white text-sm mb-4 outline-none focus:border-indigo-500" />
             <div className="flex gap-3">
               <button onClick={() => setShowEndModal(false)} className="flex-1 bg-white/10 hover:bg-white/20 text-white font-bold py-3 rounded-xl text-sm">Cancel</button>
-              <button onClick={handleEndClass} disabled={ending} className="flex-1 bg-green-600 hover:bg-green-500 flex items-center justify-center gap-2 text-white font-bold py-3 rounded-xl text-sm">
+              <button onClick={handleEndClass} disabled={ending} className="flex-1 bg-green-700 hover:bg-green-800 flex items-center justify-center gap-2 text-white font-bold py-3 rounded-xl text-sm">
                 {ending ? <Loader2 className="w-4 h-4 animate-spin" /> : 'End & Generate Summary'}
               </button>
             </div>

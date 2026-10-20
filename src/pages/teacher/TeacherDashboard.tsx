@@ -3,7 +3,7 @@ import { Card } from '../../components/ui/erp/Card';
 import { Button } from '../../components/ui/erp/Button';
 import { Video, BookOpen, Users, Calendar, Play, Zap, AlertCircle, Filter, Settings, TrendingUp } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { getCurrentUser } from '../../lib/auth';
+import { getCurrentUser, getUserPermissions } from '../../lib/auth';
 import { AttendanceButton } from '../../components/ui/AttendanceButton';
 import { getTeacherTimetables, getTeacherFirstCourse, getCourseModulesMap, getCourseClassesMap } from '../../lib/api/teacher';
 
@@ -39,6 +39,8 @@ const parseBatchJSON = (str: string) => {
 export default function TeacherDashboard() {
   const navigate = useNavigate();
   const user = getCurrentUser();
+  // Teachers don't get the "students" module by default; don't show a tile that dead-ends on "Access Restricted".
+  const canViewStudentProgress = (getUserPermissions(user)['students'] ?? 'none') !== 'none';
   const today = new Date().getDay();
 
   const [selectedDay, setSelectedDay] = useState(today === 0 || today === 6 ? 1 : today); // default to Mon if weekend
@@ -158,10 +160,12 @@ export default function TeacherDashboard() {
             <Users className="w-8 h-8 text-green-400 mb-2" />
             <span className="font-bold text-erp-text text-sm text-center">Attendance</span>
           </Card>
-          <Card className="flex flex-col items-center justify-center p-6 cursor-pointer hover:bg-amber-500/5 transition-colors border-amber-500/30" onClick={() => navigate('/teacher/student-progress')}>
-            <TrendingUp className="w-8 h-8 text-amber-500 mb-2" />
-            <span className="font-bold text-erp-text text-sm text-center">Student Progress</span>
-          </Card>
+          {canViewStudentProgress && (
+            <Card className="flex flex-col items-center justify-center p-6 cursor-pointer hover:bg-amber-500/5 transition-colors border-amber-500/30" onClick={() => navigate('/teacher/student-progress')}>
+              <TrendingUp className="w-8 h-8 text-amber-500 mb-2" />
+              <span className="font-bold text-erp-text text-sm text-center">Student Progress</span>
+            </Card>
+          )}
           <Card className="flex flex-col items-center justify-center p-6 cursor-pointer hover:bg-blue-500/5 transition-colors" onClick={() => navigate('/teacher/timetable')}>
             <Calendar className="w-8 h-8 text-blue-400 mb-2" />
             <span className="font-bold text-erp-text text-sm text-center">My Schedule</span>
@@ -199,14 +203,14 @@ export default function TeacherDashboard() {
                   <div className="flex flex-col sm:flex-row gap-3">
                     <Button
                       onClick={() => navigate(`/teacher/live?classId=${nextClass.id}`)}
-                      className="flex-1 flex items-center justify-center gap-2 bg-green-600 hover:bg-green-500 text-white border-green-700 font-bold py-4 text-base"
+                      className="flex-1 flex items-center justify-center gap-2 bg-green-700 hover:bg-green-800 text-white border-green-700 font-bold py-4 text-base"
                     >
                       <Video className="w-5 h-5" /> Launch Teacher Studio
                     </Button>
                   </div>
                 </div>
               ) : (
-                <div className="text-slate-400 py-4 relative z-10">
+                <div className="text-slate-600 dark:text-slate-400 py-4 relative z-10">
                   No upcoming classes scheduled today. You're all caught up!
                 </div>
               )}
@@ -224,7 +228,7 @@ export default function TeacherDashboard() {
                 <div className="flex items-center gap-2 bg-erp-background border border-erp-border rounded-lg p-1">
                   <Filter className="w-4 h-4 text-erp-text/50 ml-2" />
                   <select 
-                    className="bg-transparent text-sm font-bold text-erp-text border-none outline-none cursor-pointer pr-2"
+                    className="bg-transparent text-sm font-bold text-erp-text border-none outline-none cursor-pointer pr-2 min-h-[24px]"
                     value={selectedBatchId}
                     onChange={(e) => setSelectedBatchId(e.target.value)}
                   >
@@ -322,7 +326,7 @@ export default function TeacherDashboard() {
                     else if (hr === 12 && !isPm && !slot.time.toLowerCase().includes('pm')) hr = 0; // rough am/pm
                     
                     let status = 'Upcoming';
-                    let statusColor = 'text-orange-600 bg-orange-500/10';
+                    let statusColor = 'text-orange-700 dark:text-orange-400 bg-orange-500/10';
                     let canStart = false;
 
                     const now = new Date();
@@ -334,19 +338,19 @@ export default function TeacherDashboard() {
                     
                     if (slotDay < currentDay) {
                       status = 'Completed';
-                      statusColor = 'text-slate-500 bg-slate-500/10';
+                      statusColor = 'text-slate-600 bg-slate-500/10';
                     } else if (slotDay === currentDay) {
                       const currentHour = now.getHours() + now.getMinutes() / 60;
                       if (hr < currentHour - 1) { // ended 1hr after start
                         status = 'Completed';
-                        statusColor = 'text-slate-500 bg-slate-500/10';
+                        statusColor = 'text-slate-600 bg-slate-500/10';
                       } else if (hr <= currentHour + 1) { // within 1 hour
                         status = 'Live Now';
-                        statusColor = 'text-green-600 bg-green-500/10 animate-pulse';
+                        statusColor = 'text-green-700 dark:text-green-400 bg-green-500/10 animate-pulse';
                         canStart = true;
                       } else {
                         status = 'Today';
-                        statusColor = 'text-blue-600 bg-blue-500/10';
+                        statusColor = 'text-blue-700 dark:text-blue-400 bg-blue-500/10';
                         canStart = true;
                       }
                     } else {
@@ -366,7 +370,7 @@ export default function TeacherDashboard() {
                           <Button 
                             onClick={() => navigate(`/teacher/live?classId=${slot.id}`)}
                             variant={status === 'Live Now' ? 'primary' : 'secondary'}
-                            className={`w-full mt-4 py-2 text-xs flex items-center justify-center gap-1.5 ${status === 'Live Now' ? 'bg-green-600 hover:bg-green-500 border-green-700 text-white' : ''}`}
+                            className={`w-full mt-4 py-2 text-xs flex items-center justify-center gap-1.5 ${status === 'Live Now' ? 'bg-green-700 hover:bg-green-800 border-green-700 text-white' : ''}`}
                           >
                             <Play className="w-3 h-3" /> Start Class
                           </Button>

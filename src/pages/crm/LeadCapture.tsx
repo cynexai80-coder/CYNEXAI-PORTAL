@@ -3,15 +3,16 @@ import { useNavigate } from 'react-router-dom';
 import { Card } from '../../components/ui/erp/Card';
 import { Button } from '../../components/ui/erp/Button';
 import { SearchableDropdown } from '../../components/ui/erp/SearchableDropdown';
-import { createLead } from '../../lib/api/crm';
+import { createLead, findDuplicateLead } from '../../lib/api/crm';
 import { getCoursesForPitch } from '../../lib/api/sales';
 import { getCurrentUser } from '../../lib/auth';
+import { notify, confirmDialog } from '../../lib/feedback';
 
 // Defined OUTSIDE the component to prevent focus loss on re-render
 const Field = ({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) => (
   <div>
     <label className="block text-xs font-bold text-erp-text/60 mb-1.5 uppercase tracking-wider">
-      {label} {required ? <span className="text-red-500">*</span> : <span className="text-erp-text/30 font-medium normal-case tracking-normal">(optional)</span>}
+      {label} {required ? <span className="text-red-700 dark:text-red-500">*</span> : <span className="text-erp-text/30 font-medium normal-case tracking-normal">(optional)</span>}
     </label>
     {children}
   </div>
@@ -42,13 +43,18 @@ export default function LeadCapture() {
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) return alert('Name is required.');
-    if (!phone.trim()) return alert('Phone number is required.');
+    if (!name.trim()) return notify('Name is required.');
+    if (!phone.trim()) return notify('Phone number is required.');
     const phoneClean = phone.replace(/\D/g, '');
-    if (phoneClean.length < 10) return alert('Phone number must be at least 10 digits.');
+    if (phoneClean.length < 10) return notify('Phone number must be at least 10 digits.');
 
     setLoading(true);
-    await createLead({
+    const dup = await findDuplicateLead(phone, email);
+    if (dup && !(await confirmDialog({ title: 'Possible duplicate', message: `A lead with the same phone/email already exists (${dup.name}). Create another one anyway?`, confirmLabel: 'Create anyway' }))) {
+      setLoading(false);
+      return;
+    }
+    const createdId = await createLead({
       name: name.trim(),
       email: email.trim() || undefined,
       phone: phone.trim(),
@@ -65,6 +71,10 @@ export default function LeadCapture() {
       created_by: user?.id,
     });
     setLoading(false);
+    if (!createdId) {
+      notify('The lead could not be saved. Please check your connection and try again.');
+      return;
+    }
     navigate('/sales/pipeline');
   };
 

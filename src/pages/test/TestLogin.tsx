@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { notify } from '../../lib/feedback';
 
 export default function TestLogin() {
   const [fullName, setFullName] = useState('');
@@ -9,7 +10,7 @@ export default function TestLogin() {
   const handleStart = (e: React.FormEvent) => {
     e.preventDefault();
     if (!fullName.trim()) {
-      alert("Please enter your full name");
+      notify("Please enter your full name");
       return;
     }
     

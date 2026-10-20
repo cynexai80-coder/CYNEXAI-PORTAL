@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { toWhatsAppNumber } from '../../lib/phoneUtils';
 import { useParams, useNavigate } from 'react-router-dom';
 import { client, isTursoConfigured } from '../../lib/turso';
 import { updateLeadStatus, getLeadById } from '../../lib/api/crm';
@@ -10,6 +11,7 @@ import { AdmissionForm } from './forms/AdmissionForm';
 import { SaleForm } from './forms/SaleForm';
 import { SalesPitchModal } from './forms/SalesPitchModal';
 import { getCurrentUser } from '../../lib/auth';
+import { notify } from '../../lib/feedback';
 
 const STATUS_BUCKETS: LeadStatus[] = [
   'New',
@@ -48,7 +50,7 @@ export default function LeadDetail() {
     
     const result = await updateLeadStatus(id as string, newStatus, user?.id || 'unknown');
     if (!result.success) {
-      alert(result.error || "Failed to update lead status");
+      notify(result.error || "Failed to update lead status");
     }
     
     await fetchLead();
@@ -59,7 +61,7 @@ export default function LeadDetail() {
     if (lead) {
       const msg = encodeURIComponent(`Hi ${lead.name}, welcome to CynexAI! I'm reaching out regarding your interest in our ${lead.course_interest} course.`);
       // Strip non-numeric from phone
-      const phone = lead.phone.replace(/[^0-9]/g, '');
+      const phone = toWhatsAppNumber(lead.phone);
       window.open(`https://wa.me/${phone}?text=${msg}`, '_blank');
     }
   };
@@ -84,7 +86,7 @@ export default function LeadDetail() {
               {lead.phone}
             </div>
           </div>
-          <div className="inline-block bg-erp-secondary/10 text-erp-secondary font-bold px-3 py-1 rounded-xl text-sm text-right">
+          <div className="inline-block bg-erp-secondary/10 text-sky-700 dark:text-erp-secondary font-bold px-3 py-1 rounded-xl text-sm text-right">
             {lead.course_interest}
           </div>
         </div>

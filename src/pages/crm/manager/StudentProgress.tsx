@@ -7,7 +7,7 @@ import {
   Layers, Check, AlertCircle, ArrowUpDown, GraduationCap, LayoutGrid,
   Plus, Minus, BookMarked, PlayCircle, BarChart3, Zap
 } from 'lucide-react';
-import studentSeedData from '../../../../students_seed.json';
+import { notify, promptDialog } from '../../../lib/feedback';
 
 export default function StudentProgress() {
   const [progressData, setProgressData] = useState<any[]>([]);
@@ -43,51 +43,6 @@ export default function StudentProgress() {
       setDbBatches(batches);
     } catch (err) {
       console.error("StudentProgress fetchData DB error:", err);
-    }
-
-    if (!data || data.length === 0) {
-      let localExtra: any[] = [];
-      try {
-        const cached = localStorage.getItem('cynex_local_students');
-        if (cached) localExtra = JSON.parse(cached);
-      } catch {}
-
-      const rawSeed = [...localExtra, ...studentSeedData];
-      data = rawSeed
-        .filter((s: any) => s.id !== 'stu_32' && s.name !== 'Names')
-        .map((s: any, idx: number) => {
-          const rawBatch = String(s.batch || s.batch_number || ((idx % 5) + 1));
-          const bNum = !rawBatch || rawBatch === 'Batch' ? `Batch ${(idx % 5) + 1}` : (rawBatch.startsWith('Batch') ? rawBatch : `Batch ${rawBatch}`);
-          const cProg = Math.min(100, Math.max(15, ((idx * 17) % 85) + 15));
-          const attScore = Math.min(100, Math.max(70, 85 + (idx % 15)));
-          return {
-            id: s.id || `sp_${idx}`,
-            student_id: s.id || `stu_${idx}`,
-            student_name: s.name || 'Student User',
-            student_email: s.portal_login_email || s.email || `${(s.id || 'stu').toLowerCase()}@student.cynexai.com`,
-            batch_name: bNum,
-            batch_id: bNum.toLowerCase().replace(/\s+/g, '_'),
-            batch_number: bNum.replace(/^Batch\s*/i, ''),
-            student_course: s.course || 'Data Science with AI',
-            course_progress_percentage: cProg,
-            attendance_score: attScore,
-            quiz_score: Math.min(100, Math.max(60, 75 + (idx % 25))),
-            interview_score: Math.min(100, Math.max(50, 70 + (idx % 30))),
-            coding_test_score: Math.min(100, Math.max(55, 80 + (idx % 20))),
-            coins_spent: idx * 10,
-            leaderboard_rank: idx + 1,
-            course_progress_num: Math.floor(cProg / 2),
-            course_progress_den: 50,
-            attendance_num: Math.floor(attScore / 6.6),
-            attendance_den: 15,
-            quiz_num: 8 + (idx % 3),
-            quiz_den: 10,
-            interview_num: 4,
-            interview_den: 5,
-            coding_num: 9,
-            coding_den: 10
-          };
-        });
     }
 
     setProgressData(data);
@@ -277,11 +232,11 @@ export default function StudentProgress() {
   };
 
   const handleAddSubjectToBatch = async (batchItem: BatchItem) => {
-    const subjectName = prompt(`Enter new module or subject name for ${batchItem.name} (e.g. React, Node.js, Generative AI):`);
+    const subjectName = await promptDialog({ title: 'Add subject', message: `Enter new module or subject name for ${batchItem.name} (e.g. React, Node.js, Generative AI):`, confirmLabel: 'Add', validate: v => (v.trim() ? null : 'Enter a subject name.') });
     if (!subjectName || !subjectName.trim()) return;
     const currentList = parseBatchSubjectProgress(batchItem);
     if (currentList.some(s => s.subject.toLowerCase().trim() === subjectName.toLowerCase().trim())) {
-      alert("This subject already exists for this batch.");
+      notify("This subject already exists for this batch.");
       return;
     }
     const updated = [...currentList, { subject: subjectName.trim(), completed: 0, total: 10 }];
@@ -412,31 +367,31 @@ export default function StudentProgress() {
   const getBatchBadgeColor = (batchName: string) => {
     const clean = (batchName || '').toLowerCase().trim();
     if (clean.includes('batch 1') || clean === '1') {
-      return 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/30';
+      return 'bg-purple-500/10 text-purple-700 dark:text-purple-400 border-purple-500/30';
     }
     if (clean.includes('batch 2') || clean === '2') {
-      return 'bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/30';
+      return 'bg-sky-500/10 text-sky-700 dark:text-sky-400 border-sky-500/30';
     }
     if (clean.includes('batch 3') || clean === '3') {
-      return 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30';
+      return 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30';
     }
     if (clean.includes('batch 4') || clean === '4') {
-      return 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30';
+      return 'bg-amber-500/10 text-amber-800 dark:text-amber-400 border-amber-500/30';
     }
     if (clean.includes('batch 5') || clean === '5') {
-      return 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30';
+      return 'bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-500/30';
     }
     if (clean.includes('cads') || clean.includes('ai')) {
-      return 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/30';
+      return 'bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 border-indigo-500/30';
     }
     return 'bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-500/30';
   };
 
   const getProgressColor = (perc: number) => {
-    if (perc >= 75) return 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20';
-    if (perc >= 50) return 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20';
-    if (perc > 0) return 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20';
-    return 'bg-slate-500/10 text-slate-500 dark:text-slate-400 border-slate-500/20';
+    if (perc >= 75) return 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20';
+    if (perc >= 50) return 'bg-amber-500/10 text-amber-800 dark:text-amber-400 border-amber-500/20';
+    if (perc > 0) return 'bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 border-indigo-500/20';
+    return 'bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-500/20';
   };
 
   const getInitials = (name: string) => {
@@ -509,7 +464,7 @@ export default function StudentProgress() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-erp-border pb-5">
         <div>
           <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-purple-500/10 text-purple-600 dark:text-purple-400 rounded-2xl border border-purple-500/20">
+            <div className="p-2.5 bg-purple-500/10 text-purple-700 dark:text-purple-400 rounded-2xl border border-purple-500/20">
               <TrendingUp className="w-6 h-6" />
             </div>
             <div>
@@ -518,7 +473,7 @@ export default function StudentProgress() {
                   Student Progress Tracking
                 </h1>
                 {selectedBatch !== 'all' && (
-                  <span className="text-xs font-black px-2.5 py-0.5 rounded-full bg-purple-500/15 text-purple-600 dark:text-purple-400 border border-purple-500/30">
+                  <span className="text-xs font-black px-2.5 py-0.5 rounded-full bg-purple-500/15 text-purple-700 dark:text-purple-400 border border-purple-500/30">
                     {selectedBatch}
                   </span>
                 )}
@@ -632,7 +587,7 @@ export default function StudentProgress() {
         <div className="bg-white dark:bg-black border-2 border-erp-border rounded-2xl p-4 sm:p-5 shadow-sm space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-erp-border/60">
             <div className="flex items-center gap-3 flex-wrap">
-              <div className="p-2 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400">
+              <div className="p-2 rounded-xl bg-blue-500/10 text-blue-700 dark:text-blue-400">
                 <BookMarked className="w-5 h-5" />
               </div>
               <div>
@@ -640,7 +595,7 @@ export default function StudentProgress() {
                   <h3 className="text-sm sm:text-base font-black text-erp-text">
                     {selectedBatch} — Module Progress & Class Pacing
                   </h3>
-                  <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/30">
+                  <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-500/30">
                     Live Pacing
                   </span>
                 </div>
@@ -654,7 +609,7 @@ export default function StudentProgress() {
             <div className="flex items-center gap-2 self-start sm:self-auto">
               <button
                 onClick={() => handleAddSubjectToBatch(activeBatchRecord)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-500/30 text-xs font-bold transition-all shadow-xs"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 text-blue-700 dark:text-blue-400 border border-blue-500/30 text-xs font-bold transition-all shadow-xs"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>Add Module</span>
@@ -678,7 +633,7 @@ export default function StudentProgress() {
                     <span className="text-xs font-black text-erp-text truncate group-hover:text-blue-500 transition-colors" title={subjectItem.subject}>
                       {subjectItem.subject}
                     </span>
-                    <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+                    <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-500/20">
                       Class {comp} / {total}
                     </span>
                   </div>
@@ -738,13 +693,13 @@ export default function StudentProgress() {
             <span className="text-xs font-extrabold text-erp-text/60 uppercase tracking-wider truncate">
               {selectedBatch === 'all' ? 'Total Students' : `${selectedBatch} Students`}
             </span>
-            <div className="p-2 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 group-hover:scale-110 transition-transform">
+            <div className="p-2 rounded-xl bg-purple-500/10 text-purple-700 dark:text-purple-400 group-hover:scale-110 transition-transform">
               <Users className="w-5 h-5" />
             </div>
           </div>
           <div className="flex items-baseline justify-between">
             <p className="text-3xl font-black text-erp-text">{currentBatchCount}</p>
-            <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20">
+            <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-700 dark:text-purple-400 border border-purple-500/20">
               {selectedBatch === 'all' ? 'Across All Batches' : 'Allocated in Batch'}
             </span>
           </div>
@@ -756,13 +711,13 @@ export default function StudentProgress() {
             <span className="text-xs font-extrabold text-erp-text/60 uppercase tracking-wider truncate">
               {selectedBatch === 'all' ? 'Avg. Completion' : `${selectedBatch} Completion`}
             </span>
-            <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 group-hover:scale-110 transition-transform">
+            <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 group-hover:scale-110 transition-transform">
               <BookOpen className="w-5 h-5" />
             </div>
           </div>
           <div className="flex items-baseline justify-between">
             <p className="text-3xl font-black text-erp-text">{avgCompletion}%</p>
-            <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+            <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20">
               Course Ratio
             </span>
           </div>
@@ -777,7 +732,7 @@ export default function StudentProgress() {
             <span className="text-xs font-extrabold text-erp-text/60 uppercase tracking-wider truncate">
               {selectedBatch === 'all' ? 'Avg. Attendance' : `${selectedBatch} Attendance`}
             </span>
-            <div className="p-2 rounded-xl bg-sky-500/10 text-sky-600 dark:text-sky-400 group-hover:scale-110 transition-transform">
+            <div className="p-2 rounded-xl bg-sky-500/10 text-sky-700 dark:text-sky-400 group-hover:scale-110 transition-transform">
               <Award className="w-5 h-5" />
             </div>
           </div>
@@ -798,7 +753,7 @@ export default function StudentProgress() {
             <span className="text-xs font-extrabold text-erp-text/60 uppercase tracking-wider truncate">
               {selectedBatch === 'all' ? 'Avg. Quiz Score' : `${selectedBatch} Quiz Avg`}
             </span>
-            <div className="p-2 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 group-hover:scale-110 transition-transform">
+            <div className="p-2 rounded-xl bg-amber-500/10 text-amber-800 dark:text-amber-400 group-hover:scale-110 transition-transform">
               <Sparkles className="w-5 h-5" />
             </div>
           </div>
@@ -824,11 +779,12 @@ export default function StudentProgress() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search student, email, batch..."
+            aria-label="Search students by name, email or batch"
             className="w-full pl-9 pr-8 py-2 bg-erp-surface border-2 border-erp-border rounded-xl text-xs font-bold text-erp-text placeholder-erp-text/40 outline-none focus:border-erp-primary transition-colors"
           />
           {searchQuery && (
-            <button onClick={() => setSearchQuery('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-erp-text/40 hover:text-erp-text">
-              <X className="w-3.5 h-3.5" />
+            <button onClick={() => setSearchQuery('')} aria-label="Clear search" className="absolute right-2.5 top-1/2 -translate-y-1/2 text-erp-text/40 hover:text-erp-text">
+              <X className="w-3.5 h-3.5" aria-hidden="true" />
             </button>
           )}
         </div>
@@ -839,6 +795,7 @@ export default function StudentProgress() {
           <div className="flex items-center gap-1.5">
             <span className="text-xs font-bold text-erp-text/50">Batch:</span>
             <select
+              aria-label="Batch"
               value={selectedBatch}
               onChange={(e) => setSelectedBatch(e.target.value)}
               className="bg-erp-surface border-2 border-erp-border text-erp-text text-xs font-bold rounded-xl px-2.5 py-1.5 outline-none focus:border-erp-primary cursor-pointer"
@@ -857,6 +814,7 @@ export default function StudentProgress() {
             <div className="flex items-center gap-1.5">
               <span className="text-xs font-bold text-erp-text/50">Course:</span>
               <select
+                aria-label="Course"
                 value={selectedCourse}
                 onChange={(e) => setSelectedCourse(e.target.value)}
                 className="bg-erp-surface border-2 border-erp-border text-erp-text text-xs font-bold rounded-xl px-2.5 py-1.5 outline-none focus:border-erp-primary cursor-pointer max-w-[140px] truncate"
@@ -909,6 +867,7 @@ export default function StudentProgress() {
           <div className="flex items-center gap-1.5">
             <span className="text-xs font-bold text-erp-text/50">Sort:</span>
             <select
+              aria-label="Sort by"
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as any)}
               className="bg-erp-surface border-2 border-erp-border text-erp-text text-xs font-bold rounded-xl px-2.5 py-1.5 outline-none focus:border-erp-primary cursor-pointer"
@@ -1002,11 +961,11 @@ export default function StudentProgress() {
                           <span
                             className={`text-xs font-black px-2.5 py-1 rounded-xl flex items-center gap-1.5 w-fit border ${
                               rank === 1
-                                ? 'bg-amber-500/20 text-amber-600 dark:text-amber-300 border-amber-500/40 shadow-sm'
+                                ? 'bg-amber-500/20 text-amber-800 dark:text-amber-300 border-amber-500/40 shadow-sm'
                                 : rank === 2
                                 ? 'bg-slate-300/30 text-slate-700 dark:text-slate-200 border-slate-400/40'
                                 : rank === 3
-                                ? 'bg-orange-500/20 text-orange-600 dark:text-orange-300 border-orange-500/40'
+                                ? 'bg-orange-500/20 text-orange-800 dark:text-orange-300 border-orange-500/40'
                                 : 'bg-erp-surface text-erp-text/70 border-erp-border'
                             }`}
                           >
@@ -1019,7 +978,7 @@ export default function StudentProgress() {
                       {/* Student Info */}
                       <td className="p-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-full bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center font-black text-xs border border-purple-500/20 shrink-0">
+                          <div className="w-9 h-9 rounded-full bg-purple-500/10 text-purple-700 dark:text-purple-400 flex items-center justify-center font-black text-xs border border-purple-500/20 shrink-0">
                             {getInitials(row.student_name)}
                           </div>
                           <div className="min-w-0">
@@ -1027,7 +986,7 @@ export default function StudentProgress() {
                             <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
                               <span className="text-[11px] font-medium text-erp-text/50 truncate max-w-[140px]">{row.student_email}</span>
                               {row.student_course && (
-                                <span className="text-[9px] font-bold text-purple-600 dark:text-purple-400 bg-purple-500/10 px-1.5 py-0.2 rounded border border-purple-500/20 shrink-0">
+                                <span className="text-[9px] font-bold text-purple-700 dark:text-purple-400 bg-purple-500/10 px-1.5 py-0.2 rounded border border-purple-500/20 shrink-0">
                                   {row.student_course}
                                 </span>
                               )}
@@ -1098,7 +1057,7 @@ export default function StudentProgress() {
                             onChange={(e) => setEditForm({ ...editForm, coins_spent: e.target.value })}
                           />
                         ) : (
-                          <div className="flex items-center gap-1 text-xs font-black text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-1 rounded-lg w-fit">
+                          <div className="flex items-center gap-1 text-xs font-black text-amber-800 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-1 rounded-lg w-fit">
                             <Coins className="w-3.5 h-3.5 text-amber-500" />
                             {row.coins_spent || 0}
                           </div>
@@ -1112,7 +1071,7 @@ export default function StudentProgress() {
                             <button
                               onClick={() => handleSave(row.id)}
                               disabled={isSaving}
-                              className="p-1.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg transition-colors shadow-sm disabled:opacity-50"
+                              className="p-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg transition-colors shadow-sm disabled:opacity-50"
                               title="Save progress & batch"
                             >
                               <Save className="w-4 h-4" />

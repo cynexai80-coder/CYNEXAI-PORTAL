@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { getCurrentUser, logout } from '../../lib/auth';
 import { Card } from '../../components/ui/erp/Card';
 import { Button } from '../../components/ui/erp/Button';
 import { User, LogOut, Settings, Save, CheckCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { getMyPerformance } from '../../lib/api/crm';
 
 export default function Profile() {
   const user = getCurrentUser();
@@ -11,6 +12,13 @@ export default function Profile() {
   const [openAiKey, setOpenAiKey] = useState(localStorage.getItem('CYNEX_OPENAI_KEY') || '');
   const [groqKey, setGroqKey] = useState(import.meta.env.VITE_GROQ_API_KEY || localStorage.getItem('cynex_groq_key') || '');
   const [saved, setSaved] = useState(false);
+  const [perf, setPerf] = useState({ calls: 0, interested: 0, admissions: 0, tasksDone: 0 });
+
+  useEffect(() => {
+    if (user?.id && (user.role === 'Sales/HR' || user.role === 'Manager')) {
+      getMyPerformance(user.id).then(setPerf);
+    }
+  }, [user?.id, user?.role]);
 
   const handleSaveKeys = () => {
     localStorage.setItem('CYNEX_OPENAI_KEY', openAiKey);
@@ -69,19 +77,19 @@ export default function Profile() {
               
               <div className="grid grid-cols-2 gap-4 flex-1">
                 <div className="bg-erp-surface border border-erp-border rounded-xl p-4 flex flex-col justify-center items-center card-hover">
-                  <span className="text-3xl font-bold font-display text-erp-primary mb-1">12</span>
+                  <span className="text-3xl font-bold font-display text-erp-primary mb-1">{perf.calls}</span>
                   <span className="text-xs font-bold text-erp-text/70 uppercase">Calls Made</span>
                 </div>
                 <div className="bg-erp-surface border border-erp-border rounded-xl p-4 flex flex-col justify-center items-center card-hover">
-                  <span className="text-3xl font-bold font-display text-erp-secondary mb-1">4</span>
+                  <span className="text-3xl font-bold font-display text-erp-secondary mb-1">{perf.interested}</span>
                   <span className="text-xs font-bold text-erp-text/70 uppercase">Interested</span>
                 </div>
                 <div className="bg-erp-surface border border-erp-border rounded-xl p-4 flex flex-col justify-center items-center card-hover">
-                  <span className="text-3xl font-bold font-display text-emerald-500 mb-1">1</span>
+                  <span className="text-3xl font-bold font-display text-emerald-500 mb-1">{perf.admissions}</span>
                   <span className="text-xs font-bold text-erp-text/70 uppercase">Admissions</span>
                 </div>
                 <div className="bg-erp-surface border border-erp-border rounded-xl p-4 flex flex-col justify-center items-center card-hover">
-                  <span className="text-3xl font-bold font-display text-amber-500 mb-1">8</span>
+                  <span className="text-3xl font-bold font-display text-amber-500 mb-1">{perf.tasksDone}</span>
                   <span className="text-xs font-bold text-erp-text/70 uppercase">Tasks Done</span>
                 </div>
               </div>
@@ -96,7 +104,7 @@ export default function Profile() {
                 <h2 className="text-2xl font-bold text-erp-text">Dev Settings</h2>
               </div>
               
-              <p className="text-sm font-medium text-erp-text/70 mb-6 bg-blue-50 text-blue-800 dark:text-white p-3 rounded-xl border border-blue-200">
+              <p className="text-sm font-medium text-erp-text/70 mb-6 bg-blue-50 dark:bg-blue-500/10 text-blue-800 dark:text-white p-3 rounded-xl border border-blue-200">
                 API Keys stored here are saved locally in your browser's localStorage. They are never sent to our servers.
               </p>
 

@@ -155,17 +155,17 @@ export default function HistoryPage() {
   const getEventBadgeClass = (type: HistoryEventType) => {
     switch (type) {
       case 'sale':
-        return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
+        return 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20';
       case 'activity':
-        return 'bg-sky-500/10 text-sky-400 border-sky-500/20';
+        return 'bg-sky-500/10 text-sky-700 dark:text-sky-400 border-sky-500/20';
       case 'stage_change':
-        return 'bg-amber-500/10 text-amber-400 border-amber-500/20';
+        return 'bg-amber-500/10 text-amber-800 dark:text-amber-400 border-amber-500/20';
       case 'approval':
-        return 'bg-purple-500/10 text-purple-400 border-purple-500/20';
+        return 'bg-purple-500/10 text-purple-700 dark:text-purple-400 border-purple-500/20';
       case 'task':
-        return 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20';
+        return 'bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 border-indigo-500/20';
       default:
-        return 'bg-slate-500/10 text-slate-400 border-slate-500/20';
+        return 'bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-500/20';
     }
   };
 
@@ -194,7 +194,7 @@ export default function HistoryPage() {
           
           <button
             onClick={() => setIsLogModalOpen(true)}
-            className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl flex items-center gap-2 transition-all text-xs cursor-pointer shadow-lg shadow-indigo-600/20"
+            className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl flex items-center gap-2 transition-all text-xs cursor-pointer shadow-lg shadow-indigo-600/20"
           >
             <Plus className="w-4 h-4" /> Log Audit Note
           </button>
@@ -227,7 +227,7 @@ export default function HistoryPage() {
           </div>
           <div>
             <p className="text-xs font-bold text-erp-text/50 uppercase tracking-wider">Sales Records</p>
-            <h3 className="text-2xl font-bold font-display text-emerald-400">{stats.sales}</h3>
+            <h3 className="text-2xl font-bold font-display text-emerald-700 dark:text-emerald-400">{stats.sales}</h3>
           </div>
         </div>
 
@@ -237,7 +237,7 @@ export default function HistoryPage() {
           </div>
           <div>
             <p className="text-xs font-bold text-erp-text/50 uppercase tracking-wider">Calls & Notes</p>
-            <h3 className="text-2xl font-bold font-display text-sky-400">{stats.activities}</h3>
+            <h3 className="text-2xl font-bold font-display text-sky-700 dark:text-sky-400">{stats.activities}</h3>
           </div>
         </div>
 
@@ -247,7 +247,7 @@ export default function HistoryPage() {
           </div>
           <div>
             <p className="text-xs font-bold text-erp-text/50 uppercase tracking-wider">Stage Movements</p>
-            <h3 className="text-2xl font-bold font-display text-amber-400">{stats.stageChanges}</h3>
+            <h3 className="text-2xl font-bold font-display text-amber-800 dark:text-amber-400">{stats.stageChanges}</h3>
           </div>
         </div>
       </div>
@@ -359,7 +359,7 @@ export default function HistoryPage() {
 
                   {/* Lead / Student Information */}
                   {ev.lead_name && (
-                    <div className="flex items-center gap-2 text-xs font-bold text-indigo-400 mb-2">
+                    <div className="flex items-center gap-2 text-xs font-bold text-indigo-700 dark:text-indigo-400 mb-2">
                       <User className="w-3.5 h-3.5" />
                       <span>Associated Contact: {ev.lead_name}</span>
                     </div>
@@ -387,7 +387,7 @@ export default function HistoryPage() {
 
                     <button
                       onClick={() => copyToClipboard(`${ev.title}: ${ev.details} (By ${ev.user_name} on ${ev.timestamp})`, ev.id)}
-                      className="flex items-center gap-1 text-[11px] hover:text-indigo-400 transition-colors cursor-pointer"
+                      className="flex items-center gap-1 min-h-[24px] min-w-[24px] text-[11px] hover:text-indigo-700 dark:hover:text-indigo-400 transition-colors cursor-pointer"
                       title="Copy Log String"
                     >
                       {copiedId === ev.id ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
@@ -465,7 +465,7 @@ export default function HistoryPage() {
               <button
                 onClick={handleCreateLog}
                 disabled={isSubmittingLog || !newLogTitle.trim() || !newLogDetails.trim()}
-                className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl text-xs flex items-center gap-2 transition-all disabled:opacity-50 shadow-lg shadow-indigo-600/20"
+                className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs flex items-center gap-2 transition-all disabled:opacity-50 shadow-lg shadow-indigo-600/20"
               >
                 {isSubmittingLog ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
                 Submit Audit Log

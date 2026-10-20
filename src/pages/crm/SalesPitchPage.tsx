@@ -6,6 +6,7 @@ import { getCourseMaterials, addCourseMaterial, deleteCourseMaterial, CourseMate
 import { Button } from '../../components/ui/erp/Button';
 import { BookOpen, Share2, ClipboardList, CheckCircle, AlertCircle, Edit2, Save, X, Download, UserPlus, Phone, Mail, User, Tag, MapPin, GraduationCap, Monitor, FileText, Plus, Trash2, MessageSquare, Copy, Send } from 'lucide-react';
 import { getCurrentUser } from '../../lib/auth';
+import { notify, confirmDialog } from '../../lib/feedback';
 
 interface CoursePitchData {
   id: string;
@@ -138,7 +139,7 @@ Would love to get on a quick call to walk you through everything. When are you f
       setCourses(prev => prev.map(c => c.id === selectedData.id ? { ...c, sales_pitch_script: editScript, sales_pitch_summary: editSummary } : c));
       setIsEditing(false);
     } else {
-      alert("Failed to save changes.");
+      notify("Failed to save changes.");
     }
     setSaving(false);
   };
@@ -201,7 +202,7 @@ Would love to get on a quick call to walk you through everything. When are you f
   };
 
   const handleDeleteMaterial = async (id: string) => {
-    if (window.confirm("Delete this demo material?")) {
+    if (await confirmDialog({ title: 'Delete material', message: 'Delete this demo material?', confirmLabel: 'Delete', danger: true })) {
       const success = await deleteCourseMaterial(id);
       if (success) {
         setMaterials(materials.filter(m => m.id !== id));
@@ -339,19 +340,19 @@ Would love to get on a quick call to walk you through everything. When are you f
                   <div className="grid grid-cols-2 gap-3">
                     <div className="relative col-span-2">
                       <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-erp-text/40" />
-                      <input type="text" required placeholder="Full Name *" value={newLead.name} onChange={e => setNewLead({...newLead, name: e.target.value})} className="w-full bg-erp-surface border border-erp-border rounded-lg pl-10 pr-4 py-2 font-bold focus:border-erp-primary outline-none transition-colors text-gray-900 dark:text-white placeholder-gray-500" />
+                      <input type="text" required placeholder="Full Name *" aria-label="Full name" value={newLead.name} onChange={e => setNewLead({...newLead, name: e.target.value})} className="w-full bg-erp-surface border border-erp-border rounded-lg pl-10 pr-4 py-2 font-bold focus:border-erp-primary outline-none transition-colors text-gray-900 dark:text-white placeholder-gray-500" />
                     </div>
                     <div className="relative">
                       <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-erp-text/40" />
-                      <input type="tel" required minLength={10} maxLength={15} pattern="[0-9\+\-\s]+" title="Valid phone number required" placeholder="Phone *" value={newLead.phone} onChange={e => setNewLead({...newLead, phone: e.target.value})} className="w-full bg-erp-surface border border-erp-border rounded-lg pl-10 pr-4 py-2 font-bold focus:border-erp-primary outline-none transition-colors text-gray-900 dark:text-white placeholder-gray-500" />
+                      <input type="tel" required minLength={10} maxLength={15} pattern="[0-9\+\-\s]+" title="Valid phone number required" placeholder="Phone *" aria-label="Phone number" value={newLead.phone} onChange={e => setNewLead({...newLead, phone: e.target.value})} className="w-full bg-erp-surface border border-erp-border rounded-lg pl-10 pr-4 py-2 font-bold focus:border-erp-primary outline-none transition-colors text-gray-900 dark:text-white placeholder-gray-500" />
                     </div>
                     <div className="relative">
                       <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-erp-text/40" />
-                      <input type="email" required placeholder="Email *" value={newLead.email} onChange={e => setNewLead({...newLead, email: e.target.value})} className="w-full bg-erp-surface border border-erp-border rounded-lg pl-10 pr-4 py-2 font-bold focus:border-erp-primary outline-none transition-colors text-gray-900 dark:text-white placeholder-gray-500" />
+                      <input type="email" required placeholder="Email *" aria-label="Email address" value={newLead.email} onChange={e => setNewLead({...newLead, email: e.target.value})} className="w-full bg-erp-surface border border-erp-border rounded-lg pl-10 pr-4 py-2 font-bold focus:border-erp-primary outline-none transition-colors text-gray-900 dark:text-white placeholder-gray-500" />
                     </div>
                     <div className="relative">
                       <Tag className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-erp-text/40" />
-                      <select required value={newLead.source} onChange={e => setNewLead({...newLead, source: e.target.value})} className="w-full bg-erp-surface border border-erp-border rounded-lg pl-10 pr-4 py-2 font-bold focus:border-erp-primary outline-none transition-colors appearance-none text-gray-900 dark:text-white">
+                      <select required aria-label="Lead source" value={newLead.source} onChange={e => setNewLead({...newLead, source: e.target.value})} className="w-full bg-erp-surface border border-erp-border rounded-lg pl-10 pr-4 py-2 font-bold focus:border-erp-primary outline-none transition-colors appearance-none text-gray-900 dark:text-white">
                         <option value="" disabled className="text-gray-500">Source *</option>
                         <option value="Walk-in">Walk-in</option>
                         <option value="Facebook Ad">Facebook Ad</option>
@@ -363,7 +364,7 @@ Would love to get on a quick call to walk you through everything. When are you f
                     </div>
                     <div className="relative">
                       <BookOpen className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-erp-text/40" />
-                      <select value={newLead.course_interest} onChange={e => setNewLead({...newLead, course_interest: e.target.value})} className="w-full bg-erp-surface border border-erp-border rounded-lg pl-10 pr-4 py-2 font-bold focus:border-erp-primary outline-none transition-colors appearance-none text-gray-900 dark:text-white">
+                      <select aria-label="Course interest" value={newLead.course_interest} onChange={e => setNewLead({...newLead, course_interest: e.target.value})} className="w-full bg-erp-surface border border-erp-border rounded-lg pl-10 pr-4 py-2 font-bold focus:border-erp-primary outline-none transition-colors appearance-none text-gray-900 dark:text-white">
                         <option value="" disabled className="text-gray-500">Course Interest</option>
                         {courses.map(course => (
                           <option key={course.id} value={course.title}>{course.title}</option>
@@ -372,11 +373,11 @@ Would love to get on a quick call to walk you through everything. When are you f
                     </div>
                     <div className="relative">
                       <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-erp-text/40" />
-                      <input type="text" placeholder="Location" value={newLead.location} onChange={e => setNewLead({...newLead, location: e.target.value})} className="w-full bg-erp-surface border border-erp-border rounded-lg pl-10 pr-4 py-2 font-bold focus:border-erp-primary outline-none transition-colors text-gray-900 dark:text-white placeholder-gray-500" />
+                      <input type="text" placeholder="Location" aria-label="Location" value={newLead.location} onChange={e => setNewLead({...newLead, location: e.target.value})} className="w-full bg-erp-surface border border-erp-border rounded-lg pl-10 pr-4 py-2 font-bold focus:border-erp-primary outline-none transition-colors text-gray-900 dark:text-white placeholder-gray-500" />
                     </div>
                     <div className="relative">
                       <Monitor className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-erp-text/40" />
-                      <select value={newLead.preferred_mode} onChange={e => setNewLead({...newLead, preferred_mode: e.target.value})} className="w-full bg-erp-surface border border-erp-border rounded-lg pl-10 pr-4 py-2 font-bold focus:border-erp-primary outline-none transition-colors appearance-none text-gray-900 dark:text-white">
+                      <select aria-label="Preferred mode" value={newLead.preferred_mode} onChange={e => setNewLead({...newLead, preferred_mode: e.target.value})} className="w-full bg-erp-surface border border-erp-border rounded-lg pl-10 pr-4 py-2 font-bold focus:border-erp-primary outline-none transition-colors appearance-none text-gray-900 dark:text-white">
                         <option value="" disabled className="text-gray-500">Pref. Mode</option>
                         <option value="Online">Online</option>
                         <option value="Offline">Offline</option>
@@ -384,7 +385,7 @@ Would love to get on a quick call to walk you through everything. When are you f
                     </div>
                     <div className="relative">
                       <GraduationCap className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-erp-text/40" />
-                      <select value={newLead.qualification} onChange={e => setNewLead({...newLead, qualification: e.target.value})} className="w-full bg-erp-surface border border-erp-border rounded-lg pl-10 pr-4 py-2 font-bold focus:border-erp-primary outline-none transition-colors appearance-none text-gray-900 dark:text-white">
+                      <select aria-label="Qualification" value={newLead.qualification} onChange={e => setNewLead({...newLead, qualification: e.target.value})} className="w-full bg-erp-surface border border-erp-border rounded-lg pl-10 pr-4 py-2 font-bold focus:border-erp-primary outline-none transition-colors appearance-none text-gray-900 dark:text-white">
                         <option value="" disabled className="text-gray-500">Qualification</option>
                         <option value="B.Tech/BE">B.Tech/BE</option>
                         <option value="M.Tech/ME">M.Tech/ME</option>
@@ -401,17 +402,17 @@ Would love to get on a quick call to walk you through everything. When are you f
                     </div>
                     <div className="relative">
                       <FileText className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-erp-text/40" />
-                      <input type="text" placeholder="Grad Year" value={newLead.grad_year} onChange={e => setNewLead({...newLead, grad_year: e.target.value})} className="w-full bg-erp-surface border border-erp-border rounded-lg pl-10 pr-4 py-2 font-bold focus:border-erp-primary outline-none transition-colors text-gray-900 dark:text-white placeholder-gray-500" />
+                      <input type="text" placeholder="Grad Year" aria-label="Graduation year" value={newLead.grad_year} onChange={e => setNewLead({...newLead, grad_year: e.target.value})} className="w-full bg-erp-surface border border-erp-border rounded-lg pl-10 pr-4 py-2 font-bold focus:border-erp-primary outline-none transition-colors text-gray-900 dark:text-white placeholder-gray-500" />
                     </div>
                     <div className="relative col-span-2">
-                      <select value={newLead.it_background} onChange={e => setNewLead({...newLead, it_background: e.target.value})} className="w-full bg-erp-surface border border-erp-border rounded-lg px-4 py-2 font-bold focus:border-erp-primary outline-none transition-colors appearance-none text-gray-900 dark:text-white">
+                      <select aria-label="IT background" value={newLead.it_background} onChange={e => setNewLead({...newLead, it_background: e.target.value})} className="w-full bg-erp-surface border border-erp-border rounded-lg px-4 py-2 font-bold focus:border-erp-primary outline-none transition-colors appearance-none text-gray-900 dark:text-white">
                         <option value="" disabled className="text-gray-500">IT Background?</option>
                         <option value="Yes">Yes</option>
                         <option value="No">No</option>
                       </select>
                     </div>
                     <div className="relative col-span-2">
-                      <textarea placeholder="Additional Notes..." value={newLead.notes} onChange={e => setNewLead({...newLead, notes: e.target.value})} className="w-full bg-erp-surface border border-erp-border rounded-lg px-4 py-2 font-medium focus:border-erp-primary outline-none transition-colors min-h-[60px] resize-y text-sm text-gray-900 dark:text-white placeholder-gray-500" />
+                      <textarea placeholder="Additional Notes..." aria-label="Additional notes" value={newLead.notes} onChange={e => setNewLead({...newLead, notes: e.target.value})} className="w-full bg-erp-surface border border-erp-border rounded-lg px-4 py-2 font-medium focus:border-erp-primary outline-none transition-colors min-h-[60px] resize-y text-sm text-gray-900 dark:text-white placeholder-gray-500" />
                     </div>
                   </div>
                   
@@ -419,7 +420,7 @@ Would love to get on a quick call to walk you through everything. When are you f
                     <p className="text-red-500 text-xs font-bold bg-red-50 p-2 rounded-md border border-red-200">{leadError}</p>
                   )}
                   {leadSuccess && (
-                    <p className="text-green-600 text-xs font-bold bg-green-50 p-2 rounded-md border border-green-200 flex items-center gap-1">
+                    <p className="text-green-700 text-xs font-bold bg-green-50 p-2 rounded-md border border-green-200 flex items-center gap-1">
                       <CheckCircle className="w-3 h-3" /> Lead assigned as 'New'
                     </p>
                   )}
@@ -440,7 +441,7 @@ Would love to get on a quick call to walk you through everything. When are you f
                             .replace(/\[Course\]/g, newLead.course_interest || selectedData?.title || '[Course]');
                           window.open(`https://wa.me/${intlPhone}?text=${encodeURIComponent(msg)}`, '_blank');
                         }}
-                        className="flex-shrink-0 flex items-center justify-center gap-1 px-3 h-10 rounded-xl bg-green-500 hover:bg-green-600 text-white font-bold text-sm transition-colors shadow-md"
+                        className="flex-shrink-0 flex items-center justify-center gap-1 px-3 h-10 rounded-xl bg-green-700 hover:bg-green-800 text-white font-bold text-sm transition-colors shadow-md"
                       >
                         <svg viewBox="0 0 24 24" className="w-5 h-5 fill-white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
                       </button>
@@ -459,8 +460,8 @@ Would love to get on a quick call to walk you through everything. When are you f
                   <div className="flex gap-2">
                     {canEdit && (
                       <button
-                        onClick={() => setIsEditingTemplate(!isEditingTemplate)}
-                        className="p-1.5 rounded-lg bg-white dark:bg-black/20 text-green-700 dark:text-green-400 text-xs font-bold"
+                        onClick={() => setIsEditingTemplate(!isEditingTemplate)} aria-label="Edit message template"
+                        className="p-1.5 min-h-[24px] min-w-[24px] rounded-lg bg-white/20 text-green-700 dark:text-green-400 text-xs font-bold"
                       >
                         <Edit2 className="w-3.5 h-3.5" />
                       </button>
@@ -471,7 +472,7 @@ Would love to get on a quick call to walk you through everything. When are you f
                         setTemplateCopied(true);
                         setTimeout(() => setTemplateCopied(false), 2000);
                       }}
-                      className="p-1.5 rounded-lg bg-white dark:bg-black/20 text-green-700 dark:text-green-400 text-xs font-bold flex items-center gap-1"
+                      aria-label="Copy message template" className="p-1.5 min-h-[24px] min-w-[24px] rounded-lg bg-white/20 text-green-700 dark:text-green-400 text-xs font-bold flex items-center gap-1"
                     >
                       {templateCopied ? <CheckCircle className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
                     </button>
@@ -481,16 +482,16 @@ Would love to get on a quick call to walk you through everything. When are you f
                 {isEditingTemplate ? (
                   <>
                     <textarea
-                      value={pitchTemplate}
+                      aria-label="Message template" value={pitchTemplate}
                       onChange={e => setPitchTemplate(e.target.value)}
-                      className="w-full min-h-[180px] p-3 rounded-xl border-2 border-green-300 focus:border-green-500 focus:outline-none bg-white dark:bg-black/30 font-medium text-sm text-erp-text resize-y"
+                      className="w-full min-h-[180px] p-3 rounded-xl border-2 border-green-300 focus:border-green-500 focus:outline-none bg-white/30 font-medium text-sm text-erp-text resize-y"
                     />
                     <button
                       onClick={() => {
                         localStorage.setItem(`pitch_template_${selectedCourseId}`, pitchTemplate);
                         setIsEditingTemplate(false);
                       }}
-                      className="mt-2 w-full flex items-center justify-center gap-2 bg-green-500 hover:bg-green-600 text-white font-bold py-2 rounded-xl text-sm transition-colors"
+                      className="mt-2 w-full flex items-center justify-center gap-2 bg-green-700 hover:bg-green-800 text-white font-bold py-2 rounded-xl text-sm transition-colors"
                     >
                       <Save className="w-4 h-4" /> Save Template
                     </button>
@@ -512,7 +513,7 @@ Would love to get on a quick call to walk you through everything. When are you f
                     <p className="text-blue-100 text-sm">Download or share course materials.</p>
                   </div>
                   {canEdit && (
-                    <button onClick={() => setIsAddingMaterial(!isAddingMaterial)} className="bg-white dark:bg-black/20 hover:bg-white dark:bg-black/30 p-1.5 rounded-lg transition-colors">
+                    <button onClick={() => setIsAddingMaterial(!isAddingMaterial)} aria-label="Add demo material" className="bg-white/20 dark:bg-black/20 hover:bg-white/30 dark:hover:bg-black/30 p-1.5 min-h-[24px] min-w-[24px] rounded-lg transition-colors">
                       <Plus className="w-4 h-4 text-white" />
                     </button>
                   )}
@@ -520,18 +521,18 @@ Would love to get on a quick call to walk you through everything. When are you f
 
                 {isAddingMaterial && (
                   <div className="bg-black/20 p-3 rounded-lg mb-4 space-y-2">
-                    <input type="text" placeholder="Material Title (e.g. PDF Brochure)" value={newMaterial.title} onChange={e => setNewMaterial({...newMaterial, title: e.target.value})} className="w-full bg-white dark:bg-black/10 border border-white/20 rounded px-3 py-1.5 text-sm text-white placeholder-white/50 focus:outline-none" />
-                    <input type="url" placeholder="URL Link (Drive, DropBox, etc)" value={newMaterial.url} onChange={e => setNewMaterial({...newMaterial, url: e.target.value})} className="w-full bg-white dark:bg-black/10 border border-white/20 rounded px-3 py-1.5 text-sm text-white placeholder-white/50 focus:outline-none" />
+                    <input type="text" placeholder="Material Title (e.g. PDF Brochure)" aria-label="Material title" value={newMaterial.title} onChange={e => setNewMaterial({...newMaterial, title: e.target.value})} className="w-full bg-white/10 dark:bg-black/10 border border-white/20 rounded px-3 py-1.5 text-sm text-white placeholder-white/50 focus:outline-none" />
+                    <input type="url" placeholder="URL Link (Drive, DropBox, etc)" aria-label="Material URL" value={newMaterial.url} onChange={e => setNewMaterial({...newMaterial, url: e.target.value})} className="w-full bg-white/10 dark:bg-black/10 border border-white/20 rounded px-3 py-1.5 text-sm text-white placeholder-white/50 focus:outline-none" />
                     <div className="flex gap-2">
                       <Button variant="info" className="flex-1 py-1 h-auto text-xs bg-white dark:bg-black text-blue-700 dark:text-blue-300 font-bold" onClick={handleAddMaterial}>Add</Button>
-                      <Button variant="ghost" className="flex-1 py-1 h-auto text-xs text-white hover:bg-white dark:bg-black/20" onClick={() => setIsAddingMaterial(false)}>Cancel</Button>
+                      <Button variant="ghost" className="flex-1 py-1 h-auto text-xs text-white hover:bg-white/20 dark:hover:bg-black/20" onClick={() => setIsAddingMaterial(false)}>Cancel</Button>
                     </div>
                   </div>
                 )}
 
                 <div className="space-y-3">
                   {materials.length === 0 ? (
-                    <div className="bg-white dark:bg-black/10 border border-white/20 border-dashed p-4 rounded-xl text-center text-sm font-medium text-white/70">
+                    <div className="bg-black/20 dark:bg-black/10 border border-white/20 border-dashed p-4 rounded-xl text-center text-sm font-medium text-white dark:text-white/70">
                       No materials assigned yet.
                     </div>
                   ) : (
@@ -541,11 +542,11 @@ Would love to get on a quick call to walk you through everything. When are you f
                           <Download className="w-4 h-4" />
                           <span className="text-xs truncate max-w-full px-1">{mat.title}</span>
                         </Button>
-                        <Button variant="info" className="w-10 flex-shrink-0 flex items-center justify-center bg-green-500 text-white hover:bg-green-600 font-bold border-none shadow-md p-0" onClick={() => { window.open(`https://wa.me/?text=${encodeURIComponent(`Check out this material: ${mat.title}\n${mat.url}`)}`, '_blank'); }} title="Share on WhatsApp">
+                        <Button variant="info" className="w-10 flex-shrink-0 flex items-center justify-center bg-green-700 text-white hover:bg-green-800 font-bold border-none shadow-md p-0" onClick={() => { window.open(`https://wa.me/?text=${encodeURIComponent(`Check out this material: ${mat.title}\n${mat.url}`)}`, '_blank'); }} title="Share on WhatsApp">
                           <Share2 className="w-4 h-4" />
                         </Button>
                         {canEdit && (
-                          <Button variant="info" className="w-10 flex-shrink-0 flex items-center justify-center bg-red-500/20 text-white hover:bg-red-500 font-bold border border-red-500/50 shadow-md p-0" onClick={() => handleDeleteMaterial(mat.id)} title="Delete Material">
+                          <Button variant="info" className="w-10 flex-shrink-0 flex items-center justify-center bg-red-500/20 text-white hover:bg-red-700 font-bold border border-red-500/50 shadow-md p-0" onClick={() => handleDeleteMaterial(mat.id)} title="Delete Material">
                             <Trash2 className="w-4 h-4" />
                           </Button>
                         )}
