@@ -19,15 +19,38 @@ const PORT = process.env.PORT || 5000;
 // Initialize Razorpay
 const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID || 'rzp_test_TSKMGfh7KVHbUh',
-  key_secret: process.env.RAZORPAY_KEY_SECRET || 'MPON4w2yEDSkVPLRCwi7gAvh'
+  key_secret: process.env.RAZORPAY_KEY_SECRET
 });
 
-app.use(cors()); 
-app.use(bodyParser.json());
+// CORS: only known origins may call this API from a browser (override with ALLOWED_ORIGINS, comma-separated).
+const allowedOrigins = (process.env.ALLOWED_ORIGINS ||
+  'https://cynexai.in,https://www.cynexai.in,https://ops.cynexai.in,http://localhost:5173,http://localhost:4173')
+  .split(',').map(o => o.trim()).filter(Boolean);
+app.use(cors({
+  origin(origin, cb) {
+    if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
+    return cb(new Error('Not allowed by CORS'));
+  }
+}));
+app.use(bodyParser.json({ limit: '100kb' }));
+
+// Minimal in-memory rate limiter (per IP) for the sensitive endpoints below.
+const hits = new Map();
+const rateLimit = (max, windowMs) => (req, res, next) => {
+    const key = `${req.ip}:${req.path}`;
+    const now = Date.now();
+    const rec = hits.get(key) || { count: 0, reset: now + windowMs };
+    if (now > rec.reset) { rec.count = 0; rec.reset = now + windowMs; }
+    rec.count += 1;
+    hits.set(key, rec);
+    if (rec.count > max) return res.status(429).json({ error: 'Too many requests. Please slow down.' });
+    next();
+};
+setInterval(() => { const now = Date.now(); for (const [k, v] of hits) if (now > v.reset) hits.delete(k); }, 60000).unref();
 
 // --- Turso Database ---
 const tursoUrl = process.env.VITE_TURSO_DATABASE_URL || 'libsql://cynexai-portal-cynexai-new.aws-ap-south-1.turso.io';
-const tursoAuthToken = process.env.VITE_TURSO_AUTH_TOKEN || 'eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3ODQxOTUyNjcsImlkIjoiMDE5ZjZhNTItN2IwMS03Mzc2LWExMGUtNTViZGRiMzAwZTdlIiwia2lkIjoieUdPOElXY1J5RC1VX2J3UFlHWUJJMmlKZEp1R21CSDY5QzJQZzJUWmZhQSIsInJpZCI6IjcxYmEzODM5LTAyZDEtNDJiNS1hNDM5LTVlOWM4MGJkNGRhNSJ9.O2do8U63KLbS_pXwqivQRIYK1SncnMa1VRuePw6UFagpIIFodykzhY2cr6C_iYE83O86fUXhErbRPKfBMZtUAA';
+const tursoAuthToken = process.env.VITE_TURSO_AUTH_TOKEN;
 
 let db = createClient({
   url: tursoUrl,
@@ -120,15 +143,18 @@ app.get('/api/whatsapp/status', (req, res) => {
     return res.json({ status: 'initializing' });
 });
 
-app.post('/api/whatsapp/send', async (req, res) => {
+app.post('/api/whatsapp/send', rateLimit(30, 60000), async (req, res) => {
     if (!isWhatsAppReady) {
         return res.status(400).json({ error: 'WhatsApp is not ready' });
     }
     const { phone, message } = req.body;
-    if (!phone || !message) {
+    if (typeof phone !== 'string' || typeof message !== 'string' || message.length > 4000 || phone.replace(/\D/g, '').length < 8 || phone.replace(/\D/g, '').length > 15) {
          return res.status(400).json({ error: 'Phone and message are required' });
     }
-    const formattedPhone = phone.replace(/\D/g, '') + '@c.us';
+    let digits = phone.replace(/\D/g, '');
+    if (digits.length === 10) digits = '91' + digits; // Indian mobile without country code
+    else if (digits.length === 11 && digits.startsWith('0')) digits = '91' + digits.slice(1);
+    const formattedPhone = digits + '@c.us';
     try {
          await whatsapp.sendMessage(formattedPhone, message);
          res.json({ success: true });
@@ -147,14 +173,14 @@ app.get(['/api/razorpay/config', '/razorpay/config'], (req, res) => {
 });
 
 // 2. Create Order Endpoint
-app.post(['/api/create-order', '/create-order'], async (req, res) => {
+app.post(['/api/create-order', '/create-order'], rateLimit(20, 60000), async (req, res) => {
     try {
         const { amount, currency = 'INR', receipt, notes } = req.body;
         
         // Amount must be in paise (e.g. 2000 INR = 200000 paise)
         const numericAmount = Math.round(Number(amount));
         
-        if (!numericAmount || numericAmount < 100) {
+        if (!numericAmount || numericAmount < 100 || numericAmount > 100000000) {
             return res.status(400).json({
                 success: false,
                 error: 'Amount is required and must be at least 100 paise (₹1)'
@@ -187,7 +213,7 @@ app.post(['/api/create-order', '/create-order'], async (req, res) => {
 });
 
 // 3. Verify Payment Signature Endpoint
-app.post(['/api/verify-payment', '/verify-payment'], async (req, res) => {
+app.post(['/api/verify-payment', '/verify-payment'], rateLimit(30, 60000), async (req, res) => {
     try {
         const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
 
@@ -198,12 +224,14 @@ app.post(['/api/verify-payment', '/verify-payment'], async (req, res) => {
             });
         }
 
-        const secret = process.env.RAZORPAY_KEY_SECRET || 'MPON4w2yEDSkVPLRCwi7gAvh';
+        const secret = process.env.RAZORPAY_KEY_SECRET;
         const hmac = crypto.createHmac('sha256', secret);
         hmac.update(razorpay_order_id + '|' + razorpay_payment_id);
         const generated_signature = hmac.digest('hex');
 
-        if (generated_signature === razorpay_signature) {
+        const sigA = Buffer.from(generated_signature);
+        const sigB = Buffer.from(String(razorpay_signature));
+        if (sigA.length === sigB.length && crypto.timingSafeEqual(sigA, sigB)) {
             console.log(`Payment Verified: Order ${razorpay_order_id}, Payment ${razorpay_payment_id}`);
 
             // Optional: Save transaction record if DB is configured
@@ -247,9 +275,9 @@ app.post(['/api/verify-payment', '/verify-payment'], async (req, res) => {
 });
 
 
-const upload = multer({ storage: multer.memoryStorage() });
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024, files: 1 } });
 
-app.post('/api/voice-interview/start', async (req, res) => {
+app.post('/api/voice-interview/start', rateLimit(20, 60000), async (req, res) => {
     try {
         const { context, voice = 'aura-asteria-en' } = req.body;
 
@@ -270,7 +298,7 @@ app.post('/api/voice-interview/start', async (req, res) => {
     }
 });
 
-app.post('/api/voice-interview', upload.single('audio'), async (req, res) => {
+app.post('/api/voice-interview', rateLimit(20, 60000), upload.single('audio'), async (req, res) => {
     try {
         const chatHistory = req.body?.chatHistory;
         const context = req.body?.context || 'Student in training';

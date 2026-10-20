@@ -21,3 +21,16 @@
   from = "/*"
   to = "/index.html"
   status = 200
+
+# Security headers
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "SAMEORIGIN"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Strict-Transport-Security = "max-age=31536000; includeSubDomains"
+    # Content-Security-Policy in REPORT-ONLY mode: it logs violations in the browser console and blocks nothing.
+    # Use the live site for a while, fix anything the console flags, then rename the key to Content-Security-Policy to enforce it.
+    # 'unsafe-inline' / 'unsafe-eval' stay until student code no longer runs through eval() (SECURITY_AUDIT H8).
+    Content-Security-Policy-Report-Only = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' https://cdn.jsdelivr.net https://checkout.razorpay.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; media-src 'self' blob: https:; connect-src 'self' https://*.turso.io wss://*.turso.io https://api.groq.com https://api.deepgram.com https://generativelanguage.googleapis.com https://script.google.com https://script.googleusercontent.com https://cdn.jsdelivr.net https://api.razorpay.com https://lumberjack.razorpay.com; frame-src https://www.youtube.com https://meet.element.io https://meet.jit.si https://checkout.razorpay.com https://api.razorpay.com https://www.google.com https://maps.google.com https://docs.google.com; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'self'"

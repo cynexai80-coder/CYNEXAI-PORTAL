@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "Netlify serverless functions for CynexAI",
   "dependencies": {
+    "@libsql/client": "^0.17.0",
     "razorpay": "^2.9.6"
   }
 }

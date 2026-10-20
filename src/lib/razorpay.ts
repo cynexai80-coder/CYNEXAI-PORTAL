@@ -1,3 +1,4 @@
+import { notify } from './feedback';
 // Razorpay Standard Web Checkout Integration for CynexAI
 
 declare global {
@@ -77,13 +78,22 @@ export async function openRazorpayCheckout(options: RazorpayCheckoutOptions): Pr
   if (!isLoaded || !window.Razorpay) {
     const err = { description: 'Razorpay SDK failed to load. Please check your internet connection.' };
     options.onError?.(err);
-    alert(err.description);
+    notify(err.description);
     return;
   }
 
   try {
-    // 1. Convert INR to paise (e.g. 2000 -> 200000 paise)
-    const amountInPaise = Math.round(options.amount * 100);
+    // 1. Requested amount in paise. For fixed-fee products the SERVER decides the real price
+    //    (see netlify/functions/create-order.js) and the checkout below uses the server's amount.
+    const requestedPaise = Math.round(options.amount * 100);
+
+    // Always attach WHO is paying so every payment can be matched to a person afterwards.
+    const orderNotes: Record<string, any> = {
+      ...(options.notes || {}),
+      ...(options.customer?.name ? { customer_name: options.customer.name } : {}),
+      ...(options.customer?.email ? { customer_email: options.customer.email } : {}),
+      ...(options.customer?.contact ? { customer_phone: options.customer.contact } : {}),
+    };
 
     // 2. Call backend to create Razorpay Order
     let orderData: { success: boolean; order_id: string; key_id?: string; amount: number; currency: string } | null = null;
@@ -93,10 +103,10 @@ export async function openRazorpayCheckout(options: RazorpayCheckoutOptions): Pr
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          amount: amountInPaise,
+          amount: requestedPaise,
           currency: 'INR',
           receipt: options.receipt || `rcpt_${Date.now()}`,
-          notes: options.notes || {}
+          notes: orderNotes
         })
       });
 
@@ -110,7 +120,7 @@ export async function openRazorpayCheckout(options: RazorpayCheckoutOptions): Pr
       console.warn('Backend order creation call failed:', e);
       const errMsg = `Order creation failed: ${e.message}. \n\nCheck your Netlify Function logs!`;
       options.onError?.({ description: errMsg });
-      alert(errMsg);
+      notify(errMsg);
       return;
     }
 
@@ -118,11 +128,13 @@ export async function openRazorpayCheckout(options: RazorpayCheckoutOptions): Pr
       const errMsg = 'Order data is empty. Could not create order.';
       console.error(errMsg);
       options.onError?.({ description: errMsg });
-      alert(errMsg);
+      notify(errMsg);
       return;
     }
 
     const razorpayKey = orderData.key_id || DEFAULT_KEY_ID;
+    // The server-decided price always wins over whatever the browser asked for.
+    const amountInPaise = Number(orderData.amount) || requestedPaise;
 
     // 3. Configure Razorpay modal options
     const rzpOptions: any = {
@@ -138,7 +150,7 @@ export async function openRazorpayCheckout(options: RazorpayCheckoutOptions): Pr
         email: options.customer?.email || '',
         contact: options.customer?.contact || ''
       },
-      notes: options.notes || { platform: 'CynexAI' },
+      notes: orderNotes,
       theme: {
         color: '#06b6d4' // CynexAI cyan brand color
       },
@@ -173,6 +185,16 @@ export async function openRazorpayCheckout(options: RazorpayCheckoutOptions): Pr
             console.error('Server verification error:', verifyErr);
           }
 
+          if (!verified) {
+            // Money may have been taken, but we could not confirm it. Do NOT claim success.
+            options.onError?.({
+              description:
+                `We received your payment reference (${response.razorpay_payment_id}) but could not confirm it automatically. ` +
+                'Please contact CynexAI support with this reference ID. Do not pay again.',
+              reason: 'verification_failed',
+            });
+            return;
+          }
           options.onSuccess?.({
             ...response,
             verified,
