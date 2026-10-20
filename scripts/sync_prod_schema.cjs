@@ -1,3 +1,10 @@
+// `npm run build` runs this first. Only the Netlify build (NETLIFY=true) may touch the live database;
+// a local build with production credentials in .env must not. Set SYNC_PROD_SCHEMA=1 to run it by hand.
+if (!process.env.NETLIFY && process.env.SYNC_PROD_SCHEMA !== '1') {
+  console.log('Skipping schema sync: not a Netlify build (set SYNC_PROD_SCHEMA=1 to force).');
+  process.exit(0);
+}
+
 require('dotenv').config({path: require('fs').existsSync('.env.prod') ? '.env.prod' : '.env'});
 // To sync to prod, run this with the PROD credentials in .env or pass them directly.
 // Example: VITE_TURSO_DATABASE_URL=... VITE_TURSO_AUTH_TOKEN=... node scripts/sync_prod_schema.cjs

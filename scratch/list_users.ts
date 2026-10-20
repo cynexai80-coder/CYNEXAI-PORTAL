@@ -1,7 +1,7 @@
 import { createClient } from '@libsql/client';
 import CryptoJS from 'crypto-js';
 
-const SECRET_KEY = 'cynex-ai-secure-erp-key-2026'; 
+const SECRET_KEY = process.env.VITE_APP_SECRET; 
 
 export const decryptPassword = (encryptedPassword: string): string => {
   if (!encryptedPassword) return '';
@@ -16,7 +16,7 @@ export const decryptPassword = (encryptedPassword: string): string => {
 async function run() {
   const client = createClient({
     url: 'libsql://cynex-ai-cynexai.aws-ap-south-1.turso.io',
-    authToken: 'eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3ODA5MTk5MzYsImlkIjoiMDE5ZWE3MTktNzkwMS03Y2Y3LTgxNDItYmI3ZTdhY2RiZGUyIiwicmlkIjoiZDhlZjQ2NjQtNGZjNy00MTc0LWJlMTItOWIwNDczN2RjNGIyIn0.nzy6qJrwAHywKfZwRZ28eMJFbD20IFojBH-tYxX1xS8Ouaokn7SZcKT2FiG_M5umsbw9HN24TXc0vsKgOJlhDw'
+    authToken: process.env.VITE_TURSO_AUTH_TOKEN
   });
 
   const newPassword = 'password123';

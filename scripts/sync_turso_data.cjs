@@ -13,7 +13,7 @@ const path = require('path');
 require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 
 const virinchiUrl = 'libsql://cynexai-virinchi-2003.aws-ap-south-1.turso.io';
-const virinchiToken = 'eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3ODY3MDAzNzgsImlkIjoiMDE5ZmZmYTQtMGMwMS03ZTM5LWE0MGQtNGQ1NjQzY2FlMmI2Iiwia2lkIjoiYzdhbkp0dS1RNE1rRUtCYlNEMlJ5TjI0X2ZsT3lZSE5qSmZHeS1PWTRfayIsInJpZCI6IjBkYTAxZTJmLWZjNTEtNDMzOC1iNjNkLTMyMmJlM2NmNmVhZCJ9.ddP_1AXyt2gTchobZh8CBrTFOrIBZGpa0y7uIAx7eMgG13rDhTM2YOjYOYGWNq5CkZl52dmtHXaAwpLp1zF4Bg';
+const virinchiToken = process.env.VIRINCHI_TURSO_AUTH_TOKEN;
 
 const targetUrl = process.env.VITE_TURSO_DATABASE_URL;
 const targetToken = process.env.VITE_TURSO_AUTH_TOKEN;

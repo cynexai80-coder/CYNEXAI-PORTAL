@@ -7,10 +7,10 @@ const QRCode = require('qrcode');
 const certImgPath = 'C:/Users/kk/.gemini/antigravity/brain/af929d1f-422b-42e9-83b6-818103acbc95/.user_uploaded/media_1790419411385.jpg';
 
 const PROD_URL = 'libsql://cynexai-portal-cynexai-new.aws-ap-south-1.turso.io';
-const PROD_TOKEN = 'eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3ODQxOTUyNjcsImlkIjoiMDE5ZjZhNTItN2IwMS03Mzc2LWExMGUtNTViZGRiMzAwZTdlIiwia2lkIjoieUdPOElXY1J5RC1VX2J3UFlHWUJJMmlKZEp1R21CSDY5QzJQZzJUWmZhQSIsInJpZCI6IjcxYmEzODM5LTAyZDEtNDJiNS1hNDM5LTVlOWM4MGJkNGRhNSJ9.O2do8U63KLbS_pXwqivQRIYK1SncnMa1VRuePw6UFagpIIFodykzhY2cr6C_iYE83O86fUXhErbRPKfBMZtUAA';
+const PROD_TOKEN = process.env.VITE_TURSO_AUTH_TOKEN;
 
 const DEV_URL = 'libsql://cynex-ai-cynexai.aws-ap-south-1.turso.io';
-const DEV_TOKEN = 'eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3ODA5MTk5MzYsImlkIjoiMDE5ZWE3MTktNzkwMS03Y2Y3LTgxNDItYmI3ZTdhY2RiZGUyIiwicmlkIjoiZDhlZjQ2NjQtNGZjNy00MTc0LWJlMTItOWIwNDczN2RjNGIyIn0.nzy6qJrwAHywKfZwRZ28eMJFbD20IFojBH-tYxX1xS8Ouaokn7SZcKT2FiG_M5umsbw9HN24TXc0vsKgOJlhDw';
+const DEV_TOKEN = process.env.DEV_TURSO_AUTH_TOKEN;
 
 async function generateStampedCertificateBase64() {
   console.log('Generating permanent QR code for CX092323...');

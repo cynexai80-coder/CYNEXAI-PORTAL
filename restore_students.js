@@ -16,7 +16,7 @@ const data = xlsx.utils.sheet_to_json(sheet);
 // function to encrypt password, matching our logic
 function encryptPassword(password) {
   try {
-    const SECRET_KEY = process.env.VITE_APP_SECRET || 'cynex-ai-secure-erp-key-2026';
+    const SECRET_KEY = process.env.VITE_APP_SECRET;
     const iv = crypto.randomBytes(16);
     const key = crypto.createHash('sha256').update(String(SECRET_KEY)).digest('base64').substring(0, 32);
     const cipher = crypto.createCipheriv('aes-256-cbc', Buffer.from(key), iv);
