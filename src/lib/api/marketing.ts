@@ -62,13 +62,7 @@ export async function getMarketingMetrics(): Promise<MarketingMetric[]> {
     if (raw) return JSON.parse(raw);
   } catch {}
 
-  const defaults: MarketingMetric[] = [
-    { id: 'm1', platform: 'Meta', spend: 45000, leads_generated: 120, traffic: 14500, updated_at: new Date().toISOString() },
-    { id: 'm2', platform: 'Google', spend: 68000, leads_generated: 185, traffic: 22100, updated_at: new Date().toISOString() },
-    { id: 'm3', platform: 'Website', spend: 0, leads_generated: 310, traffic: 48900, updated_at: new Date().toISOString() }
-  ];
-  localStorage.setItem(STORAGE_KEY_METRICS, JSON.stringify(defaults));
-  return defaults;
+  return [];
 }
 
 export async function getMarketingCampaigns(): Promise<MarketingCampaign[]> {
@@ -96,13 +90,7 @@ export async function getMarketingCampaigns(): Promise<MarketingCampaign[]> {
     if (raw) return JSON.parse(raw);
   } catch {}
 
-  const defaults: MarketingCampaign[] = [
-    { id: 'camp_1', name: 'Full Stack Java Enrollment Q3', platform: 'Meta', status: 'Active', budget: 1500, spent: 12400, leads: 48 },
-    { id: 'camp_2', name: 'Generative AI & Python Masterclass', platform: 'Google', status: 'Active', budget: 2500, spent: 28900, leads: 92 },
-    { id: 'camp_3', name: 'DevOps & AWS Cloud Bootcamp', platform: 'Meta', status: 'Active', budget: 1200, spent: 9800, leads: 34 }
-  ];
-  localStorage.setItem(STORAGE_KEY_CAMPAIGNS, JSON.stringify(defaults));
-  return defaults;
+  return [];
 }
 
 export async function createMarketingCampaign(camp: Omit<MarketingCampaign, 'id'>): Promise<MarketingCampaign> {
@@ -143,8 +131,9 @@ export async function updateMarketingCampaign(id: string, updates: Partial<Marke
     try {
       const sets: string[] = [];
       const args: any[] = [];
+      const CAMPAIGN_COLUMNS = ['name', 'status', 'budget', 'spent', 'leads', 'platform'];
       Object.entries(updates).forEach(([k, v]) => {
-        if (k !== 'id') {
+        if (CAMPAIGN_COLUMNS.includes(k)) {
           sets.push(`${k} = ?`);
           args.push(v);
         }
@@ -198,10 +187,17 @@ export async function deleteMarketingCampaign(id: string): Promise<boolean> {
 export async function updateMarketingMetric(platform: string, spend: number, traffic: number, leads: number): Promise<boolean> {
   if (isTursoConfigured && client) {
     try {
-      await executeWithRetry(
+      const upd = await executeWithRetry(
         `UPDATE marketing_metrics SET spend = ?, traffic = ?, leads_generated = ?, updated_at = CURRENT_TIMESTAMP WHERE platform = ?`,
         [spend, traffic, leads, platform]
       );
+      if (!upd.rowsAffected) {
+        // First entry for this platform: insert it so the numbers are not silently lost.
+        await executeWithRetry(
+          `INSERT INTO marketing_metrics (id, platform, spend, traffic, leads_generated, updated_at) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
+          ['mm_' + Date.now().toString(36), platform, spend, traffic, leads]
+        );
+      }
     } catch (e) {
       console.warn('[Marketing API] Turso update metric error', e);
     }

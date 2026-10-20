@@ -1,6 +1,7 @@
 import { client, isDbFailed, setDbConnectionFailed } from '../turso';
 import { encryptPassword } from '../crypto';
 import { cachedQuery, invalidateQueryCache } from '../queryCache';
+import { getCurrentUser } from '../auth';
 
 const MAX_RETRIES = 3;
 const RETRY_DELAY = 1000;
@@ -180,7 +181,12 @@ export async function getCourseCurriculum(): Promise<Record<string, string[]>> {
 
 export async function saveUser(user: any): Promise<void> {
   try {
-    const encPw = user.password ? encryptPassword(user.password) : encryptPassword('cynex123');
+    const actor = getCurrentUser();
+    const PRIVILEGED = ['CEO', 'Admin', 'Manager'];
+    if (actor && actor.role !== 'CEO' && PRIVILEGED.includes(user.role)) {
+      throw new Error('Only a CEO can create or promote CEO, Admin or Manager accounts.');
+    }
+    let encPw = user.password ? encryptPassword(user.password) : '';
     const salary = user.salary || 0;
     const status = user.status || 'Active';
     const permissions = user.permissions_json || '{}';
@@ -196,11 +202,20 @@ export async function saveUser(user: any): Promise<void> {
     }
 
     if (existingUser) {
-      await executeWithRetry(
-        "UPDATE users SET name=?, email=?, phone=?, role=?, salary=?, status=?, password_hash=?, password_encrypted=?, permissions_json=? WHERE id=?",
-        [user.name, user.email, user.phone || '', user.role, salary, status, encPw, encPw, permissions, existingUser.id]
-      );
+      if (encPw) {
+        await executeWithRetry(
+          "UPDATE users SET name=?, email=?, phone=?, role=?, salary=?, status=?, password_hash=?, password_encrypted=?, permissions_json=? WHERE id=?",
+          [user.name, user.email, user.phone || '', user.role, salary, status, encPw, encPw, permissions, existingUser.id]
+        );
+      } else {
+        // No new password supplied: keep the existing one instead of resetting it to the default.
+        await executeWithRetry(
+          "UPDATE users SET name=?, email=?, phone=?, role=?, salary=?, status=?, permissions_json=? WHERE id=?",
+          [user.name, user.email, user.phone || '', user.role, salary, status, permissions, existingUser.id]
+        );
+      }
     } else {
+      if (!encPw) encPw = encryptPassword('cynex123');
       const newId = user.id || `usr_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
       await executeWithRetry(
         "INSERT INTO users (id, name, email, phone, role, salary, status, password_hash, password_encrypted, permissions_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
@@ -234,11 +249,20 @@ export async function saveStudent(studentData: any): Promise<void> {
     const encPw = studentData.password ? encryptPassword(studentData.password) : encryptPassword('cynex123');
     const status = studentData.status || 'Active';
 
+    const lookupEmail = (studentData.originalEmail || studentData.email || '').trim();
     if (studentData.id) {
-      await executeWithRetry(
-        "UPDATE users SET name=?, email=?, phone=?, role='Student', status=?, password_hash=?, password_encrypted=? WHERE id=?",
-        [studentData.name, studentData.email, studentData.phone || '', status, encPw, encPw, studentData.id]
-      );
+      if (studentData.password) {
+        await executeWithRetry(
+          "UPDATE users SET name=?, email=?, phone=?, role='Student', status=?, password_hash=?, password_encrypted=? WHERE id=?",
+          [studentData.name, studentData.email, studentData.phone || '', status, encPw, encPw, studentData.id]
+        );
+      } else {
+        // No new password supplied: keep the existing one.
+        await executeWithRetry(
+          "UPDATE users SET name=?, email=?, phone=?, role='Student', status=? WHERE id=?",
+          [studentData.name, studentData.email, studentData.phone || '', status, studentData.id]
+        );
+      }
     } else {
       const newId = `usr_${Date.now()}`;
       await executeWithRetry(
@@ -247,7 +271,7 @@ export async function saveStudent(studentData: any): Promise<void> {
       );
     }
 
-    const existing = await executeWithRetry(`SELECT id FROM students WHERE portal_login_email = ?`, [studentData.email]);
+    const existing = await executeWithRetry(`SELECT id FROM students WHERE LOWER(TRIM(portal_login_email)) = LOWER(TRIM(?))`, [lookupEmail]);
     if (existing.rows.length === 0) {
       const studentCode = `CNX-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
       const stuId = `stu_${Date.now()}`;
@@ -257,8 +281,8 @@ export async function saveStudent(studentData: any): Promise<void> {
       );
     } else {
       await executeWithRetry(
-        `UPDATE students SET name=?, phone=?, course=?, batch_number=?, joining_date=?, status=? WHERE portal_login_email=?`,
-        [studentData.name, studentData.phone || null, studentData.course || null, studentData.batch_number || null, studentData.joining_date || null, status, studentData.email]
+        `UPDATE students SET name=?, portal_login_email=?, phone=?, course=?, batch_number=?, joining_date=?, status=? WHERE id=?`,
+        [studentData.name, studentData.email, studentData.phone || null, studentData.course || null, studentData.batch_number || null, studentData.joining_date || null, status, existing.rows[0].id]
       );
     }
     invalidateQueryCache('users');
@@ -272,7 +296,12 @@ export async function saveStudent(studentData: any): Promise<void> {
 export async function patchUser(id: string, updates: Record<string, any>): Promise<void> {
   try {
     if (!updates || Object.keys(updates).length === 0) return;
-    
+
+    // Only these columns may be patched (prevents injecting column names / mass-assignment).
+    const PATCHABLE_USER_COLUMNS = ['name', 'email', 'phone', 'role', 'salary', 'status', 'permissions_json'];
+    const badKey = Object.keys(updates).find(k => !PATCHABLE_USER_COLUMNS.includes(k));
+    if (badKey) throw new Error(`Column not allowed: ${badKey}`);
+
     const setClauses = Object.keys(updates).map(key => `${key} = ?`);
     const args = [...Object.values(updates), id];
     
@@ -299,6 +328,13 @@ export async function updateStudentAttended(email: string, classesAttendedJson: 
 
 export async function deleteUser(id: string, email: string): Promise<void> {
   try {
+    const me = getCurrentUser();
+    if (me && me.id === id) throw new Error('You cannot delete your own account.');
+    const target = await executeWithRetry("SELECT role FROM users WHERE id = ?", [id]);
+    if (target.rows.length > 0 && String(target.rows[0].role) === 'CEO') {
+      const ceos = await executeWithRetry("SELECT COUNT(*) as c FROM users WHERE role = 'CEO'");
+      if (Number(ceos.rows[0]?.c) <= 1) throw new Error('The last CEO account cannot be deleted.');
+    }
     await executeWithRetry("DELETE FROM users WHERE id = ?", [id]);
     if (email) {
       await executeWithRetry("DELETE FROM students WHERE portal_login_email = ?", [email]);
@@ -367,12 +403,29 @@ export async function updateStudentProfile(emailOrId: string, profile: {
   training_start_date?: string; documents_submitted?: number;
   aadhar_file?: string; other_attachments?: string; topic_completed?: string;
 }): Promise<void> {
-  const fields = Object.keys(profile) as (keyof typeof profile)[];
+  const PROFILE_COLUMNS = ['name', 'phone', 'dob', 'address', 'father_name', 'mother_name', 'emergency_contact', 'blood_group',
+    'batch_number', 'course', 'joining_date', 'status', 'gender', 'fees_total', 'fees_paid', 'fees_pending',
+    'training_start_date', 'documents_submitted', 'aadhar_file', 'other_attachments', 'topic_completed'];
+  const clean: Record<string, any> = {};
+  for (const k of Object.keys(profile)) {
+    if (!PROFILE_COLUMNS.includes(k)) throw new Error(`Column not allowed: ${k}`);
+    clean[k] = (profile as any)[k];
+  }
+  // Money sanity: no negatives, paid <= total, and the pending amount is always derived (never trusted).
+  if ('fees_total' in clean || 'fees_paid' in clean) {
+    const total = Math.max(0, Number(clean.fees_total) || 0);
+    const paid = Math.max(0, Number(clean.fees_paid) || 0);
+    if (paid > total) throw new Error('Fees paid cannot be more than the total fees.');
+    clean.fees_total = total;
+    clean.fees_paid = paid;
+    clean.fees_pending = total - paid;
+  }
+  const fields = Object.keys(clean);
   if (fields.length === 0) return;
   const setClauses = fields.map(f => `${f} = ?`).join(', ');
-  const args = [...fields.map(f => (profile[f] ?? null) as any), emailOrId, emailOrId];
+  const args = [...fields.map(f => (clean[f] ?? null) as any), emailOrId, emailOrId];
   await executeWithRetry(
-    `UPDATE students SET ${setClauses} WHERE portal_login_email = ? OR id = ?`,
+    `UPDATE students SET ${setClauses} WHERE LOWER(TRIM(portal_login_email)) = LOWER(TRIM(?)) OR id = ?`,
     args
   );
 }
@@ -384,10 +437,22 @@ export async function bulkImportStudents(rows: {
   gender?: string; blood_group?: string; address?: string;
   emergency_contact?: string; fees_total?: number; fees_paid?: number;
   dob?: string;
-}[]): Promise<{ imported: number; errors: string[] }> {
+}[]): Promise<{ imported: number; errors: string[]; credentials: { name: string; email: string; password: string; student_code: string }[] }> {
   const { encryptPassword } = await import('../crypto');
   let imported = 0;
   const errors: string[] = [];
+  const credentials: { name: string; email: string; password: string; student_code: string }[] = [];
+
+  // Continue numbering after the highest existing code of this year instead of restarting at 0001.
+  const year = new Date().getFullYear();
+  let nextSeq = 1;
+  try {
+    const codes = await executeWithRetry(`SELECT student_code FROM students WHERE student_code LIKE ?`, [`CNX-${year}-%`]);
+    for (const r of codes.rows) {
+      const n = parseInt(String(r.student_code).split('-').pop() || '0', 10);
+      if (Number.isFinite(n) && n >= nextSeq) nextSeq = n + 1;
+    }
+  } catch { /* start at 1 */ }
 
   for (const row of rows) {
     if (!row.name || !row.email) {
@@ -395,38 +460,48 @@ export async function bulkImportStudents(rows: {
       continue;
     }
     try {
+      const email = row.email.trim();
+      const dup = await executeWithRetry(`SELECT id FROM users WHERE LOWER(TRIM(email)) = LOWER(TRIM(?)) LIMIT 1`, [email]);
+      if (dup.rows.length > 0) {
+        errors.push(`Skipped ${email}: a user with this email already exists.`);
+        continue;
+      }
       const userId = `usr_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
       const studentId = `stu_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
-      const studentCode = `CNX-${new Date().getFullYear()}-${String(imported + 1).padStart(4, '0')}`;
-      const encPw = encryptPassword(row.password || 'cynex123');
-      const feesTotal = Number(row.fees_total) || 0;
-      const feesPaid = Number(row.fees_paid) || 0;
+      const studentCode = `CNX-${year}-${String(nextSeq).padStart(4, '0')}`;
+      // Each imported student gets a UNIQUE random starter password (shown to the manager in the result) instead of one shared default.
+      const startPw = row.password || ('cnx' + Array.from(crypto.getRandomValues(new Uint32Array(2))).map(n => n.toString(36)).join('').slice(0, 8));
+      const encPw = encryptPassword(startPw);
+      const feesTotal = Math.max(0, Number(row.fees_total) || 0);
+      const feesPaid = Math.min(Math.max(0, Number(row.fees_paid) || 0), feesTotal);
 
       await executeWithRetry(
-        `INSERT OR IGNORE INTO users (id, name, email, phone, role, status, password_hash, password_encrypted)
+        `INSERT INTO users (id, name, email, phone, role, status, password_hash, password_encrypted)
          VALUES (?, ?, ?, ?, 'Student', ?, ?, ?)`,
-        [userId, row.name, row.email, row.phone || '', row.status || 'Active', encPw, encPw]
+        [userId, row.name, email, row.phone || '', row.status || 'Active', encPw, encPw]
       );
       await executeWithRetry(
-        `INSERT OR IGNORE INTO students (
+        `INSERT INTO students (
           id, student_code, name, portal_login_email, status, course, batch_number, joining_date, phone,
           training_start_date, gender, blood_group, address, emergency_contact,
           fees_total, fees_paid, fees_pending, dob
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
-          studentId, studentCode, row.name, row.email, row.status || 'Active',
+          studentId, studentCode, row.name, email, row.status || 'Active',
           row.course || null, row.batch_number || null, row.joining_date || null, row.phone || null,
           row.training_start_date || null, row.gender || null, row.blood_group || null,
           row.address || null, row.emergency_contact || null,
           feesTotal, feesPaid, feesTotal - feesPaid, row.dob || null
         ]
       );
+      credentials.push({ name: row.name, email, password: startPw, student_code: studentCode });
+      nextSeq++;
       imported++;
     } catch (err: any) {
       errors.push(`Failed for ${row.email}: ${err.message}`);
     }
   }
-  return { imported, errors };
+  return { imported, errors, credentials };
 }
 
 export async function createPendingStudent(data: {
@@ -435,6 +510,16 @@ export async function createPendingStudent(data: {
   training_start_date: string; course: string; documents_submitted: number;
   gender: string; dob: string;
 }): Promise<string> {
+  const dupe = await executeWithRetry(
+    `SELECT id FROM students WHERE LOWER(TRIM(portal_login_email)) = LOWER(TRIM(?)) LIMIT 1`, [data.email]
+  );
+  if (data.email && dupe.rows.length > 0) {
+    throw new Error('A student with this email already exists.');
+  }
+  const paid = Math.max(0, Number(data.fees_paid) || 0);
+  const total = Math.max(0, Number(data.fees_total) || 0);
+  if (paid > total) throw new Error('Fees paid cannot be more than the total fees.');
+  data = { ...data, fees_total: total, fees_paid: paid, fees_pending: total - paid };
   const studentId = `stu_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
   await executeWithRetry(
     `INSERT INTO students (
@@ -461,15 +546,23 @@ export async function approveStudent(studentId: string, portalId: string, passwo
   const encPw = encryptPassword(passwordPlain);
   const userId = `usr_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
 
+  const existingUser = await executeWithRetry(`SELECT id, role FROM users WHERE LOWER(TRIM(email)) = LOWER(TRIM(?))`, [email]);
+  if (existingUser.rows.length > 0 && String(existingUser.rows[0].role) !== 'Student') {
+    // The email belongs to a staff account: resetting its password here would be an account takeover.
+    throw new Error('This email already belongs to a staff account. Use a different email for the student.');
+  }
+  // The portal id (student code) must be unique.
+  const codeClash = await executeWithRetry(`SELECT id FROM students WHERE student_code = ? AND id != ? LIMIT 1`, [portalId, studentId]);
+  if (codeClash.rows.length > 0) {
+    throw new Error(`Portal ID ${portalId} is already used by another student.`);
+  }
   await executeWithRetry(
     `UPDATE students SET approval_status = ?, student_code = ? WHERE id = ?`,
     ['Approved', portalId, studentId]
   );
-
-  const existingUser = await executeWithRetry(`SELECT id FROM users WHERE email = ?`, [email]);
   if (existingUser.rows.length > 0) {
     await executeWithRetry(
-      `UPDATE users SET password_hash = ?, password_encrypted = ?, status = 'Active' WHERE email = ?`,
+      `UPDATE users SET password_hash = ?, password_encrypted = ?, status = 'Active' WHERE LOWER(TRIM(email)) = LOWER(TRIM(?))`,
       [encPw, encPw, email]
     );
   } else {

@@ -107,7 +107,7 @@ describe('Activities API', () => {
       expect(result).toEqual(mockRows);
       
       const callArgs = vi.mocked(client.execute).mock.calls[0][0] as any;
-      expect(callArgs.sql.replace(/\s+/g, ' ')).toContain('SELECT crm_activities.*, erp_users.name as user_name FROM crm_activities');
+      expect(callArgs.sql.replace(/\s+/g, ' ')).toContain('SELECT crm_activities.*, COALESCE(users.name, erp_users.name) as user_name FROM crm_activities');
       expect(callArgs.sql.replace(/\s+/g, ' ')).toContain('WHERE lead_id = ? ORDER BY crm_activities.created_at DESC');
       expect(callArgs.args).toEqual(['lead_123']);
     });

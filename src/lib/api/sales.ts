@@ -10,7 +10,7 @@ export const recordAdmission = async (leadId: string, amount: number, discountLo
       });
       // Move lead to Admission status
       await client.execute({
-        sql: `UPDATE crm_leads SET status = 'Admission' WHERE id = ?`,
+        sql: `UPDATE crm_leads SET status = 'Admission Completed' WHERE id = ?`,
         args: [leadId]
       });
       return id;
@@ -45,31 +45,45 @@ export const getSaleForLead = async (leadId: string): Promise<any | null> => {
   return null;
 };
 
+/** Validates the numbers of a sale. Returns an error message or null when valid. */
+export const validateSaleAmounts = (totalFee: number, amountPaid: number): string | null => {
+  if (!Number.isFinite(totalFee) || totalFee <= 0) return 'Total fee must be greater than 0.';
+  if (!Number.isFinite(amountPaid) || amountPaid < 0) return 'Amount paid cannot be negative.';
+  if (amountPaid > totalFee) return 'Amount paid cannot be more than the total fee.';
+  return null;
+};
+
 export const recordSale = async (leadId: string, courseId: string, totalFee: number, amountPaid: number, admissionId: string | null, salesExecId: string, referredBy: string | null = null, paymentMode: string = 'UPI') => {
+  if (validateSaleAmounts(totalFee, amountPaid)) return null;
   if (isTursoConfigured && client) {
-    const id = 'sal_' + Date.now().toString(36);
+    const id = 'sal_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
     const status = amountPaid >= totalFee ? 'Sale Completed' : 'Sale Partial Closed';
     try {
-      await client.execute({
-        sql: `INSERT INTO sales (id, lead_id, admission_id, course_id, total_fee, amount_paid, status, sales_exec_id, referred_by_student_id, payment_mode) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        args: [id, leadId, admissionId, courseId, totalFee, amountPaid, status, salesExecId, referredBy, paymentMode]
-      });
-      // Move lead to Closed Won status
-      await client.execute({
-        sql: `UPDATE crm_leads SET status = 'Closed Won' WHERE id = ?`,
-        args: [leadId]
-      });
-      
-      // Create Manager Approval task automatically upon sale
       const apprId = 'appr_' + Date.now().toString(36);
-      await client.execute({
-        sql: `INSERT INTO manager_approvals (id, sale_id, checklist_json, status, notes, approver_id, decided_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        args: [apprId, id, JSON.stringify({
-          payment_verified: false,
-          course_confirmed: false,
-          docs_received: false
-        }), 'Pending', '', null, null]
-      });
+      // Run all three writes atomically so a failure can't leave a sale without its lead update / approval task.
+      await client.batch([
+        {
+          sql: `INSERT INTO sales (id, lead_id, admission_id, course_id, total_fee, amount_paid, status, sales_exec_id, referred_by_student_id, payment_mode) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          args: [id, leadId, admissionId, courseId, totalFee, amountPaid, status, salesExecId, referredBy, paymentMode]
+        },
+        {
+          sql: `UPDATE crm_leads SET status = 'Closed Won' WHERE id = ?`,
+          args: [leadId]
+        },
+        ...(referredBy ? [{
+          // The student referral rewards screen reads this table; it was never written before.
+          sql: `INSERT OR IGNORE INTO referrals (id, referrer_student_id, referred_lead_id, status, reward_paid, created_at) VALUES (?, ?, ?, 'Pending', 0, ?)`,
+          args: ['ref_' + id, referredBy, leadId, new Date().toISOString()]
+        }] : []),
+        {
+          sql: `INSERT INTO manager_approvals (id, sale_id, checklist_json, status, notes, approver_id, decided_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          args: [apprId, id, JSON.stringify({
+            payment_verified: false,
+            course_confirmed: false,
+            docs_received: false
+          }), 'Pending', '', null, null]
+        }
+      ], 'write');
 
       return id;
     } catch (e) { console.error(e); }

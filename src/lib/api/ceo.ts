@@ -28,7 +28,7 @@ export async function getReferrals(): Promise<any[]> {
 
 export async function getTotalPayroll(): Promise<number> {
   try {
-    const res = await executeWithRetry("SELECT SUM(salary) as total_salary FROM users WHERE salary IS NOT NULL");
+    const res = await executeWithRetry("SELECT SUM(salary) as total_salary FROM users WHERE salary IS NOT NULL AND COALESCE(status, 'Active') = 'Active' AND role != 'Student'");
     return Number(res.rows[0]?.total_salary) || 0;
   } catch (e) {
     console.error("Failed to get payroll", e);

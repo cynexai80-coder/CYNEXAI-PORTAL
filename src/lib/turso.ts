@@ -2,15 +2,10 @@
 import { createClient } from '@libsql/client';
 
 // Turso Database Configuration
-const url = import.meta.env.VITE_TURSO_DATABASE_URL || 'libsql://cynexai-portal-cynexai-new.aws-ap-south-1.turso.io';
-const authToken = import.meta.env.VITE_TURSO_AUTH_TOKEN || 'eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3ODQxOTUyNjcsImlkIjoiMDE5ZjZhNTItN2IwMS03Mzc2LWExMGUtNTViZGRiMzAwZTdlIiwia2lkIjoieUdPOElXY1J5RC1VX2J3UFlHWUJJMmlKZEp1R21CSDY5QzJQZzJUWmZhQSIsInJpZCI6IjcxYmEzODM5LTAyZDEtNDJiNS1hNDM5LTVlOWM4MGJkNGRhNSJ9.O2do8U63KLbS_pXwqivQRIYK1SncnMa1VRuePw6UFagpIIFodykzhY2cr6C_iYE83O86fUXhErbRPKfBMZtUAA';
-
-// Diagnostic Logging
-console.log("Deepmind: Turso Configuration Init", {
-  urlExists: !!url,
-  tokenExists: !!authToken,
-  urlValue: url?.substring(0, 15) + "...",
-});
+// Only a production build may fall back to the live database. A dev or test run with an empty env must never reach it.
+const PROD_FALLBACK_URL = 'libsql://cynexai-portal-cynexai-new.aws-ap-south-1.turso.io';
+const url = import.meta.env.VITE_TURSO_DATABASE_URL || (import.meta.env.PROD ? PROD_FALLBACK_URL : '');
+const authToken = import.meta.env.VITE_TURSO_AUTH_TOKEN;
 
 // Initialize the Turso client only if credentials are provided
 export const isTursoConfigured = Boolean(
@@ -22,9 +17,7 @@ export const isTursoConfigured = Boolean(
   authToken !== 'your_auth_token'
 );
 
-if (isTursoConfigured) {
-  console.log("Deepmind: Turso Cloud is ACTIVE");
-} else {
+if (!isTursoConfigured) {
   console.warn("Deepmind: Turso Cloud is NOT configured. Using LocalStorage fallback.");
 }
 
@@ -432,27 +425,6 @@ export const getLeaderboard = async (): Promise<LeaderboardEntry[]> => {
 
 // --- DATABASE OPERATIONS ---
 
-const syncLocalStorageToTurso = async () => {
-  if (!isTursoConfigured || !client) return;
-
-  try {
-    const localPosts = getAllPostsLocal();
-    if (localPosts.length > 0) {
-      console.log(`Deepmind: Syncing ${localPosts.length} local posts to Turso Cloud (REPLACE mode)...`);
-      for (const post of localPosts) {
-        await client.execute({
-          sql: `INSERT OR REPLACE INTO blog_posts (id, title, content, image, video, category, isVisible, date) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-          args: [post.id, post.title, post.content, post.image, post.video || null, post.category, post.isVisible ? 1 : 0, post.date]
-        });
-      }
-      console.log("Deepmind: Local storage data merged with Cloud.");
-    }
-  } catch (e) {
-    console.error("Deepmind: Sync failure:", e);
-  }
-};
-
 export const populateSampleData = async () => {
   if (!isTursoConfigured || !client) return;
 
@@ -501,6 +473,17 @@ export const initTursoDB = async (): Promise<boolean> => {
       console.warn("Turso Cloud DB health check failed (BLOCKED/Offline). Switching to Local Fallback mode.");
       dbConnectionFailed = true;
       return false;
+    }
+    // Schema bootstrap (CREATE/ALTER TABLE) is for logged-in STAFF only. Anonymous visitors and
+    // students must never run DDL; the production schema is also synced at build time.
+    try {
+      const raw = typeof localStorage !== 'undefined' ? localStorage.getItem('erp_session_token') : null;
+      const role = raw ? (JSON.parse(raw)?.role as string | undefined) : undefined;
+      if (!role || role === 'Student') {
+        return true;
+      }
+    } catch {
+      return true;
     }
     try {
       // Create tables if they don't exist
@@ -1233,6 +1216,33 @@ export const initTursoDB = async (): Promise<boolean> => {
           UNIQUE(project_id, user_id)
         )
       `);
+      // Read and written by student.ts and the manager Student Progress page, but previously only
+      // created by one-off scripts, so a freshly bootstrapped database left that page empty.
+      await client.execute(`
+        CREATE TABLE IF NOT EXISTS manager_student_progress (
+          id TEXT PRIMARY KEY,
+          student_id TEXT NOT NULL UNIQUE,
+          course_progress_num INTEGER DEFAULT 0,
+          course_progress_den INTEGER DEFAULT 10,
+          course_progress_percentage REAL DEFAULT 0,
+          attendance_num INTEGER DEFAULT 0,
+          attendance_den INTEGER DEFAULT 20,
+          attendance_score REAL DEFAULT 0,
+          quiz_num INTEGER DEFAULT 0,
+          quiz_den INTEGER DEFAULT 10,
+          quiz_score REAL DEFAULT 0,
+          interview_num INTEGER DEFAULT 0,
+          interview_den INTEGER DEFAULT 5,
+          interview_score REAL DEFAULT 0,
+          coding_num INTEGER DEFAULT 0,
+          coding_den INTEGER DEFAULT 10,
+          coding_test_score REAL DEFAULT 0,
+          coins_spent INTEGER DEFAULT 0,
+          leaderboard_rank INTEGER DEFAULT 1,
+          last_updated DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+
       // Migrations - Add new columns safely
       const addColumn = async (table: string, columnDef: string) => {
         try {
@@ -1258,7 +1268,6 @@ export const initTursoDB = async (): Promise<boolean> => {
       } catch { /* already exists */ }
 
       // Sync user created content from LocalStorage
-      await syncLocalStorageToTurso();
 
 
       await addColumn('crm_leads', 'created_by TEXT');
@@ -1286,7 +1295,16 @@ export const initTursoDB = async (): Promise<boolean> => {
       // Add sales pitch columns to courses
       await addColumn('courses', 'sales_pitch_summary TEXT');
       await addColumn('courses', 'sales_pitch_script TEXT');
-      
+
+      // Columns the app queries that the CREATE TABLE statements above never declared. Without them
+      // a freshly bootstrapped database fails with "no such column" on the student dashboard, class
+      // flow, module assignment and sales history.
+      await addColumn('courses', 'price REAL');
+      await addColumn('modules', 'instructor_id TEXT');
+      await addColumn('classes', 'description TEXT');
+      await addColumn('classes', 'ai_summary TEXT');
+      await addColumn('sales', 'sales_rep_id TEXT');
+
       // Gamification columns for students
       await addColumn('students', 'streak INTEGER DEFAULT 0');
       await addColumn('students', 'coins INTEGER DEFAULT 0');
@@ -1453,54 +1471,10 @@ export const initTursoDB = async (): Promise<boolean> => {
 
 let isCrmDataSeeded = false;
 
-export const seedCRMData = async () => {
-  if (isCrmDataSeeded) return;
-  if (typeof window !== 'undefined' && sessionStorage.getItem('turso_crm_seeded')) {
-    isCrmDataSeeded = true;
-    return;
-  }
-
-  if (isTursoConfigured && client && !dbConnectionFailed) {
-    try {
-      const { rows } = await client.execute('SELECT count(*) as count FROM leads');
-      isCrmDataSeeded = true;
-      if (typeof window !== 'undefined') {
-        sessionStorage.setItem('turso_crm_seeded', 'true');
-      }
-      if (Number(rows[0].count) === 0) {
-        console.log('Seeding CRM demo data...');
-        // 1. Create a Lead
-        const leadId = 'lead_demo_1';
-        await client.execute({ sql: `INSERT INTO leads (id, name, phone, course_interest, source, bucket_stage, assigned_to, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, args: [leadId, 'Rahul Demo', '9876543210', 'Data Science', 'Facebook', 'E', 'sandeep', new Date().toISOString()] });
-        
-        // 2. Create an Admission
-        const admId = 'adm_demo_1';
-        await client.execute({ sql: `INSERT INTO admissions (id, lead_id, amount, discount_locked, offer_expiry, expected_sale_date, status) VALUES (?, ?, ?, ?, ?, ?, ?)`, args: [admId, leadId, 1000, '10%', '2026-07-10', '2026-07-05', 'Active'] });
-        
-        // 3. Create a Sale
-        const saleId = 'sal_demo_1';
-        await client.execute({ sql: `INSERT INTO sales (id, lead_id, admission_id, course_id, total_fee, amount_paid, status, sales_exec_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, args: [saleId, leadId, admId, 'data_science', 50000, 25000, 'Sale Partial Closed', 'sandeep'] });
-        
-        // 4. Create Manager Approval
-        const apprId = 'appr_demo_1';
-        await client.execute({ sql: `INSERT INTO manager_approvals (id, sale_id, checklist_json, status, notes, approver_id, decided_at) VALUES (?, ?, ?, ?, ?, ?, ?)`, args: [apprId, saleId, JSON.stringify({ payment_verified: false, course_confirmed: false, batch_available: false, docs_received: false, teacher_assignable: false, joining_date_feasible: false }), 'Pending', '', null, null] });
-
-        // 5. Create a student for the student portal demo
-        const onbId = 'onb_demo_1';
-        await client.execute({ sql: `INSERT INTO onboardings (id, sale_id, batch_id, teacher_id, mode, joining_date, remarks) VALUES (?, ?, ?, ?, ?, ?, ?)`, args: [onbId, saleId, 'batch_july_ds', 'tchr_rahul', 'Online', '2026-07-15', 'demo onboarding'] });
-        await client.execute({ sql: `INSERT INTO students (id, onboarding_id, student_code, portal_login_email, status) VALUES (?, ?, ?, ?, ?)`, args: ['stu_demo_1', onbId, 'CNX-2026-0001', 'demo@student.cynexai.com', 'Active'] });
-        
-        // 6. Create Demo Tasks for Sales/HR
-        await client.execute({ sql: `INSERT INTO tasks (id, type, title, description, target_value, current_value, assignee_id, created_by, due_date, recurrence_rule, status, check_in_count, target_check_in_count) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, args: ['tsk_demo_1', 'daily', 'Check HR Policies', 'Review the new HR policies for Q3.', 0, 0, 'sandeep', 'manager', '2026-07-10', 'none', 'Pending', 0, 1]});
-        await client.execute({ sql: `INSERT INTO tasks (id, type, title, description, target_value, current_value, assignee_id, created_by, due_date, recurrence_rule, status, check_in_count, target_check_in_count) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, args: ['tsk_demo_2', 'checkin', 'Post Instagram Updates', 'Post 2 images about the new Data Science batch', 0, 0, 'sandeep', 'manager', '2026-07-04', 'daily', 'Pending', 0, 2]});
-
-        console.log('CRM Demo Data seeded.');
-      }
-    } catch(e) { 
-      console.error('Seed failed (switching to fallback):', e); 
-      dbConnectionFailed = true;
-    }
-  }
+// Demo CRM data seeding was removed: it inserted fake leads/sales/students into the production DB.
+// Kept as a no-op so existing imports keep working.
+export const seedCRMData = async (): Promise<void> => {
+  return;
 };
 
 export interface GetPostsOptions {

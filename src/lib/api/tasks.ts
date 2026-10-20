@@ -1,3 +1,4 @@
+import { todayIST } from '../dateUtils';
 import { client, isTursoConfigured, initTursoDB } from '../turso';
 import { getCurrentUser } from '../auth';
 
@@ -62,9 +63,10 @@ export const createTask = async (task: Omit<Task, 'id' | 'status'>) => {
       return id;
     } catch (e) {
       console.error("Failed to create task", e);
+      throw new Error('Failed to create the task. Please try again.');
     }
   }
-  return id;
+  throw new Error('Database is not connected, so the task could not be saved.');
 };
 
 export const getTasksForUser = async (userId: string): Promise<Task[]> => {
@@ -98,7 +100,7 @@ export const getTasksByProject = async (projectId: string): Promise<Task[]> => {
 };
 
 export const ensureDailyTasks = async (tasks: Task[], userId?: string) => {
-  const today = new Date().toISOString().split('T')[0];
+  const today = todayIST();
   const dailyTasks = tasks.filter(t => t.task_type === 'Daily');
 
   // Group daily tasks by title (each unique title = one recurring task template)
@@ -144,6 +146,9 @@ export const ensureDailyTasks = async (tasks: Task[], userId?: string) => {
       const template = groupTasks[0];
       if (!template) continue;
 
+      // "Stop recurrence" must really stop it.
+      if (groupTasks.some(t => t.recurrence_rule === 'stopped')) continue;
+
         // Check if template has expired
         if (template.expire_date && template.expire_date < today) continue;
 
@@ -163,8 +168,13 @@ export const ensureDailyTasks = async (tasks: Task[], userId?: string) => {
         student_id: template.student_id,
         recurrence_rule: template.recurrence_rule,
       };
-      await createTask(newTask as any);
-      updatedAny = true;
+      const already = await client.execute({
+        sql: `SELECT id FROM tasks WHERE task_type = 'Daily' AND title = ? AND assignee_id = ? AND due_date = ? LIMIT 1`,
+        args: [template.title, template.assignee_id, today]
+      });
+      if (already.rows.length === 0) {
+        try { await createTask(newTask as any); updatedAny = true; } catch (e) { console.error(e); }
+      }
     }
   }
 
@@ -275,6 +285,17 @@ const isAuthorized = (task: Task | null): boolean => {
   return user.id === task.assignee_id || user.id === task.created_by || allowedRoles.includes(role);
 };
 
+const taskIdOfSubtask = async (subtaskId: string): Promise<string | null> => {
+  if (!isTursoConfigured || !client) return null;
+  const r = await client.execute({ sql: 'SELECT task_id FROM task_subtasks WHERE id = ?', args: [subtaskId] });
+  return r.rows.length > 0 ? String(r.rows[0].task_id) : null;
+};
+
+const canTouchTask = async (taskId: string | null): Promise<boolean> => {
+  if (!taskId) return false;
+  return isAuthorized(await getTaskById(taskId));
+};
+
 export const updateTaskStatus = async (taskId: string, newStatus: string): Promise<{ success: boolean, error?: string }> => {
   if (!isTursoConfigured || !client) return { success: false, error: 'DB not configured' };
   
@@ -282,6 +303,16 @@ export const updateTaskStatus = async (taskId: string, newStatus: string): Promi
   if (!isAuthorized(task)) return { success: false, error: 'Unauthorized' };
 
   try {
+    if (newStatus === 'Done') {
+      const blockers = await client.execute({
+        sql: `SELECT t.title FROM task_dependencies d JOIN tasks t ON t.id = d.depends_on_id
+              WHERE d.task_id = ? AND t.status NOT IN ('Done', 'Excused')`,
+        args: [taskId]
+      }).catch(() => ({ rows: [] as any[] }));
+      if (blockers.rows.length > 0) {
+        return { success: false, error: `Blocked by unfinished task: ${blockers.rows[0].title}` };
+      }
+    }
     await client.execute({
       sql: `UPDATE tasks SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
       args: [newStatus, taskId]
@@ -299,7 +330,9 @@ export const updateTask = async (taskId: string, updates: Partial<Task>): Promis
   if (!isAuthorized(task)) return { success: false, error: 'Unauthorized' };
 
   try {
-    const keys = Object.keys(updates).filter(k => k !== 'id' && k !== 'created_at' && k !== 'updated_at' && k !== 'created_by');
+    const TASK_COLUMNS = ['title', 'description', 'assignee_id', 'priority', 'due_date', 'status', 'project_id', 'related_entity', 'task_type',
+      'target_number', 'current_number', 'start_date', 'tags', 'recurrence_rule', 'expire_date', 'lead_id', 'student_id'];
+    const keys = Object.keys(updates).filter(k => TASK_COLUMNS.includes(k));
     if (keys.length === 0) return { success: true };
 
     const setClause = keys.map(k => `${k} = ?`).join(', ');
@@ -319,9 +352,11 @@ export const updateTask = async (taskId: string, updates: Partial<Task>): Promis
 export const toggleDailyRecurrence = async (taskId: string, stop: boolean): Promise<boolean> => {
   if (!isTursoConfigured || !client) return false;
   try {
+    if (!(await canTouchTask(taskId))) return false;
+    const t = await getTaskById(taskId);
     await client.execute({
-      sql: `UPDATE tasks SET recurrence_rule = ? WHERE id = ?`,
-      args: [stop ? 'stopped' : 'daily', taskId]
+      sql: `UPDATE tasks SET recurrence_rule = ? WHERE id = ? OR (task_type = 'Daily' AND title = ? AND assignee_id = ?)`,
+      args: [stop ? 'stopped' : 'daily', taskId, t?.title || '', t?.assignee_id || '']
     });
     return true;
   } catch (e) {
@@ -352,6 +387,7 @@ export const deleteTask = async (taskId: string): Promise<{ success: boolean, er
     }
     await client.execute({ sql: `DELETE FROM task_comments WHERE task_id = ?`, args: [taskId] }).catch(() => {});
     await client.execute({ sql: `DELETE FROM task_subtasks WHERE task_id = ?`, args: [taskId] }).catch(() => {});
+    await client.execute({ sql: `DELETE FROM task_dependencies WHERE task_id = ? OR depends_on_id = ?`, args: [taskId, taskId] }).catch(() => {});
     return { success: true };
   } catch (e: any) {
     try {
@@ -440,10 +476,11 @@ export const addTaskComment = async (taskId: string, content: string): Promise<s
 };
 
 export const addSubtask = async (taskId: string, title: string): Promise<string | null> => {
-  const id = 'sub_' + Date.now().toString(36);
+  const id = 'sub_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
   if (!isTursoConfigured || !client) return null;
 
   try {
+    if (!(await canTouchTask(taskId))) return null;
     await client.execute({
       sql: "INSERT INTO task_subtasks (id, task_id, title) VALUES (?, ?, ?)",
       args: [id, taskId, title]
@@ -458,7 +495,7 @@ export const addSubtask = async (taskId: string, title: string): Promise<string 
 export const getTaskComments = async (taskId: string): Promise<any[]> => {
   if (isTursoConfigured && client) {
     const result = await client.execute({
-      sql: "SELECT task_comments.*, erp_users.name as user_name FROM task_comments LEFT JOIN erp_users ON task_comments.user_id = erp_users.id WHERE task_id = ? ORDER BY task_comments.created_at ASC",
+      sql: "SELECT task_comments.*, COALESCE(users.name, erp_users.name) as user_name FROM task_comments LEFT JOIN users ON task_comments.user_id = users.id LEFT JOIN erp_users ON task_comments.user_id = erp_users.id WHERE task_id = ? ORDER BY task_comments.created_at ASC",
       args: [taskId]
     });
     return result.rows as any[];
@@ -479,6 +516,7 @@ export const getTaskSubtasks = async (taskId: string): Promise<any[]> => {
 
 export const updateSubtaskStatus = async (subtaskId: string, status: string): Promise<boolean> => {
   if (isTursoConfigured && client) {
+    if (!(await canTouchTask(await taskIdOfSubtask(subtaskId)))) return false;
     await client.execute({
       sql: "UPDATE task_subtasks SET status = ? WHERE id = ?",
       args: [status, subtaskId]
@@ -491,6 +529,7 @@ export const updateSubtaskStatus = async (subtaskId: string, status: string): Pr
 export const deleteSubtask = async (subtaskId: string): Promise<boolean> => {
   if (!isTursoConfigured || !client) return false;
   try {
+    if (!(await canTouchTask(await taskIdOfSubtask(subtaskId)))) return false;
     await client.execute({
       sql: "DELETE FROM task_subtasks WHERE id = ?",
       args: [subtaskId]
@@ -506,7 +545,8 @@ export const updateSubtask = async (subtaskId: string, updates: Record<string, a
   if (!isTursoConfigured || !client) return false;
   
   try {
-    const keys = Object.keys(updates).filter(k => k !== 'id' && k !== 'task_id' && k !== 'created_at');
+    if (!(await canTouchTask(await taskIdOfSubtask(subtaskId)))) return false;
+    const keys = Object.keys(updates).filter(k => ['title', 'status', 'due_date', 'assignee_id'].includes(k));
     if (keys.length === 0) return true;
     
     const setClause = keys.map(k => `${k} = ?`).join(', ');
@@ -529,6 +569,7 @@ export const addTaskDependency = async (taskId: string, dependsOnId: string): Pr
   if (!isTursoConfigured || !client) return null;
   
   try {
+    if (taskId === dependsOnId || !(await canTouchTask(taskId))) return null;
     await client.execute({
       sql: "INSERT INTO task_dependencies (id, task_id, depends_on_id) VALUES (?, ?, ?)",
       args: [id, taskId, dependsOnId]

@@ -4,6 +4,7 @@ import { client } from '../turso';
 
 // Mock the turso client
 vi.mock('../turso', () => ({
+  isTursoConfigured: true,
   client: {
     execute: vi.fn()
   }

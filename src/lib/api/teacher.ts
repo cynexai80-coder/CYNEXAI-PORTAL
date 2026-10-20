@@ -1,3 +1,4 @@
+import { todayIST } from '../dateUtils';
 import { client } from '../turso';
 import { cachedQuery, invalidateQueryCache } from '../queryCache';
 
@@ -75,7 +76,7 @@ export async function saveTimetable(session: Partial<Session>): Promise<void> {
       );
     }
     invalidateQueryCache('timetables');
-    invalidateQueryCache('teacher_check');
+    invalidateQueryCache('teacher_assigned_');
   } catch (e) {
     console.error("Failed to save timetable", e);
     throw e;
@@ -86,7 +87,7 @@ export async function deleteTimetable(id: string): Promise<void> {
   try {
     await executeWithRetry("DELETE FROM timetable_slots WHERE id = ?", [id]);
     invalidateQueryCache('timetables');
-    invalidateQueryCache('teacher_check');
+    invalidateQueryCache('teacher_assigned_');
   } catch (e) {
     console.error("Failed to delete timetable", e);
     throw e;
@@ -96,7 +97,7 @@ export async function deleteTimetable(id: string): Promise<void> {
 export async function getActiveLiveClass(instructorId: string): Promise<any> {
   try {
     let res = await executeWithRetry(
-      `SELECT DISTINCT c.id, c.title, c.description, c.module_id, m.title as module_title
+      `SELECT DISTINCT c.id, c.title, c.description, c.module_id, c.meet_link, m.title as module_title
        FROM classes c
        JOIN modules m ON c.module_id = m.id
        LEFT JOIN course_module_mapping cmm ON m.id = cmm.module_id
@@ -140,7 +141,7 @@ export async function getActiveLiveClass(instructorId: string): Promise<any> {
 export async function getAllAvailableClasses(): Promise<any[]> {
   try {
     const res = await executeWithRetry(
-      `SELECT DISTINCT c.id, c.title, c.description, c.module_id, c.order_index, m.title as module_title, c.status
+      `SELECT DISTINCT c.id, c.title, c.description, c.module_id, c.order_index, m.title as module_title, c.status, c.meet_link
        FROM classes c
        JOIN modules m ON c.module_id = m.id
        ORDER BY m.title ASC, c.order_index ASC`
@@ -173,8 +174,9 @@ export async function ensureAttendanceSchema() {
         timestamp TEXT
       )
     `);
+    const db = client;
     const safeAddColumn = async (col: string, def: string) => {
-      try { await client.execute(`ALTER TABLE attendance_logs ADD COLUMN ${col} ${def}`); } catch (e) {}
+      try { await db.execute(`ALTER TABLE attendance_logs ADD COLUMN ${col} ${def}`); } catch (e) {}
     };
     await safeAddColumn('batch_id', 'TEXT');
     await safeAddColumn('class_id', 'TEXT');
@@ -197,7 +199,7 @@ export async function ensureAttendanceSchema() {
 
 export async function logAttendance(studentId: string, classId: string, type: string = 'Manual'): Promise<void> {
   await ensureAttendanceSchema();
-  const today = new Date().toISOString().split('T')[0];
+  const today = todayIST();
   try {
     const existing = await executeWithRetry(
       `SELECT id FROM attendance_logs 
@@ -291,37 +293,43 @@ export async function removeStudentAttendanceForDate(studentId: string, classId:
 export async function logOnlineAttendancePing(studentId: string, classId: string, batchId: string = 'default', durationMinutes: number = 1): Promise<{ markedPresent: boolean; durationMinutes: number }> {
   await ensureAttendanceSchema();
   try {
-    const isPresent = durationMinutes >= 5;
-    const statusStr = isPresent ? 'Present' : 'Pending';
-
     const checkRes = await executeWithRetry(
-      `SELECT id, duration_minutes FROM attendance_logs 
+      `SELECT id, duration_minutes, join_time, status FROM attendance_logs 
        WHERE (student_id = ? OR LOWER(student_id) = LOWER(?) OR student_id = (SELECT email FROM users WHERE id = ?) OR student_id = (SELECT id FROM users WHERE LOWER(email) = LOWER(?)))
          AND (batch_id = ? OR class_id = ?) 
        LIMIT 1`,
       [studentId, studentId, studentId, studentId, classId, classId]
     );
 
+    // The browser reports how long it has been in class, but it cannot report MORE than the real time
+    // that has passed since the first ping (+1 min tolerance). Jumping straight to "5 minutes" is ignored.
     if (checkRes.rows.length > 0) {
       const existing = checkRes.rows[0];
-      const maxDuration = Math.max(Number(existing.duration_minutes) || 0, durationMinutes);
+      if (String(existing.status || '').toLowerCase() === 'present' && Number(existing.duration_minutes) >= 5) {
+        return { markedPresent: true, durationMinutes: Number(existing.duration_minutes) };
+      }
+      const joinMs = existing.join_time ? new Date(existing.join_time as string).getTime() : NaN;
+      const realElapsed = isNaN(joinMs) ? 0 : Math.floor((Date.now() - joinMs) / 60000) + 1;
+      const claimed = Math.min(Math.max(0, Math.floor(Number(durationMinutes) || 0)), realElapsed);
+      const maxDuration = Math.max(Number(existing.duration_minutes) || 0, claimed);
       const newStatus = maxDuration >= 5 ? 'Present' : 'Pending';
       await executeWithRetry(
         "UPDATE attendance_logs SET duration_minutes = ?, status = ?, leave_time = ? WHERE id = ?",
         [maxDuration, newStatus, new Date().toISOString(), existing.id]
       );
       return { markedPresent: maxDuration >= 5, durationMinutes: maxDuration };
-    } else {
-      const id = `att_on_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
-      await executeWithRetry(
-        "INSERT INTO attendance_logs (id, batch_id, class_id, student_id, join_time, duration_minutes, attendance_type, status) VALUES (?, ?, ?, ?, ?, ?, 'Online', ?)",
-        [id, batchId, classId, studentId, new Date().toISOString(), durationMinutes, statusStr]
-      );
-      return { markedPresent: isPresent, durationMinutes };
     }
+
+    const firstMinutes = Math.min(Math.max(0, Math.floor(Number(durationMinutes) || 0)), 1);
+    const id = `att_on_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+    await executeWithRetry(
+      "INSERT INTO attendance_logs (id, batch_id, class_id, student_id, join_time, duration_minutes, attendance_type, status) VALUES (?, ?, ?, ?, ?, ?, 'Online', 'Pending')",
+      [id, batchId, classId, studentId, new Date().toISOString(), firstMinutes]
+    );
+    return { markedPresent: false, durationMinutes: firstMinutes };
   } catch (e) {
     console.error("Failed to log online attendance ping", e);
-    return { markedPresent: durationMinutes >= 5, durationMinutes };
+    return { markedPresent: false, durationMinutes: 0 };
   }
 }
 
@@ -535,13 +543,18 @@ export async function updateClassStatus(classId: string, status: string, type: s
 }
 
 export async function completeClassWithSummary(classId: string, summary: string, ytUrl: string | null) {
-  try {
+  // Only overwrite the stored recording link when the teacher actually provided one;
+  // an empty box must never erase a link saved earlier. Errors are NOT swallowed: the caller must know.
+  if (ytUrl && ytUrl.trim()) {
     await executeWithRetry(
       "UPDATE classes SET status = 'completed', ai_summary = ?, youtube_video_id = ? WHERE id = ?",
-      [summary, ytUrl, classId]
+      [summary, ytUrl.trim(), classId]
     );
-  } catch (e) {
-    console.error(e);
+  } else {
+    await executeWithRetry(
+      "UPDATE classes SET status = 'completed', ai_summary = ? WHERE id = ?",
+      [summary, classId]
+    );
   }
 }
 
@@ -570,13 +583,11 @@ export async function getTeacherCMSModules(isSuper: boolean, instructorId: strin
          LEFT JOIN course_module_mapping cmm ON m.id = cmm.module_id
          LEFT JOIN courses crs ON cmm.course_id = crs.id
          WHERE m.instructor_id = ? 
-            OR m.instructor_id = 'usr_teacher'
-            OR m.instructor_id = 'usr_teacher_venkat'
-            OR m.instructor_id IN (SELECT id FROM users WHERE email = ? OR email = 'teacher@cynexai.com')
-            OR m.title IN (SELECT json_each.value FROM timetable_slots s, json_each(s.course_name) WHERE s.teacher_id = ? OR s.teacher_id = 'usr_teacher' OR s.teacher_id = 'usr_teacher_venkat')
-            OR crs.title IN (SELECT json_each.value FROM timetable_slots s, json_each(s.course_name) WHERE s.teacher_id = ? OR s.teacher_id = 'usr_teacher' OR s.teacher_id = 'usr_teacher_venkat')
+            OR m.instructor_id IN (SELECT id FROM users WHERE id = ? OR email = ?)
+            OR m.title IN (SELECT json_each.value FROM timetable_slots s, json_each(s.course_name) WHERE s.teacher_id = ?)
+            OR crs.title IN (SELECT json_each.value FROM timetable_slots s, json_each(s.course_name) WHERE s.teacher_id = ?)
          ORDER BY m.title ASC`,
-        [instructorId, instructorId, instructorId, instructorId]
+        [instructorId, instructorId, instructorId, instructorId, instructorId]
       );
       if (res.rows && res.rows.length > 0) {
         return res.rows;
@@ -605,7 +616,7 @@ export async function getClassesForModules(modIds: string) {
 export async function getTeacherTimetables(teacherId: string) {
   try {
     const res = teacherId
-      ? await executeWithRetry("SELECT * FROM timetable_slots WHERE teacher_id = ? OR teacher_id = 'usr_teacher' OR teacher_id = 'usr_teacher_venkat'", [teacherId])
+      ? await executeWithRetry("SELECT * FROM timetable_slots WHERE teacher_id = ?", [teacherId])
       : await executeWithRetry("SELECT * FROM timetable_slots LIMIT 50");
     return res.rows;
   } catch (e) {
@@ -711,11 +722,14 @@ export async function postponeClass(input: RescheduleInput): Promise<{ success: 
       [announcementId, `⏰ Class Rescheduled: ${input.slotTitle}`, announcementBody, new Date().toISOString(), input.batchId || null]
     );
 
-    // Update the timetable slot's time
-    await executeWithRetry(
-      `UPDATE timetable_slots SET start_time = ? WHERE id = ?`,
-      [input.newTime, input.slotId]
-    );
+    // A date-specific postponement is a ONE-OFF: do not rewrite the recurring weekly slot.
+    // Only a time-only change (no new date) moves the slot itself.
+    if (!input.newDate) {
+      await executeWithRetry(
+        `UPDATE timetable_slots SET start_time = ? WHERE id = ?`,
+        [input.newTime, input.slotId]
+      );
+    }
 
     return { success: true, message: 'Class rescheduled and students notified.' };
   } catch (e) {
@@ -743,26 +757,41 @@ export async function getRescheduleHistory(slotId?: string): Promise<any[]> {
   }
 }
 
+const questionGenerationInFlight = new Map<string, Promise<void>>();
+
 export async function ensureClassQuestions(classId: string, title: string, description: string = '', keypoints: string = ''): Promise<void> {
-  try {
-    const existing = await executeWithRetry('SELECT id FROM class_questions WHERE class_id = ? LIMIT 1', [classId]);
-    if (existing.rows.length === 0) {
-      const { generateAIQuestions } = await import('../aiGenerator');
-      const generated = await generateAIQuestions(title, description, keypoints, true);
-      for (const q of generated) {
-        const qId = 'cq_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6);
-        const optionsJson = q.options ? JSON.stringify(q.options) : null;
-        const boilerplate = q.boilerplate ? JSON.stringify(q.boilerplate) : null;
-        const testCases = q.test_cases ? (typeof q.test_cases === 'string' ? q.test_cases : JSON.stringify(q.test_cases)) : null;
+  // The dashboard triggers this from several places at once; share one run per class to avoid duplicate AI questions.
+  const running = questionGenerationInFlight.get(classId);
+  if (running) return running;
+  const job = (async () => {
+    try {
+      const existing = await executeWithRetry('SELECT id FROM class_questions WHERE class_id = ? LIMIT 1', [classId]);
+      if (existing.rows.length === 0) {
+        const { generateAIQuestions } = await import('../aiGenerator');
+        const generated = await generateAIQuestions(title, description, keypoints, true);
+        for (const q of generated) {
+          const type = q.type || 'mcq';
+          const options = Array.isArray(q.options) ? q.options : null;
+          const idx = Number(q.correct_answer_idx);
+          // Never guess an answer key: an MCQ without a valid correct option is skipped.
+          if (type === 'mcq' && (!options || !Number.isInteger(idx) || idx < 0 || idx >= options.length)) continue;
+          const qId = 'cq_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6);
+          const optionsJson = options ? JSON.stringify(options) : null;
+          const boilerplate = q.boilerplate ? JSON.stringify(q.boilerplate) : null;
+          const testCases = q.test_cases ? (typeof q.test_cases === 'string' ? q.test_cases : JSON.stringify(q.test_cases)) : null;
 
-        await executeWithRetry(
-          `INSERT INTO class_questions (id, class_id, type, question_text, options_json, correct_answer_idx, boilerplate_json, test_cases_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-          [qId, classId, q.type || 'mcq', q.question_text, optionsJson, q.correct_answer_idx ?? 0, boilerplate, testCases]
-        );
+          await executeWithRetry(
+            `INSERT INTO class_questions (id, class_id, type, question_text, options_json, correct_answer_idx, boilerplate_json, test_cases_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            [qId, classId, type, q.question_text, optionsJson, type === 'mcq' ? idx : null, boilerplate, testCases]
+          );
+        }
       }
+    } catch (e) {
+      console.error('ensureClassQuestions failed:', e);
+    } finally {
+      questionGenerationInFlight.delete(classId);
     }
-  } catch (e) {
-    console.error('ensureClassQuestions failed:', e);
-  }
+  })();
+  questionGenerationInFlight.set(classId, job);
+  return job;
 }
-

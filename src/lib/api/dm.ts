@@ -1,4 +1,6 @@
 import { client, isTursoConfigured } from '../turso';
+import { safeHttpUrl } from '../urlUtils';
+import { todayIST } from '../dateUtils';
 
 export interface BlogPost {
   id: string;
@@ -22,7 +24,6 @@ export interface JobItem {
 }
 
 const STORAGE_KEY_BLOGS = 'cynexai_blog_posts';
-const STORAGE_KEY_JOBS = 'cynexai_scraped_jobs';
 const STORAGE_KEY_SEO = 'cynexai_seo_settings';
 const STORAGE_KEY_KEYWORDS = 'cynexai_seo_keywords';
 
@@ -62,7 +63,7 @@ export async function getBlogPosts(): Promise<BlogPost[]> {
       content: 'Full Stack Java and React skills continue to lead the tech job market with high demand across cloud and enterprise sectors.',
       category: 'Web Development',
       isVisible: true,
-      date: new Date().toISOString().split('T')[0]
+      date: todayIST()
     },
     {
       id: 'blog_2',
@@ -86,7 +87,7 @@ export async function createBlogPost(post: Omit<BlogPost, 'id' | 'date'> & { id?
     image: post.image || '',
     video: post.video || '',
     isVisible: post.isVisible !== undefined ? post.isVisible : true,
-    date: new Date().toISOString().split('T')[0]
+    date: todayIST()
   };
 
   // DB Sync
@@ -118,8 +119,9 @@ export async function updateBlogPost(id: string, updates: Partial<BlogPost>): Pr
     try {
       const sets: string[] = [];
       const args: any[] = [];
+      const BLOG_COLUMNS = ['title', 'content', 'image', 'video', 'category', 'isVisible', 'date'];
       Object.entries(updates).forEach(([k, v]) => {
-        if (k !== 'id') {
+        if (BLOG_COLUMNS.includes(k)) {
           sets.push(`${k} = ?`);
           args.push(k === 'isVisible' ? (v ? 1 : 0) : v);
         }
@@ -173,87 +175,53 @@ export async function deleteBlogPost(id: string): Promise<boolean> {
   return true;
 }
 
-// ─── Scraped Jobs API ────────────────────────────────────────────────────────
+// ─── Job Listings API ────────────────────────────────────────────────────────
+// Uses the SAME `job_listings` table students read, so jobs added here reach the student portal.
 
 export async function getScrapedJobs(): Promise<JobItem[]> {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY_JOBS);
-    if (raw) return JSON.parse(raw);
-  } catch {}
-
-  const defaults: JobItem[] = [
-    {
-      id: 'job_1',
-      title: 'Junior Data Scientist',
-      company: 'Analytics Global',
-      location: 'Hyderabad / Remote',
-      qualifications: 'Python, ML, SQL, Pandas',
-      source_url: 'https://cynexai.in/careers',
-      expire_date: '2026-10-15'
-    },
-    {
-      id: 'job_2',
-      title: 'Full Stack Java Developer',
-      company: 'Enterprise Solutions Inc',
-      location: 'Kukatpally, Hyderabad',
-      qualifications: 'Java, Spring Boot, React, MySQL',
-      source_url: 'https://cynexai.in/careers',
-      expire_date: '2026-10-20'
+  if (isTursoConfigured && client) {
+    try {
+      const res = await client.execute('SELECT * FROM job_listings WHERE is_active = 1 ORDER BY scraped_at DESC');
+      return res.rows.map((r: any) => ({
+        id: String(r.id),
+        title: String(r.title || ''),
+        company: String(r.company || ''),
+        location: String(r.location || ''),
+        qualifications: String(r.qualifications || ''),
+        source_url: r.source_url ? String(r.source_url) : undefined,
+        expire_date: r.expire_date ? String(r.expire_date) : undefined,
+      }));
+    } catch (e) {
+      console.warn('[DM API] job_listings read error', e);
     }
-  ];
-  localStorage.setItem(STORAGE_KEY_JOBS, JSON.stringify(defaults));
-  return defaults;
+  }
+  return [];
 }
 
 export async function createJob(job: Omit<JobItem, 'id'>): Promise<JobItem> {
   const newJob: JobItem = {
-    id: 'job_' + Date.now().toString(36),
-    ...job
+    id: 'job_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    ...job,
+    source_url: safeHttpUrl(job.source_url) || undefined,
   };
-
-  try {
-    const existing = await getScrapedJobs();
-    const updated = [newJob, ...existing];
-    localStorage.setItem(STORAGE_KEY_JOBS, JSON.stringify(updated));
-  } catch (e) {
-    console.error('[DM API] Save job error', e);
-  }
-
+  if (!isTursoConfigured || !client) throw new Error('Database not connected');
+  await client.execute({
+    sql: `INSERT INTO job_listings (id, title, company, location, qualifications, source_url, expire_date, is_active, scraped_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?)`,
+    args: [newJob.id, newJob.title, newJob.company, newJob.location, newJob.qualifications, newJob.source_url || null, newJob.expire_date || null, new Date().toISOString()],
+  });
   return newJob;
 }
 
 export async function deleteJob(id: string): Promise<boolean> {
-  try {
-    const existing = await getScrapedJobs();
-    const updated = existing.filter(j => j.id !== id);
-    localStorage.setItem(STORAGE_KEY_JOBS, JSON.stringify(updated));
-  } catch (e) {
-    console.error('[DM API] Delete job error', e);
-  }
+  if (!isTursoConfigured || !client) return false;
+  await client.execute({ sql: 'UPDATE job_listings SET is_active = 0 WHERE id = ?', args: [id] });
   return true;
 }
 
-export async function triggerJobScraper(source: string): Promise<JobItem[]> {
-  const newScraped: JobItem[] = [
-    {
-      id: 'job_scraped_' + Date.now().toString(36),
-      title: 'AI Prompt Engineer / Developer',
-      company: `${source.toUpperCase()} Tech Partner`,
-      location: 'Hyderabad (Hybrid)',
-      qualifications: 'Generative AI, Python, OpenAI, LangChain',
-      source_url: 'https://cynexai.in/jobs',
-      expire_date: new Date(Date.now() + 14 * 86400000).toISOString().split('T')[0]
-    }
-  ];
-
-  try {
-    const existing = await getScrapedJobs();
-    const merged = [...newScraped, ...existing];
-    localStorage.setItem(STORAGE_KEY_JOBS, JSON.stringify(merged));
-    return merged;
-  } catch {
-    return newScraped;
-  }
+// There is no real scraper backend. This no longer fabricates a job: it just returns the current list.
+export async function triggerJobScraper(_source: string): Promise<JobItem[]> {
+  return getScrapedJobs();
 }
 
 // ─── AI Suggestions API ──────────────────────────────────────────────────────

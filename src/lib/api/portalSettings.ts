@@ -1,5 +1,6 @@
 import { client } from '../turso';
 import { cachedQuery, cacheInvalidate } from '../cache';
+import { safeHttpUrl } from '../urlUtils';
 
 const MAX_RETRIES = 3;
 const RETRY_DELAY = 1000;
@@ -66,6 +67,7 @@ export async function createAnnouncement(title: string, body: string): Promise<v
     [id, title, body, new Date().toISOString()]
   );
   cacheInvalidate('announcements');
+  cacheInvalidate('student_announcements');
 }
 
 export async function deleteAnnouncement(id: string): Promise<void> {
@@ -74,6 +76,7 @@ export async function deleteAnnouncement(id: string): Promise<void> {
     [id]
   );
   cacheInvalidate('announcements');
+  cacheInvalidate('student_announcements');
 }
 
 // ─── Job Listings (Admin) ─────────────────────────────────────────────────────
@@ -100,12 +103,14 @@ export async function createJobListing(data: {
   source_url: string;
   expire_date: string;
 }): Promise<void> {
-  const id = `job_${Date.now()}`;
+  const id = `job_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+  data = { ...data, source_url: safeHttpUrl(data.source_url) };
   await executeWithRetry(
     `INSERT INTO job_listings (id, title, company, location, qualifications, source_url, expire_date, is_active, scraped_at) VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?)`,
     [id, data.title, data.company, data.location, data.qualifications, data.source_url, data.expire_date, new Date().toISOString()]
   );
   cacheInvalidate('job_listings');
+  cacheInvalidate('student_job_listings');
 }
 
 export async function deleteJobListing(id: string): Promise<void> {
@@ -114,6 +119,7 @@ export async function deleteJobListing(id: string): Promise<void> {
     [id]
   );
   cacheInvalidate('job_listings');
+  cacheInvalidate('student_job_listings');
 }
 
 // ─── Course Shared Materials ──────────────────────────────────────────────────
@@ -139,7 +145,8 @@ export async function createCourseMaterial(data: {
   material_type: string;
   course_id?: string;
 }): Promise<void> {
-  const id = `mat_${Date.now()}`;
+  const id = `mat_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+  data = { ...data, file_url: safeHttpUrl(data.file_url) };
   await executeWithRetry(
     `INSERT INTO course_shared_materials (id, title, description, file_url, material_type, course_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
     [id, data.title, data.description, data.file_url, data.material_type, data.course_id ?? null, new Date().toISOString()]

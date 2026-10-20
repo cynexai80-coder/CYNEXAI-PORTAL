@@ -19,7 +19,7 @@ async function executeWithRetry(query: string, args: any[] = [], retries = MAX_R
 export async function getAdminStats() {
   try {
     const leadsRes = await executeWithRetry('SELECT COUNT(*) as count FROM crm_leads');
-    const salesRes = await executeWithRetry("SELECT COUNT(*) as count, SUM(amount_paid) as revenue FROM sales WHERE status LIKE 'Sale%'");
+    const salesRes = await executeWithRetry("SELECT COUNT(*) as count, SUM(amount_paid) as revenue FROM sales WHERE id NOT IN (SELECT sale_id FROM manager_approvals WHERE status = 'Rejected')");
     const studentsRes = await executeWithRetry("SELECT COUNT(*) as count FROM students WHERE status = 'Active'");
     
     return {

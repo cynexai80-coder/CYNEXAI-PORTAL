@@ -233,7 +233,7 @@ export async function getAllCertificates(): Promise<CertificateRecord[]> {
  * Inserts or updates certificate record in database.
  */
 export async function saveCertificate(cert: CertificateRecord): Promise<boolean> {
-  const certId = cert.id || `CX-${Date.now()}`;
+  const certId = cert.id || `CX-${Date.now().toString(36).toUpperCase()}${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
   const certNumber = cert.certificate_number || certId;
   const now = new Date().toISOString();
 
@@ -275,10 +275,13 @@ export async function saveCertificate(cert: CertificateRecord): Promise<boolean>
       return true;
     } catch (e) {
       console.error('Error saving certificate to Turso:', e);
+      // The public QR code verifies against the DATABASE. If the DB write failed the certificate
+      // is NOT issued; never pretend success by saving it only in this browser.
+      return false;
     }
   }
 
-  // Also sync to local storage fallback
+  // Local-storage copy is only for development when no database is configured.
   try {
     const local = localStorage.getItem('cynex_certificates');
     const list: CertificateRecord[] = local ? JSON.parse(local) : [];

@@ -1,3 +1,5 @@
+import { todayIST, parseDbTimestamp } from '../dateUtils';
+import { csvCell } from '../csvUtils';
 import { client, isTursoConfigured } from '../turso';
 
 export type HistoryEventType = 'sale' | 'activity' | 'stage_change' | 'approval' | 'onboarding' | 'task';
@@ -53,11 +55,11 @@ export const getMasterHistory = async (params?: {
         u.name as exec_name, 
         l.name as lead_name, 
         l.id as lead_id, 
-        COALESCE(l.created_at, CURRENT_TIMESTAMP) as event_time 
+        COALESCE(s.timestamp, l.created_at) as event_time 
       FROM sales s 
       LEFT JOIN users u ON (s.sales_exec_id = u.id OR s.sales_rep_id = u.id) 
       LEFT JOIN crm_leads l ON s.lead_id = l.id
-      ORDER BY event_time DESC LIMIT 150
+      ORDER BY event_time DESC LIMIT 1000
     `);
     salesRes.rows.forEach(r => {
       const amountPaid = Number(r.amount_paid || 0);
@@ -100,7 +102,7 @@ export const getMasterHistory = async (params?: {
       LEFT JOIN users u ON a.user_id = u.id
       LEFT JOIN crm_leads l ON a.lead_id = l.id
       LEFT JOIN students st ON a.student_id = st.id
-      ORDER BY a.created_at DESC LIMIT 250
+      ORDER BY a.created_at DESC LIMIT 2000
     `);
     actsRes.rows.forEach(r => {
       const actType = (r.type as string) || 'Activity';
@@ -136,7 +138,7 @@ export const getMasterHistory = async (params?: {
       FROM crm_stage_history h
       LEFT JOIN crm_leads l ON h.lead_id = l.id
       LEFT JOIN users u ON l.assigned_to = u.id
-      ORDER BY h.created_at DESC LIMIT 200
+      ORDER BY h.created_at DESC LIMIT 1000
     `);
     stageRes.rows.forEach(r => {
       allEvents.push({
@@ -174,7 +176,7 @@ export const getMasterHistory = async (params?: {
       FROM tasks t
       LEFT JOIN users u1 ON t.created_by = u1.id
       LEFT JOIN users u2 ON t.assignee_id = u2.id
-      ORDER BY event_time DESC LIMIT 200
+      ORDER BY event_time DESC LIMIT 1000
     `);
     tasksRes.rows.forEach(r => {
       allEvents.push({
@@ -197,7 +199,7 @@ export const getMasterHistory = async (params?: {
     const apprRes = await client.execute(`
       SELECT 
         ma.id, 
-        COALESCE(ma.decided_at, CURRENT_TIMESTAMP) as event_time, 
+        COALESCE(ma.decided_at, s.timestamp) as event_time, 
         ma.status, 
         ma.notes, 
         ma.approver_id,
@@ -207,7 +209,7 @@ export const getMasterHistory = async (params?: {
       LEFT JOIN sales s ON ma.sale_id = s.id
       LEFT JOIN crm_leads l ON s.lead_id = l.id
       LEFT JOIN users u ON ma.approver_id = u.id
-      ORDER BY event_time DESC LIMIT 50
+      ORDER BY event_time DESC LIMIT 500
     `);
     apprRes.rows.forEach(r => {
       allEvents.push({
@@ -227,7 +229,7 @@ export const getMasterHistory = async (params?: {
   }
 
   // Sort combined events by descending timestamp
-  allEvents.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  allEvents.sort((a, b) => (parseDbTimestamp(b.timestamp)?.getTime() || 0) - (parseDbTimestamp(a.timestamp)?.getTime() || 0));
 
   // Filtering
   let filtered = allEvents;
@@ -245,12 +247,12 @@ export const getMasterHistory = async (params?: {
     const now = Date.now();
     const oneDay = 24 * 60 * 60 * 1000;
     if (params.dateRange === 'today') {
-      const todayStr = new Date().toISOString().split('T')[0];
+      const todayStr = todayIST();
       filtered = filtered.filter(e => e.timestamp.startsWith(todayStr));
     } else if (params.dateRange === '7days') {
-      filtered = filtered.filter(e => (now - new Date(e.timestamp).getTime()) <= 7 * oneDay);
+      filtered = filtered.filter(e => (now - (parseDbTimestamp(e.timestamp)?.getTime() || 0)) <= 7 * oneDay);
     } else if (params.dateRange === '30days') {
-      filtered = filtered.filter(e => (now - new Date(e.timestamp).getTime()) <= 30 * oneDay);
+      filtered = filtered.filter(e => (now - (parseDbTimestamp(e.timestamp)?.getTime() || 0)) <= 30 * oneDay);
     }
   }
 
@@ -291,7 +293,7 @@ export const createCustomAuditLog = async (
     const actId = 'act_' + Date.now();
     await client.execute({
       sql: `INSERT INTO crm_activities (id, lead_id, user_id, type, content, created_at) VALUES (?, ?, ?, ?, ?, ?)`,
-      args: [actId, leadId || null, userId, type, `${title}: ${details}`, new Date().toISOString().replace('T', ' ').substring(0, 19)]
+      args: [actId, leadId || null, userId, type, `${title}: ${details}`, new Date().toISOString()]
     });
     return true;
   } catch (e) {
@@ -304,21 +306,16 @@ export const exportHistoryCSV = (events: HistoryEvent[]) => {
   if (events.length === 0) return;
   const headers = ['Timestamp', 'Category', 'Event Type', 'Title', 'User', 'Lead/Student', 'Details'];
   const rows = events.map(e => [
-    `"${e.timestamp}"`,
-    `"${e.category || e.type}"`,
-    `"${e.type}"`,
-    `"${(e.title || '').replace(/"/g, '""')}"`,
-    `"${(e.user_name || '').replace(/"/g, '""')}"`,
-    `"${(e.lead_name || '').replace(/"/g, '""')}"`,
-    `"${(e.details || '').replace(/"/g, '""')}"`
-  ]);
+    e.timestamp, e.category || e.type, e.type, e.title || '', e.user_name || '', e.lead_name || '', e.details || ''
+  ].map(csvCell).join(','));
 
-  const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-  const encodedUri = encodeURI(csvContent);
+  const csvContent = [headers.map(csvCell).join(','), ...rows].join('\n');
+  const url = URL.createObjectURL(new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' }));
   const link = document.createElement('a');
-  link.setAttribute('href', encodedUri);
-  link.setAttribute('download', `master_history_audit_${new Date().toISOString().split('T')[0]}.csv`);
+  link.setAttribute('href', url);
+  link.setAttribute('download', `master_history_audit_${todayIST()}.csv`);
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 };

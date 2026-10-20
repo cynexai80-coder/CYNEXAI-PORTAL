@@ -1,5 +1,6 @@
 import { client } from '../turso';
 import { cachedQuery, cacheInvalidate } from '../cache';
+import { todayIST, yesterdayIST } from '../dateUtils';
 
 const MAX_RETRIES = 3;
 const RETRY_DELAY = 1000;
@@ -27,6 +28,8 @@ export interface StudentDashboardData {
   upcomingClass: any | null;
   attendanceRate?: number;
   attendedClassesCount?: number;
+  /** Classes attended per weekday for the current IST week, Monday first. */
+  weeklyActivity?: number[];
 }
 
 export interface ClassFlowData {
@@ -147,18 +150,19 @@ export async function getStudentDashboardData(studentId: string, forceRefresh = 
   if (!activeCourse && stu?.course) {
     try {
       const directRes = await executeWithRetry(
-        `SELECT * FROM courses WHERE name = ? OR title = ? LIMIT 1`,
-        [stu.course, stu.course]
+        `SELECT * FROM courses WHERE LOWER(TRIM(title)) = LOWER(TRIM(?)) LIMIT 1`,
+        [stu.course]
       );
       if (directRes.rows.length > 0) activeCourse = directRes.rows[0];
     } catch { /* no courses */ }
   }
 
-  // Fallback: first course
+  // Fallback: only when the institute has exactly ONE course is it safe to assume it (otherwise a
+  // student without a course would be shown somebody else's curriculum).
   if (!activeCourse) {
     try {
-      const fallback = await executeWithRetry(`SELECT * FROM courses ORDER BY created_at ASC LIMIT 1`);
-      if (fallback.rows.length > 0) activeCourse = fallback.rows[0];
+      const fallback = await executeWithRetry(`SELECT * FROM courses ORDER BY created_at ASC LIMIT 2`);
+      if (fallback.rows.length === 1) activeCourse = fallback.rows[0];
     } catch { /* no courses table */ }
   }
 
@@ -177,9 +181,10 @@ export async function getStudentDashboardData(studentId: string, forceRefresh = 
 
       try {
         let modRes = await executeWithRetry(
-          `SELECT DISTINCT m.*, COALESCE(cmm.order_index, m.rowid) as map_order
+          `SELECT DISTINCT m.*, cmm.order_index as map_order
            FROM modules m
-           LEFT JOIN course_module_mapping cmm ON m.id = cmm.module_id AND (cmm.course_id = ? OR cmm.course_id = 'course_ds_mastery')
+           JOIN course_module_mapping cmm ON m.id = cmm.module_id
+           WHERE cmm.course_id = ?
            ORDER BY map_order ASC`,
           [activeCourse.id]
         ).catch(() => ({ rows: [] }));
@@ -190,9 +195,14 @@ export async function getStudentDashboardData(studentId: string, forceRefresh = 
           ).catch(() => ({ rows: [] }));
         }
 
-        let clsRes = await executeWithRetry(
-          `SELECT id, module_id, status, type FROM classes`
-        ).catch(() => ({ rows: [] }));
+        const moduleIds = (modRes.rows || []).map((m: any) => m.id);
+        let clsRes: any = { rows: [] };
+        if (moduleIds.length > 0) {
+          clsRes = await executeWithRetry(
+            `SELECT id, module_id, status, type FROM classes WHERE module_id IN (${moduleIds.map(() => '?').join(',')})`,
+            moduleIds
+          ).catch(() => ({ rows: [] }));
+        }
 
         let realStudentId = studentId;
         try {
@@ -224,7 +234,7 @@ export async function getStudentDashboardData(studentId: string, forceRefresh = 
 
         modulesData = (modRes.rows || []).map((m: any) => {
           const mClasses = clsRows.filter((c: any) => c.module_id === m.id);
-          const completed = mClasses.filter((c: any) => completedSet.has(c.id) || c.status === 'completed' || c.status === 'ended').length;
+          const completed = mClasses.filter((c: any) => completedSet.has(c.id)).length;
           const qaTotal = mClasses.reduce((s: number, c: any) => s + (qaByClass[c.id] || 0), 0);
           const quizClasses = mClasses.filter((c: any) => ['quiz','qa','q&a'].includes((c.type||'').toLowerCase())).length;
           const codeClasses = mClasses.filter((c: any) => ['code','exercise','coding'].includes((c.type||'').toLowerCase())).length;
@@ -258,7 +268,8 @@ export async function getStudentDashboardData(studentId: string, forceRefresh = 
           );
           if (tsRes.rows.length > 0) upcomingClass = tsRes.rows[0];
         }
-        if (!upcomingClass) {
+        if (!upcomingClass && !stuBatch) {
+          // Only when we do not know the student's batch; never show another batch's class.
           const tsFallback = await executeWithRetry(
             `SELECT id, title, day_of_week, start_time, timing, status, 'live' as type FROM timetable_slots
              ORDER BY created_at DESC LIMIT 1`
@@ -267,7 +278,7 @@ export async function getStudentDashboardData(studentId: string, forceRefresh = 
         }
       } catch { /* no timetable */ }
 
-      if (!upcomingClass) {
+      if (!upcomingClass && !stuBatch) {
         try {
           const clsUp = await executeWithRetry(
             `SELECT id, title, date, start_time, meet_link, type FROM classes
@@ -280,17 +291,43 @@ export async function getStudentDashboardData(studentId: string, forceRefresh = 
     })()
   ]);
 
-  // Compute real attendance metrics from attendance_logs
+  // Compute real attendance metrics from attendance_logs. Logs are written with either the login
+  // user id or the students-table id depending on who recorded them (student self check-in vs
+  // teacher roster), so match both.
+  const attendanceStudentId = stu?.id ? String(stu.id) : studentId;
+  const attendedClause = `(student_id = ? OR student_id = ? OR student_id = (SELECT email FROM users WHERE id = ?))
+         AND LOWER(COALESCE(status, '')) != 'absent'
+         AND (status = 'Present' OR duration_minutes >= 5 OR attendance_type IN ('Manual', 'Offline_QR'))`;
   let attendedClassesCount = 0;
   try {
     const attRes = await executeWithRetry(
-      `SELECT COUNT(DISTINCT COALESCE(class_id, batch_id)) as cnt 
-       FROM attendance_logs 
-       WHERE (student_id = ? OR student_id = (SELECT email FROM users WHERE id = ?) OR student_id = (SELECT id FROM users WHERE email = ?))
-         AND (status = 'Present' OR duration_minutes >= 5 OR attendance_type IN ('Manual', 'Offline_QR', 'Online'))`,
-      [studentId, studentId, studentId]
+      `SELECT COUNT(DISTINCT COALESCE(class_id, batch_id)) as cnt
+       FROM attendance_logs
+       WHERE ${attendedClause}`,
+      [studentId, attendanceStudentId, studentId]
     );
     attendedClassesCount = Number(attRes.rows?.[0]?.cnt) || 0;
+  } catch {}
+
+  // Classes attended per weekday (Mon..Sun) for the current IST week.
+  const weeklyActivity = [0, 0, 0, 0, 0, 0, 0];
+  try {
+    const today = new Date(`${todayIST()}T00:00:00Z`);
+    const mondayOffset = (today.getUTCDay() + 6) % 7;
+    const monday = new Date(today.getTime() - mondayOffset * 86400000);
+    const weekStart = monday.toISOString().slice(0, 10);
+    const weekRes = await executeWithRetry(
+      `SELECT COALESCE(date, substr(join_time, 1, 10)) as d, COUNT(DISTINCT COALESCE(class_id, batch_id)) as cnt
+       FROM attendance_logs
+       WHERE ${attendedClause}
+         AND COALESCE(date, substr(join_time, 1, 10)) >= ?
+       GROUP BY d`,
+      [studentId, attendanceStudentId, studentId, weekStart]
+    );
+    for (const r of weekRes.rows || []) {
+      const idx = Math.round((new Date(`${String(r.d)}T00:00:00Z`).getTime() - monday.getTime()) / 86400000);
+      if (idx >= 0 && idx < 7) weeklyActivity[idx] = Number(r.cnt) || 0;
+    }
   } catch {}
 
   const totalClassesCount = modulesDataResult.reduce((s: number, m: any) => s + (m.totalClasses || 0), 0);
@@ -304,7 +341,8 @@ export async function getStudentDashboardData(studentId: string, forceRefresh = 
     modules: modulesDataResult, 
     upcomingClass: upcomingClassResult,
     attendanceRate,
-    attendedClassesCount
+    attendedClassesCount,
+    weeklyActivity
   };
   dashboardCache.set(studentId, { data: result, timestamp: Date.now() });
   return result;
@@ -336,7 +374,12 @@ export async function getClassFlowData(classId: string, studentId?: string): Pro
              LEFT JOIN course_module_mapping cmm ON m.id = cmm.module_id
              LEFT JOIN courses crs ON cmm.course_id = crs.id
              WHERE (crs.title IN (${ph}) OR m.title IN (${ph}))
-             ORDER BY c.order_index ASC LIMIT 1`,
+             ORDER BY CASE WHEN c.status IN ('completed','ended') THEN 1 ELSE 0 END ASC,
+                      CASE WHEN c.status IN ('completed','ended') THEN -c.order_index ELSE c.order_index END ASC
+             LIMIT 1`,
+            // A timetable slot has no class id of its own: open the class being taught now (the first one not yet
+            // completed, same rule as the teacher's "start class"), or the latest one when the course is finished,
+            // instead of always class 1.
             [...parsedCourses, ...parsedCourses]
           );
           if (matchedClass.rows.length > 0) {
@@ -413,21 +456,31 @@ export async function markClassWatched(studentId: string, classId: string): Prom
       if (res.rows.length > 0) realStudentId = res.rows[0].id as string;
     } catch (e) {}
 
-    const id = `sp_${Date.now()}`;
-    await executeWithRetry(
-      `INSERT OR IGNORE INTO student_progress (id, student_id, lesson_id, completed, created_at) VALUES (?, ?, ?, 1, ?)`,
-      [id, studentId, classId, new Date().toISOString()]
+    const id = `sp_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+    const already = await executeWithRetry(
+      `SELECT id FROM student_progress WHERE (student_id = ? OR student_id = ?) AND lesson_id = ? AND completed = 1 LIMIT 1`,
+      [studentId, realStudentId, classId]
     );
-    if (realStudentId !== studentId) {
+    if (already.rows.length === 0) {
       await executeWithRetry(
         `INSERT OR IGNORE INTO student_progress (id, student_id, lesson_id, completed, created_at) VALUES (?, ?, ?, 1, ?)`,
-        [`${id}_r`, realStudentId, classId, new Date().toISOString()]
+        [id, studentId, classId, new Date().toISOString()]
       );
+      if (realStudentId !== studentId) {
+        await executeWithRetry(
+          `INSERT OR IGNORE INTO student_progress (id, student_id, lesson_id, completed, created_at) VALUES (?, ?, ?, 1, ?)`,
+          [`${id}_r`, realStudentId, classId, new Date().toISOString()]
+        );
+      }
     }
-    // Update streak
+    // Streak = consecutive days (India time): +1 if the last active day was yesterday, otherwise restart at 1.
+    const today = todayIST();
     await executeWithRetry(
-      `UPDATE students SET last_streak_date = ?, streak = streak + 1 WHERE id = ? AND (last_streak_date IS NULL OR last_streak_date != date('now'))`,
-      [new Date().toISOString().split('T')[0], realStudentId]
+      `UPDATE students SET
+         streak = CASE WHEN last_streak_date = ? THEN COALESCE(streak, 0) + 1 ELSE 1 END,
+         last_streak_date = ?
+       WHERE id = ? AND (last_streak_date IS NULL OR last_streak_date != ?)`,
+      [yesterdayIST(), today, realStudentId, today]
     );
     cacheInvalidate(`student_dashboard_${studentId}`);
     dashboardCache.delete(studentId);
@@ -462,23 +515,33 @@ export interface QaResponseInput {
 }
 
 export async function saveQaResponse(input: QaResponseInput): Promise<void> {
-  const id = `qa_${Date.now()}`;
+  let realStudentId = input.studentId;
+  try {
+    const res = await executeWithRetry(
+      "SELECT id FROM students WHERE id = ? OR portal_login_email = (SELECT email FROM users WHERE id = ?) LIMIT 1",
+      [input.studentId, input.studentId]
+    );
+    if (res.rows.length > 0) realStudentId = res.rows[0].id as string;
+  } catch (e) {}
+
+  // A question can be answered (and rewarded) only ONCE per student: reloads/retries must not farm coins.
+  const existing = await executeWithRetry(
+    `SELECT id, is_correct FROM qa_responses WHERE (student_id = ? OR student_id = ?) AND question_id = ? LIMIT 1`,
+    [input.studentId, realStudentId, input.questionId]
+  );
+  if (existing.rows.length > 0) {
+    cacheInvalidate(`student_dashboard_${input.studentId}`);
+    return;
+  }
+
+  const id = `qa_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
   await executeWithRetry(
     `INSERT INTO qa_responses (id, student_id, class_id, question_id, answer_idx, is_correct, code_answer, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     [id, input.studentId, input.classId, input.questionId, input.answerIdx ?? null, input.isCorrect ? 1 : 0, input.codeAnswer ?? null, new Date().toISOString()]
   );
   if (input.isCorrect) {
-    let realStudentId = input.studentId;
-    try {
-      const res = await executeWithRetry(
-        "SELECT id FROM students WHERE id = ? OR portal_login_email = (SELECT email FROM users WHERE id = ?) LIMIT 1",
-        [input.studentId, input.studentId]
-      );
-      if (res.rows.length > 0) realStudentId = res.rows[0].id as string;
-    } catch (e) {}
-    
     await executeWithRetry(
-      `UPDATE students SET coins = coins + 5 WHERE id = ?`,
+      `UPDATE students SET coins = COALESCE(coins, 0) + 5 WHERE id = ?`,
       [realStudentId]
     );
   }
@@ -619,30 +682,42 @@ export async function submitOnlineAttendance(studentId: string, classId: string)
     const clsRes = await executeWithRetry("SELECT id, status FROM classes WHERE id = ?", [classId]);
     if (clsRes.rows.length === 0) return { success: false, message: 'Class not found.' };
     const cls = clsRes.rows[0];
-    if (cls.status !== 'in_progress' && cls.status !== 'live' && cls.status !== 'upcoming') {
-      return { success: false, message: 'Class is not currently active.' };
+    if (cls.status !== 'in_progress' && cls.status !== 'live') {
+      return { success: false, message: 'Class is not live right now. Attendance can only be marked while the class is running.' };
     }
 
     const existing = await executeWithRetry(
-      `SELECT id FROM attendance_logs 
+      `SELECT id, status, duration_minutes, join_time FROM attendance_logs 
        WHERE (student_id = ? OR LOWER(student_id) = LOWER(?) OR student_id = (SELECT email FROM users WHERE id = ?) OR student_id = (SELECT id FROM users WHERE LOWER(email) = LOWER(?)))
          AND (class_id = ? OR batch_id = ?) 
        LIMIT 1`,
       [studentId, studentId, studentId, studentId, classId, classId]
     );
 
-    if (existing.rows.length > 0) {
-      await executeWithRetry(
-        "UPDATE attendance_logs SET status = 'Present', duration_minutes = 60, attendance_type = 'Online', join_time = ? WHERE id = ?",
-        [new Date().toISOString(), existing.rows[0].id]
-      );
-    } else {
+    if (existing.rows.length === 0) {
+      // First contact: start tracking. Presence is earned by staying, not by clicking.
       const id = `att_on_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
       await executeWithRetry(
-        `INSERT INTO attendance_logs (id, batch_id, class_id, student_id, join_time, duration_minutes, attendance_type, status) VALUES (?, ?, ?, ?, ?, 60, 'Online', 'Present')`,
+        `INSERT INTO attendance_logs (id, batch_id, class_id, student_id, join_time, duration_minutes, attendance_type, status) VALUES (?, ?, ?, ?, ?, 0, 'Online', 'Pending')`,
         [id, classId, classId, studentId, new Date().toISOString()]
       );
+      return { success: false, message: 'Attendance tracking started. Stay in the class for 5 minutes to be marked present.' };
     }
+
+    const row = existing.rows[0];
+    if (String(row.status || '').toLowerCase() === 'present') {
+      return { success: true, message: 'Attendance already marked.' };
+    }
+    const joinMs = row.join_time ? new Date(row.join_time as string).getTime() : NaN;
+    const elapsedMin = isNaN(joinMs) ? 0 : (Date.now() - joinMs) / 60000;
+    // 4 min tolerance: the browser sends its first progress ping ~30s after joining.
+    if (elapsedMin < 4) {
+      return { success: false, message: 'Stay in the class a little longer to be marked present.' };
+    }
+    await executeWithRetry(
+      "UPDATE attendance_logs SET status = 'Present', duration_minutes = ?, attendance_type = 'Online', leave_time = ? WHERE id = ?",
+      [Math.max(Number(row.duration_minutes) || 0, Math.round(elapsedMin)), new Date().toISOString(), row.id]
+    );
     return { success: true, message: 'Attendance marked successfully!' };
   } catch (e) {
     console.error(e);
@@ -767,7 +842,7 @@ export interface MockInterviewInput {
 }
 
 export interface InterviewEvaluation {
-
+  unavailable?: boolean;
   overallScore: number;
   technicalScore: number;
   communicationScore: number;
@@ -818,10 +893,23 @@ export async function saveMockInterview(input: {
     } catch (e) {}
   }
 
-  if (input.coinsAwarded > 0) {
+  // Coins are bounded here: at most 50 per interview and 100 per day (the client value is only a request).
+  let coins = Math.min(Math.max(0, Math.floor(Number(input.coinsAwarded) || 0)), 50);
+  if (coins > 0) {
+    try {
+      const today = await executeWithRetry(
+        `SELECT COALESCE(SUM(coins_awarded), 0) as c FROM mock_interviews
+         WHERE student_id = ? AND substr(created_at, 1, 10) = ? AND id != ?`,
+        [realStudentId, todayIST(), id]
+      );
+      const already = Number(today.rows[0]?.c) || 0;
+      coins = Math.max(0, Math.min(coins, 100 - already));
+    } catch { /* keep the bounded value */ }
+  }
+  if (coins > 0) {
     await executeWithRetry(
-      `UPDATE students SET coins = coins + ? WHERE id = ?`,
-      [input.coinsAwarded, realStudentId]
+      `UPDATE students SET coins = COALESCE(coins, 0) + ? WHERE id = ?`,
+      [coins, realStudentId]
     );
   }
 }
@@ -861,27 +949,56 @@ export async function getMockInterviewHistory(studentId: string): Promise<MockIn
 
 // ─── Announcements ────────────────────────────────────────────────────────────
 
-export async function getAnnouncements(): Promise<Announcement[]> {
-  return cachedQuery('student_announcements', async () => {
+export async function getAnnouncements(studentId?: string): Promise<Announcement[]> {
+  const all = await cachedQuery('student_announcements', async () => {
     try {
       const res = await executeWithRetry(
-        "SELECT * FROM announcements WHERE is_active = 1 ORDER BY created_at DESC LIMIT 10"
+        "SELECT * FROM announcements WHERE is_active = 1 ORDER BY created_at DESC LIMIT 50"
       );
-      
-      const now = new Date().getTime();
-      return (res.rows as Announcement[]).filter(a => {
-        // Auto-hide reschedule popups after 48 hours so they don't pop forever
-        if (a.title?.startsWith('⏰')) {
-          const created = new Date(a.created_at).getTime();
-          if (now - created > 172800000) return false;
-        }
-        return true;
-      });
+      return res.rows as Announcement[];
     } catch (e) {
       console.error(e);
-      return [];
+      return [] as Announcement[];
     }
   }, 5 * 60 * 1000);
+
+  // Which batch(es) does this student belong to? Announcements targeted at another batch are hidden.
+  let batchKeys: string[] | null = null;
+  if (studentId) {
+    try {
+      const st = await executeWithRetry(
+        "SELECT batch_number FROM students WHERE id = ? OR portal_login_email = (SELECT email FROM users WHERE id = ?) LIMIT 1",
+        [studentId, studentId]
+      );
+      const raw = st.rows[0]?.batch_number ? String(st.rows[0].batch_number).trim() : '';
+      if (raw) {
+        const clean = raw.replace(/^batch\s*/i, '').trim().toLowerCase();
+        const b = await executeWithRetry(
+          "SELECT id, name FROM batches WHERE LOWER(TRIM(name)) IN (?, ?, ?) OR id = ?",
+          [raw.toLowerCase(), clean, `batch ${clean}`, raw]
+        ).catch(() => ({ rows: [] as any[] }));
+        batchKeys = [raw.toLowerCase(), clean, `batch ${clean}`];
+        b.rows.forEach((r: any) => { batchKeys!.push(String(r.id).toLowerCase(), String(r.name || '').toLowerCase()); });
+      } else {
+        batchKeys = [];
+      }
+    } catch { batchKeys = null; }
+  }
+
+  const now = new Date().getTime();
+  return (all as any[]).filter((a: any) => {
+    // Auto-hide reschedule popups after 48 hours so they don't pop forever
+    if (a.title?.startsWith('⏰')) {
+      const created = new Date(a.created_at).getTime();
+      if (now - created > 172800000) return false;
+    }
+    // Batch targeting: blank batch_id = everyone
+    const target = String(a.batch_id || '').trim().toLowerCase();
+    if (target && batchKeys) {
+      return batchKeys.includes(target) || batchKeys.includes(target.replace(/^batch\s*/i, ''));
+    }
+    return true;
+  }).slice(0, 10) as Announcement[];
 }
 
 // ─── Job Listings ─────────────────────────────────────────────────────────────
@@ -904,7 +1021,7 @@ export async function getJobListings(): Promise<JobListing[]> {
 
 
 export async function textToSpeech(text: string, voice: string): Promise<string> {
-  const DEEPGRAM_API_KEY = import.meta.env.VITE_DEEPGRAM_VOICE_API || 'ff72b49c11e1a77dd5b34bb7cb7ac8b40d3b97be';
+  const DEEPGRAM_API_KEY = import.meta.env.VITE_DEEPGRAM_VOICE_API;
   if (!DEEPGRAM_API_KEY) throw new Error("Missing Deepgram API Key");
 
   // Map voice IDs to Deepgram Aura models
@@ -1146,6 +1263,11 @@ export async function processTextInterviewResponse(userText: string, chatHistory
   }
 }
 
+const clampScore = (v: unknown): number => {
+  const n = Number(v);
+  return Number.isFinite(n) ? Math.min(10, Math.max(0, n)) : 0;
+};
+
 export async function evaluateMockInterview(chatHistory: any[], targetRole: string = 'General'): Promise<InterviewEvaluation> {
   const formattedTranscript = chatHistory.map(m => `${m.role.toUpperCase()}: ${m.content}`).join("\n");
   const prompt = `You are a expert HR Evaluation Director analyzing a candidate's mock interview performance for a "${targetRole}" position.
@@ -1171,10 +1293,10 @@ Scores MUST be numbers between 1.0 and 10.0 based on actual answers given in tra
     const cleanJson = rawResponse.replace(/```json|```/gi, '').trim();
     const parsed = JSON.parse(cleanJson);
     return {
-      overallScore: Number(parsed.overallScore) || 7.0,
-      technicalScore: Number(parsed.technicalScore) || 7.0,
-      communicationScore: Number(parsed.communicationScore) || 7.5,
-      confidenceScore: Number(parsed.confidenceScore) || 7.0,
+      overallScore: clampScore(parsed.overallScore),
+      technicalScore: clampScore(parsed.technicalScore),
+      communicationScore: clampScore(parsed.communicationScore),
+      confidenceScore: clampScore(parsed.confidenceScore),
       summary: parsed.summary || "Completed mock interview session.",
       strengths: Array.isArray(parsed.strengths) ? parsed.strengths : ["Good communication style", "Clear responses"],
       improvements: Array.isArray(parsed.improvements) ? parsed.improvements : ["Elaborate more on technical project examples"],
@@ -1183,37 +1305,38 @@ Scores MUST be numbers between 1.0 and 10.0 based on actual answers given in tra
   } catch (e) {
     console.error("Failed to evaluate mock interview with AI, using fallback scores", e);
     const turnCount = chatHistory.filter(m => m.role === 'user').length;
-    const baseScore = Math.min(Math.max(turnCount * 1.5, 5.0), 9.5);
+    // The AI evaluator is unavailable: do NOT invent a score the student did not earn.
     return {
-      overallScore: baseScore,
-      technicalScore: baseScore,
-      communicationScore: Math.min(baseScore + 0.5, 10),
-      confidenceScore: baseScore,
-      summary: `Candidate engaged in a ${turnCount}-turn mock interview for the ${targetRole} position.`,
-      strengths: ["Active participation", "Clear verbal responses"],
-      improvements: ["Provide deeper code or technical implementation details"],
-      recommendations: "Review core module concepts and prepare STAR-method answers."
+      overallScore: 0,
+      technicalScore: 0,
+      communicationScore: 0,
+      confidenceScore: 0,
+      summary: `Your ${turnCount}-turn mock interview for the ${targetRole} position was saved, but the AI evaluation is unavailable right now, so no score was given.`,
+      strengths: [],
+      improvements: [],
+      recommendations: "Please try another interview later to receive a scored evaluation.",
+      unavailable: true,
     };
   }
 }
 
 export async function spendCoins(studentId: string, amount: number): Promise<boolean> {
+  // Only positive whole amounts; a negative "spend" would otherwise ADD coins.
+  if (!Number.isFinite(amount) || amount <= 0 || !Number.isInteger(amount)) return false;
   try {
     const res = await executeWithRetry(
-      "SELECT id, coins FROM students WHERE id = ? OR portal_login_email = (SELECT email FROM users WHERE id = ?) LIMIT 1",
+      "SELECT id FROM students WHERE id = ? OR portal_login_email = (SELECT email FROM users WHERE id = ?) LIMIT 1",
       [studentId, studentId]
     );
     if (res.rows.length === 0) return false;
-    
     const realStudentId = res.rows[0].id;
-    const currentCoins = Number(res.rows[0].coins) || 0;
-    if (currentCoins < amount) return false;
-    
-    await executeWithRetry(
-      "UPDATE students SET coins = coins - ? WHERE id = ?",
-      [amount, realStudentId]
+
+    // One atomic statement: no read-then-write race (double spending).
+    const upd = await executeWithRetry(
+      "UPDATE students SET coins = coins - ? WHERE id = ? AND COALESCE(coins, 0) >= ?",
+      [amount, realStudentId, amount]
     );
-    return true;
+    return Number(upd.rowsAffected) > 0;
   } catch (e) {
     console.error("Failed to spend coins", e);
     return false;
@@ -1387,6 +1510,7 @@ export async function adjustStudentMetrics(studentId: string, field: string, del
       );
     }
   } else if (field !== 'badges') {
+    if (!['coins', 'streak'].includes(field)) throw new Error(`Cannot adjust field: ${field}`);
     await executeWithRetry(
       `UPDATE students SET ${field} = MAX(0, COALESCE(${field}, 0) + ?) WHERE id = ?`,
       [delta, studentId]
@@ -1401,16 +1525,8 @@ export async function updateStudentModuleProgress(studentId: string, moduleId: s
       `SELECT c.id FROM classes c WHERE c.module_id = ? AND c.id NOT IN (SELECT lesson_id FROM student_progress WHERE student_id = ? AND completed = 1) ORDER BY c.order_index ASC LIMIT 1`,
       [moduleId, studentId]
     );
-    let classId;
-    if (res.rows.length > 0) {
-      classId = res.rows[0].id as string;
-    } else {
-      classId = `cls_dummy_${Date.now()}`;
-      await executeWithRetry(
-        `INSERT INTO classes (id, module_id, title, order_index) VALUES (?, ?, 'Manual Progress Step', 999)`,
-        [classId, moduleId]
-      );
-    }
+    if (res.rows.length === 0) return false; // nothing left to complete; never invent classes
+    const classId = res.rows[0].id as string;
     await executeWithRetry(
       `INSERT INTO student_progress (id, student_id, lesson_id, completed, created_at) VALUES (?, ?, ?, 1, ?)`,
       [`sp_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`, studentId, classId, new Date().toISOString()]
@@ -1479,7 +1595,7 @@ export async function getManagerStudents(
         args.push(statusFilter.trim());
       }
     }
-    sql += ` ORDER BY s.name ASC LIMIT 200`;
+    sql += ` ORDER BY s.name ASC LIMIT 1000`;
 
     const res = await executeWithRetry(sql, args);
     return res && res.rows ? res.rows : [];
@@ -1511,10 +1627,18 @@ export async function findUserIdByEmail(email: string): Promise<string | undefin
 }
 
 export async function updateStudentLeadStatus(email?: string, phone?: string): Promise<boolean> {
+  const cleanEmail = (email || '').trim().toLowerCase();
+  const cleanPhone = (phone || '').replace(/\D/g, '');
+  // Never match on blank values: that would mark EVERY lead with an empty email/phone as won.
+  if (!cleanEmail && !cleanPhone) return false;
   try {
+    const conditions: string[] = [];
+    const args: string[] = [];
+    if (cleanEmail) { conditions.push("LOWER(TRIM(email)) = ?"); args.push(cleanEmail); }
+    if (cleanPhone) { conditions.push("REPLACE(REPLACE(REPLACE(phone, ' ', ''), '-', ''), '+', '') LIKE ?"); args.push('%' + cleanPhone.slice(-10)); }
     await executeWithRetry(
-      `UPDATE crm_leads SET status = 'Closed Won' WHERE email = ? OR phone = ?`,
-      [email || '', phone || '']
+      `UPDATE crm_leads SET status = 'Closed Won' WHERE ${conditions.join(' OR ')}`,
+      args
     );
     return true;
   } catch (e) {

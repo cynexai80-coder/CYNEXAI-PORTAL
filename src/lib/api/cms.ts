@@ -49,16 +49,18 @@ export const createCourse = async (id: string, title: string, description: strin
 };
 
 export const createModule = async (moduleId: string, courseId: string, title: string, orderIndex: number, isItModule: boolean = true) => {
-  await executeWithRetry('INSERT INTO modules (id, title, description, is_it_module) VALUES (?, ?, ?, ?)', [moduleId, title, '', isItModule ? 1 : 0]);
-  await executeWithRetry(
-    'INSERT INTO course_module_mapping (course_id, module_id, order_index) VALUES (?, ?, ?)',
-    [courseId, moduleId, orderIndex]
-  );
+  if (!client) throw new Error('Database client not configured');
+  await client.batch([
+    { sql: 'INSERT INTO modules (id, title, description, is_it_module) VALUES (?, ?, ?, ?)', args: [moduleId, title, '', isItModule ? 1 : 0] },
+    { sql: 'INSERT INTO course_module_mapping (course_id, module_id, order_index) VALUES (?, ?, ?)', args: [courseId, moduleId, orderIndex] },
+  ], 'write');
   cacheInvalidate('cms_courses');
   cacheInvalidate('modules_');
 };
 
 export const mapExistingModuleToCourse = async (courseId: string, moduleId: string, orderIndex: number) => {
+  const dup = await executeWithRetry('SELECT 1 FROM course_module_mapping WHERE course_id = ? AND module_id = ? LIMIT 1', [courseId, moduleId]);
+  if (dup.rows.length > 0) return; // already mapped
   await executeWithRetry(
     'INSERT INTO course_module_mapping (course_id, module_id, order_index) VALUES (?, ?, ?)',
     [courseId, moduleId, orderIndex]
@@ -89,6 +91,15 @@ export const updateCoursePitch = async (courseId: string, pitchSummary: string, 
 };
 
 export const deleteCourse = async (courseId: string) => {
+  // Do not delete a course that students are enrolled in or that has sales attached.
+  const inUse = await executeWithRetry(
+    `SELECT (SELECT COUNT(*) FROM students WHERE LOWER(TRIM(course)) = (SELECT LOWER(TRIM(title)) FROM courses WHERE id = ?)) as students,
+            (SELECT COUNT(*) FROM sales WHERE course_id = ?) as sales`, [courseId, courseId]
+  ).catch(() => ({ rows: [{ students: 0, sales: 0 }] }));
+  const row: any = inUse.rows[0] || {};
+  if (Number(row.students) > 0 || Number(row.sales) > 0) {
+    throw new Error('This course has enrolled students or sales and cannot be deleted. Archive it instead.');
+  }
   await executeWithRetry('DELETE FROM course_module_mapping WHERE course_id = ?', [courseId]);
   await executeWithRetry('DELETE FROM courses WHERE id = ?', [courseId]);
   cacheInvalidate('cms_courses');
@@ -104,7 +115,7 @@ export const updateModuleInstructor = async (moduleId: string, instructorId: str
 };
 
 export const getTeachersList = async () => {
-  const res = await executeWithRetry("SELECT id, name, email, role FROM users WHERE LOWER(role) IN ('teacher', 'faculty', 'instructor') OR email LIKE '%teacher%' ORDER BY name ASC");
+  const res = await executeWithRetry("SELECT id, name, email, role FROM users WHERE LOWER(role) IN ('teacher', 'faculty', 'instructor') ORDER BY name ASC");
   return res.rows;
 };
 
@@ -130,18 +141,24 @@ export const createClassForModule = async (classId: string, moduleId: string, ti
 };
 
 export const deleteClass = async (classId: string) => {
-  await executeWithRetry('DELETE FROM class_questions WHERE class_id = ?', [classId]);
-  await executeWithRetry('DELETE FROM classes WHERE id = ?', [classId]);
+  // Remove everything that points at the class so no orphan progress/answers remain, atomically.
+  if (!client) throw new Error('Database client not configured');
+  await client.batch([
+    { sql: 'DELETE FROM qa_responses WHERE class_id = ?', args: [classId] },
+    { sql: 'DELETE FROM student_progress WHERE lesson_id = ?', args: [classId] },
+    { sql: 'DELETE FROM class_questions WHERE class_id = ?', args: [classId] },
+    { sql: 'DELETE FROM classes WHERE id = ?', args: [classId] },
+  ], 'write');
   cacheInvalidate('cms_courses');
   cacheInvalidate('module_details_');
   cacheInvalidate(`class_${classId}`);
 };
 
 export const updateClassOrder = async (classList: { id: string; order_index: number }[]) => {
-  await Promise.all(
-    classList.map(cls =>
-      executeWithRetry('UPDATE classes SET order_index = ? WHERE id = ?', [cls.order_index, cls.id])
-    )
+  if (!client) throw new Error('Database client not configured');
+  await client.batch(
+    classList.map(cls => ({ sql: 'UPDATE classes SET order_index = ? WHERE id = ?', args: [cls.order_index, cls.id] })),
+    'write'
   );
 };
 

@@ -1,4 +1,4 @@
-export type LeadStatus = 'Not answering' | 'Busy' | 'Invalid number' | 'Interested' | 'Not Interested' | 'Admission Completed' | 'Sale Partial Closed' | 'Onboarded' | 'Demo Scheduled' | 'Demo Completed' | 'New' | 'Contacted';
+export type LeadStatus = 'Not answering' | 'Busy' | 'Invalid number' | 'Interested' | 'Not Interested' | 'Admission Completed' | 'Sale Partial Closed' | 'Onboarded' | 'Demo Scheduled' | 'Demo Completed' | 'New' | 'Contacted' | 'Admission' | 'Closed Won' | 'Closed Lost';
 
 export interface Lead {
   id: string;

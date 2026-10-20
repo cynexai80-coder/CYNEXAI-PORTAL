@@ -1,3 +1,4 @@
+import { todayIST } from '../dateUtils';
 import { client, isTursoConfigured } from '../turso';
 
 // ─── Interfaces ───────────────────────────────────────────────────────────────
@@ -49,6 +50,14 @@ export const startTimeLog = async (taskId: string, userId: string): Promise<stri
   if (!isTursoConfigured || !client) return null;
   const id = 'tl_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
   try {
+    // Only one running timer per person: stop any timer that is still open before starting a new one.
+    const open = await client.execute({
+      sql: `SELECT id FROM time_logs WHERE user_id = ? AND ended_at IS NULL`,
+      args: [userId]
+    });
+    for (const row of open.rows) {
+      await stopTimeLog(row.id as string);
+    }
     await client.execute({
       sql: `INSERT INTO time_logs (id, task_id, user_id, started_at) VALUES (?, ?, ?, ?)`,
       args: [id, taskId, userId, new Date().toISOString()]
@@ -66,10 +75,11 @@ export const stopTimeLog = async (timeLogId: string): Promise<boolean> => {
   try {
     // Get started_at to compute duration
     const res = await client.execute({
-      sql: `SELECT started_at FROM time_logs WHERE id = ?`,
+      sql: `SELECT started_at, ended_at FROM time_logs WHERE id = ?`,
       args: [timeLogId]
     });
     if (res.rows.length === 0) return false;
+    if (res.rows[0].ended_at) return true; // already stopped: keep the original duration
     const startedAt = new Date(res.rows[0].started_at as string);
     const durationMinutes = Math.round((new Date().getTime() - startedAt.getTime()) / 60000);
     await client.execute({
@@ -163,7 +173,7 @@ export const ensureStaffAttendanceSchema = async () => {
 export const getTodayAttendance = async (userId: string): Promise<EmployeeAttendance | null> => {
   if (!isTursoConfigured || !client) return null;
   await ensureStaffAttendanceSchema();
-  const today = new Date().toISOString().split('T')[0];
+  const today = todayIST();
   try {
     const res = await client.execute({
       sql: `SELECT * FROM employee_attendance WHERE user_id = ? AND date = ? ORDER BY login_time DESC LIMIT 1`,
@@ -285,7 +295,7 @@ export const deleteStaffAttendance = async (userId: string, date: string): Promi
 
 const autoCleanupAttendance = async () => {
   if (!isTursoConfigured || !client) return;
-  const today = new Date().toISOString().split('T')[0];
+  const today = todayIST();
   try {
     const res = await client.execute({
       sql: `SELECT id, date, login_time FROM employee_attendance WHERE logout_time IS NULL AND date < ?`,
@@ -294,9 +304,14 @@ const autoCleanupAttendance = async () => {
     for (const row of res.rows) {
       const date = row.date as string;
       const loginTime = row.login_time as string;
-      const endOfThatDay = new Date(`${date}T23:59:59`).toISOString();
-      const duration = Math.max(0, Math.round((new Date(endOfThatDay).getTime() - new Date(loginTime).getTime()) / 60000));
-      
+      const loginMs = new Date(loginTime).getTime();
+      if (isNaN(loginMs)) continue;
+      // A forgotten logout must not count as a 24-hour day: cap at end of that day (IST) and at 9 hours.
+      const endOfDayMs = new Date(`${date}T23:59:59+05:30`).getTime();
+      const cappedMs = Math.min(endOfDayMs, loginMs + 9 * 60 * 60 * 1000);
+      const endOfThatDay = new Date(Math.max(cappedMs, loginMs)).toISOString();
+      const duration = Math.max(0, Math.round((new Date(endOfThatDay).getTime() - loginMs) / 60000));
+
       await client.execute({
         sql: `UPDATE employee_attendance SET logout_time = ?, duration_minutes = ? WHERE id = ?`,
         args: [endOfThatDay, duration, row.id]
@@ -310,7 +325,7 @@ const autoCleanupAttendance = async () => {
 export const logOfficeAttendance = async (userId: string, action: 'login' | 'logout'): Promise<boolean> => {
   if (!isTursoConfigured || !client) return false;
   await ensureStaffAttendanceSchema();
-  const today = new Date().toISOString().split('T')[0];
+  const today = todayIST();
   const now = new Date().toISOString();
   
   try {
@@ -320,7 +335,7 @@ export const logOfficeAttendance = async (userId: string, action: 'login' | 'log
         // If user logged out earlier today and is logging back in, clear logout_time to mark them active again
         if (existing.logout_time) {
           await client.execute({
-            sql: `UPDATE employee_attendance SET logout_time = NULL, duration_minutes = NULL, status = 'Present' WHERE id = ?`,
+            sql: `UPDATE employee_attendance SET logout_time = NULL, status = 'Present' WHERE id = ?`,
             args: [existing.id]
           });
         }
@@ -454,7 +469,7 @@ export const getEmployeeReports = async (
     );
 
     const reports: EmployeeReport[] = [];
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = todayIST();
 
     for (const userRow of usersRes.rows) {
       const userId = userRow.id as string;
@@ -468,8 +483,8 @@ export const getEmployeeReports = async (
                 SUM(CASE WHEN due_date < ? AND status NOT IN ('Done', 'Excused') THEN 1 ELSE 0 END) as tasks_overdue,
                 SUM(CASE WHEN task_type = 'Daily' AND due_date < ? AND status NOT IN ('Done', 'Excused') THEN 1 ELSE 0 END) as daily_tasks_missed
               FROM tasks t
-              WHERE (assignee_id = ? OR created_by = ?) ${taskDateFilter}`,
-        args: [todayStr, todayStr, userId, userId, ...taskDateArgs]
+              WHERE assignee_id = ? ${taskDateFilter}`,
+        args: [todayStr, todayStr, userId, ...taskDateArgs]
       });
 
       const taskRow = taskRes.rows[0] || {};
@@ -483,8 +498,8 @@ export const getEmployeeReports = async (
           sql: `SELECT COUNT(*) as subtasks_completed
                 FROM task_subtasks ts
                 JOIN tasks t ON ts.task_id = t.id
-                WHERE (t.assignee_id = ? OR t.created_by = ?) AND ts.status = 'Done' ${taskDateFilter}`,
-          args: [userId, userId, ...taskDateArgs]
+                WHERE t.assignee_id = ? AND ts.status = 'Done' ${taskDateFilter}`,
+          args: [userId, ...taskDateArgs]
         });
         subtasksCompleted = Number(subtaskRes.rows[0]?.subtasks_completed) || 0;
       } catch { /* ignore if task_subtasks missing */ }
@@ -493,8 +508,9 @@ export const getEmployeeReports = async (
       let totalCalls = 0;
       try {
         const callRes = await client.execute({
-          sql: `SELECT COUNT(*) as total_calls FROM crm_activities WHERE user_id = ? AND (LOWER(type) = 'call' OR type = 'Call' OR type LIKE '%call%')`,
-          args: [userId]
+          sql: `SELECT COUNT(*) as total_calls FROM crm_activities WHERE user_id = ? AND LOWER(type) LIKE '%call%'
+                ${effectiveDateFrom ? 'AND created_at >= ?' : ''} ${effectiveDateTo ? 'AND created_at <= ?' : ''}`,
+          args: [userId, ...(effectiveDateFrom ? [effectiveDateFrom] : []), ...(effectiveDateTo ? [effectiveDateTo] : [])]
         });
         totalCalls = Number(callRes.rows[0]?.total_calls) || 0;
       } catch { /* crm_activities error fallback */ }
@@ -505,8 +521,9 @@ export const getEmployeeReports = async (
         const convRes = await client.execute({
           sql: `SELECT COUNT(*) as cnt FROM sales s 
                 LEFT JOIN crm_leads l ON s.lead_id = l.id 
-                WHERE (s.sales_exec_id = ? OR s.sales_rep_id = ? OR l.assigned_to = ?)`,
-          args: [userId, userId, userId]
+                WHERE (s.sales_exec_id = ? OR s.sales_rep_id = ? OR l.assigned_to = ?)
+                ${effectiveDateFrom ? 'AND s.timestamp >= ?' : ''} ${effectiveDateTo ? 'AND s.timestamp <= ?' : ''}`,
+          args: [userId, userId, userId, ...(effectiveDateFrom ? [effectiveDateFrom] : []), ...(effectiveDateTo ? [effectiveDateTo] : [])]
         });
         conversions = Number(convRes.rows[0]?.cnt) || 0;
       } catch {

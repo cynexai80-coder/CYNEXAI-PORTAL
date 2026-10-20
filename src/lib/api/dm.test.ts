@@ -31,11 +31,12 @@ describe('DM API', () => {
       const created = await createBlogPost({ title: 'Old Title', content: 'Content', status: 'draft' });
       const updated = await updateBlogPost(created.id, { title: 'New Title' });
       
-      expect(updated.title).toBe('New Title');
-      expect(updated.content).toBe('Content'); // should retain other fields
+      expect(updated).toBe(true);
       
       const posts = await getBlogPosts();
-      expect(posts.find(p => p.id === created.id)?.title).toBe('New Title');
+      const post = posts.find(p => p.id === created.id);
+      expect(post?.title).toBe('New Title');
+      expect(post?.content).toBe('Content'); // should retain other fields
     });
 
     it('should delete a blog post', async () => {
@@ -48,10 +49,10 @@ describe('DM API', () => {
   });
 
   describe('Job Scraper', () => {
-    it('should trigger job scraper and return status', async () => {
+    it('does not fabricate jobs when the scraper is triggered (there is no scraper backend)', async () => {
       const result = await triggerJobScraper('linkedin');
-      expect(result.status).toBe('started');
-      expect(result.source).toBe('linkedin');
+      expect(Array.isArray(result)).toBe(true);
+      expect(result.some(j => j.company.includes('Tech Partner'))).toBe(false);
     });
 
     it('should retrieve scraped jobs', async () => {
@@ -77,7 +78,7 @@ describe('DM API', () => {
 
     it('should update SEO settings', async () => {
       const newSettings = { targetKeyword: 'AI Marketing', metaDescription: 'Test meta' };
-      const updated = await updateSEOSettings('page-id-1', newSettings);
+      const updated = await updateSEOSettings(newSettings);
       expect(updated.targetKeyword).toBe('AI Marketing');
       expect(updated.metaDescription).toBe('Test meta');
     });

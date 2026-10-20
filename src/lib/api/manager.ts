@@ -1,3 +1,4 @@
+import { todayIST } from '../dateUtils';
 import { client, isTursoConfigured } from '../turso';
 import { cachedQuery } from '../queryCache';
 
@@ -58,68 +59,76 @@ export const getPendingApprovals = async (): Promise<PendingApproval[]> => {
 };
 
 export const approveSale = async (approvalId: string, approverId: string, saleId: string) => {
-  if (isTursoConfigured && client) {
-    try {
-      await client.execute({
-        sql: `UPDATE manager_approvals SET status = 'Approved', approver_id = ?, decided_at = ? WHERE id = ?`,
-        args: [approverId, new Date().toISOString(), approvalId]
+  if (!(isTursoConfigured && client)) return null;
+  try {
+    // 1) Only a PENDING approval can be approved (double-clicks / second managers must not create duplicate students).
+    const appr = await client.execute({ sql: `SELECT status FROM manager_approvals WHERE id = ?`, args: [approvalId] });
+    if (appr.rows.length === 0 || String(appr.rows[0].status) !== 'Pending') return null;
+
+    // 2) The sale and its lead must exist BEFORE anything is changed.
+    const saleResult = await client.execute({
+      sql: `SELECT s.lead_id, l.name as lead_name, l.phone as lead_phone, l.email as lead_email, s.course_id
+            FROM sales s JOIN crm_leads l ON s.lead_id = l.id WHERE s.id = ?`,
+      args: [saleId]
+    });
+    if (saleResult.rows.length === 0) return null;
+    const { lead_id: leadId, lead_name: leadName, lead_phone: leadPhone } = saleResult.rows[0] as any;
+
+    // 3) Unique student code (retry instead of trusting a random number).
+    const year = new Date().getFullYear();
+    let studentCode = '';
+    for (let attempt = 0; attempt < 8; attempt++) {
+      const candidate = 'CNX-' + year + '-' + Math.floor(1000 + Math.random() * 9000);
+      const clash = await client.execute({ sql: `SELECT 1 FROM students WHERE student_code = ? LIMIT 1`, args: [candidate] });
+      if (clash.rows.length === 0) { studentCode = candidate; break; }
+    }
+    if (!studentCode) return null;
+
+    const existingOnb = await client.execute({ sql: `SELECT id FROM onboardings WHERE sale_id = ? ORDER BY rowid DESC LIMIT 1`, args: [saleId] });
+    let onbId: string | null = existingOnb.rows.length > 0 ? (existingOnb.rows[0].id as string) : null;
+    const email = `${studentCode.toLowerCase()}@student.cynexai.com`;
+    const studentId = 'stu_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+    const taskId = 'tsk_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+    const nowIso = new Date().toISOString();
+
+    // 4) Everything below succeeds or fails TOGETHER.
+    const statements: { sql: string; args: any[] }[] = [
+      { sql: `UPDATE manager_approvals SET status = 'Approved', approver_id = ?, decided_at = ? WHERE id = ? AND status = 'Pending'`, args: [approverId, nowIso, approvalId] },
+    ];
+    if (!onbId) {
+      onbId = 'onb_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+      statements.push({
+        sql: `INSERT INTO onboardings (id, sale_id, batch_id, teacher_id, mode, joining_date, remarks) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        args: [onbId, saleId, '', '', '', '', '']
       });
-      
-      // Fetch onboarding record to link student, or create one
-      const onbResult = await client.execute({ sql: `SELECT id FROM onboardings WHERE sale_id = ? ORDER BY rowid DESC LIMIT 1`, args: [saleId] });
-      let onbId = onbResult.rows.length > 0 ? onbResult.rows[0].id : null;
-      if (!onbId) {
-        onbId = 'onb_' + Date.now().toString(36);
-        await client.execute({
-          sql: `INSERT INTO onboardings (id, sale_id, batch_id, teacher_id, mode, joining_date, remarks) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-          args: [onbId, saleId, '', '', '', '', '']
-        });
+    }
+    statements.push(
+      {
+        sql: `INSERT INTO students (id, onboarding_id, student_code, portal_login_email, name, phone, status) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        args: [studentId, onbId, studentCode, email, leadName || null, leadPhone || null, 'Active']
+      },
+      { sql: `UPDATE crm_leads SET status = 'Closed Won' WHERE id = ?`, args: [leadId] },
+      { sql: `UPDATE referrals SET status = 'Completed' WHERE referred_lead_id = ? AND status = 'Pending'`, args: [leadId] },
+      {
+        sql: `INSERT INTO tasks (id, title, description, assignee_id, created_by, status, due_date, priority, task_type, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        args: [
+          taskId,
+          `Assign Batch & Teacher: ${leadName}`,
+          `Please assign a batch and teacher for the newly onboarded student.
+
+Link: /manager/assign-batch/${studentId}`,
+          approverId, approverId, 'To Do', todayIST(), 'High', 'One-Time', nowIso
+        ]
       }
+    );
+    await client.batch(statements, 'write');
 
-      // Find the lead associated with this sale to update bucket
-      const saleResult = await client.execute({ sql: `SELECT s.lead_id, l.name as lead_name FROM sales s JOIN crm_leads l ON s.lead_id = l.id WHERE s.id = ?`, args: [saleId] });
-      if (saleResult.rows.length > 0) {
-        const leadId = saleResult.rows[0].lead_id;
-        const leadName = saleResult.rows[0].lead_name;
-        
-        // Generate student credentials
-        const studentId = 'stu_' + Date.now().toString(36);
-        const studentCode = 'CNX-' + new Date().getFullYear() + '-' + Math.floor(1000 + Math.random() * 9000);
-        const email = `${studentCode.toLowerCase()}@student.cynexai.com`;
-        
-        await client.execute({
-          sql: `INSERT INTO students (id, onboarding_id, student_code, portal_login_email, status) VALUES (?, ?, ?, ?, ?)`,
-          args: [studentId, onbId, studentCode, email, 'Active']
-        });
-
-        // AUTOMATION: MOCKED EMAIL DISPATCH
-        console.log(`[AUTOMATION: EMAIL] 🚀 Sent welcome email to ${email} with portal login credentials.`);
-
-        await client.execute({ sql: `UPDATE crm_leads SET status = 'Closed Won' WHERE id = ?`, args: [leadId] });
-        
-        // Create Manager Task to assign batch
-        const taskId = 'tsk_' + Date.now().toString(36);
-        await client.execute({
-          sql: `INSERT INTO tasks (id, title, description, assignee_id, created_by, status, due_date, priority, task_type, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          args: [
-            taskId,
-            `Assign Batch & Teacher: ${leadName}`,
-            `Please assign a batch and teacher for the newly onboarded student.\n\nLink: /manager/assign-batch/${studentId}`,
-            approverId, 
-            approverId, 
-            'To Do',
-            new Date().toISOString().split('T')[0], 
-            'High',
-            'One-Time',
-            new Date().toISOString()
-          ]
-        });
-
-        return { leadId, studentCode, email, studentId };
-      }
-    } catch(e) { console.error(e); }
+    // Welcome e-mail is not implemented (no mail service); the login is created when the manager approves the student.
+    return { leadId, studentCode, email, studentId };
+  } catch (e) {
+    console.error(e);
+    return null;
   }
-  return null;
 };
 
 export const rejectSale = async (approvalId: string, approverId: string, notes: string) => {
@@ -178,13 +187,13 @@ export const getManagerAnalytics = async () => {
         classesCompleted: 0
       };
       
-      const stdRes = await client.execute("SELECT COUNT(*) as c FROM students");
+      const stdRes = await client.execute("SELECT COUNT(*) as c FROM students WHERE (approval_status = 'Approved' OR approval_status IS NULL) AND COALESCE(status, 'Active') != 'Rejected'");
       if(stdRes.rows.length) stats.totalStudents = Number(stdRes.rows[0].c);
       
       const leadRes = await client.execute("SELECT COUNT(*) as c FROM crm_leads");
       if(leadRes.rows.length) stats.totalLeads = Number(leadRes.rows[0].c);
       
-      const revRes = await client.execute("SELECT SUM(amount_paid) as sum FROM sales");
+      const revRes = await client.execute("SELECT SUM(amount_paid) as sum FROM sales WHERE id NOT IN (SELECT sale_id FROM manager_approvals WHERE status = 'Rejected')");
       if(revRes.rows.length) stats.totalRevenue = Number(revRes.rows[0].sum) || 0;
       
       const clsRes = await client.execute("SELECT COUNT(*) as c FROM classes WHERE status = 'completed'");
@@ -278,13 +287,16 @@ export const saveErpUser = async (form: any) => {
 };
 
 export const assignModulesToInstructor = async (instructorId: string, moduleIds: string[]) => {
+  if (!client) return;
   try {
-    await executeWithRetry("UPDATE modules SET instructor_id = NULL WHERE instructor_id = ?", [instructorId]);
-    for (const mid of moduleIds) {
-      await executeWithRetry("UPDATE modules SET instructor_id = ? WHERE id = ?", [instructorId, mid]);
-    }
+    // One transaction: either the teacher's whole module list is replaced, or nothing changes.
+    await client.batch([
+      { sql: "UPDATE modules SET instructor_id = NULL WHERE instructor_id = ?", args: [instructorId] },
+      ...moduleIds.map(mid => ({ sql: "UPDATE modules SET instructor_id = ? WHERE id = ?", args: [instructorId, mid] })),
+    ], 'write');
   } catch (e) {
     console.error(e);
+    throw e;
   }
 };
 
@@ -332,12 +344,12 @@ export const getGlobalTimetable = async (filters?: { course?: string, module?: s
         args.push(`%${filters.course}%`, `%${filters.course}%`);
       }
       if (filters?.teacher) {
-        sql += ` AND (ts.teacher_id = ? OR ts.teacher_id = 'usr_teacher' OR ts.teacher_id = 'usr_teacher_venkat')`;
+        sql += ` AND ts.teacher_id = ?`;
         args.push(filters.teacher);
       }
       if (filters?.weekStart) {
-        sql += ` AND (ts.week_start = ? OR ts.week_start IS NULL OR ts.week_start = '' OR ts.status IN ('ongoing', 'weekly', 'active') OR ts.week_start <= ?)`;
-        args.push(filters.weekStart, filters.weekStart);
+        sql += ` AND (ts.week_start = ? OR ts.week_start IS NULL OR ts.week_start = '' OR ts.status IN ('ongoing', 'weekly', 'active'))`;
+        args.push(filters.weekStart);
       }
 
       const res = await executeWithRetry(sql, args);
@@ -367,7 +379,7 @@ export const getGlobalTimetable = async (filters?: { course?: string, module?: s
             id: row.id,
             batch_id: row.batch_id,
             batch_name: row.batch_id,
-            course_name: 'Data Science & AI',
+            course_name: '',
             day_of_week: row.day_of_week,
             start_time: matchTime(row.start_time),
             end_time: matchTime(row.end_time),
@@ -437,6 +449,21 @@ export const saveTimetableSlot = async (slot: Partial<GlobalTimetableSlot>) => {
       const timing = slot.timing ?? 'Offline';
       const status = slot.status ?? 'one-time';
       const weekStart = slot.week_start ?? '';
+
+      // A teacher cannot teach two classes at the same time on the same day.
+      if (teacherId && startTime < endTime) {
+        const clash = await executeWithRetry(
+          `SELECT id, start_time, end_time FROM timetable_slots
+           WHERE teacher_id = ? AND day_of_week = ? AND id != ?
+             AND start_time < ? AND end_time > ?
+             AND (week_start = ? OR week_start IS NULL OR week_start = '' OR ? = '' OR status IN ('ongoing', 'weekly', 'active'))
+           LIMIT 1`,
+          [teacherId, dayOfWeek, id, endTime, startTime, weekStart, weekStart]
+        );
+        if (clash.rows.length > 0) {
+          throw new Error(`This teacher already has a class on ${dayOfWeek} from ${clash.rows[0].start_time} to ${clash.rows[0].end_time}.`);
+        }
+      }
 
       if (slot.id) {
         await executeWithRetry(

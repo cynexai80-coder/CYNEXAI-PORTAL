@@ -1043,7 +1043,6 @@ export const PLACED_STUDENTS: PlacedStudent[] = [
     packageFormatted: '₹6.8 LPA',
     placementDate: '2026-08-10',
     location: 'Hyderabad',
-    cynexAI_course: 'Data Science & Python',
     cynexCourse: 'Python & Automation',
     offerStatus: 'Verified',
     avatarBg: 'bg-purple-700',

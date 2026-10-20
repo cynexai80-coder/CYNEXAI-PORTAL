@@ -8,12 +8,21 @@ export const setSetting = async (
 ): Promise<boolean> => {
   if (isTursoConfigured && client) {
     try {
-      await client.execute({
-        sql: `INSERT INTO settings (user_id, setting_group, key, value) 
-              VALUES (?, ?, ?, ?) 
-              ON CONFLICT(user_id, setting_group, key) DO UPDATE SET value = excluded.value`,
-        args: [userId, settingGroup, key, value]
-      });
+      if (userId) {
+        await client.execute({
+          sql: `INSERT INTO settings (user_id, setting_group, key, value)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT(user_id, setting_group, key) DO UPDATE SET value = excluded.value`,
+          args: [userId, settingGroup, key, value]
+        });
+      } else {
+        // Global setting: SQLite treats NULL user_ids as all-different, so ON CONFLICT never fires.
+        // Replace the row(s) explicitly instead.
+        await client.batch([
+          { sql: `DELETE FROM settings WHERE user_id IS NULL AND setting_group = ? AND key = ?`, args: [settingGroup, key] },
+          { sql: `INSERT INTO settings (user_id, setting_group, key, value) VALUES (NULL, ?, ?, ?)`, args: [settingGroup, key, value] },
+        ], 'write');
+      }
       return true;
     } catch (e) {
       console.error("Failed to set setting", e);
@@ -30,7 +39,7 @@ export const getSetting = async (
   if (isTursoConfigured && client) {
     try {
       const result = await client.execute({
-        sql: `SELECT value FROM settings WHERE user_id ${userId ? '= ?' : 'IS NULL'} AND setting_group = ? AND key = ?`,
+        sql: `SELECT value FROM settings WHERE user_id ${userId ? '= ?' : 'IS NULL'} AND setting_group = ? AND key = ? ORDER BY id DESC LIMIT 1`,
         args: userId ? [userId, settingGroup, key] : [settingGroup, key]
       });
       if (result.rows.length > 0) {

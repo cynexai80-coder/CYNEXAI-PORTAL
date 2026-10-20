@@ -115,3 +115,68 @@ export const DEFAULT_PERMISSIONS: Record<string, AccessLevel> = SYSTEM_MODULES.r
   acc[mod.id] = 'full';
   return acc;
 }, {} as Record<string, AccessLevel>);
+
+/** "/Manager/Certificates/" -> "/manager/certificates". The router matches paths case-insensitively and ignores a
+ *  trailing slash, so every lookup keyed by path must be normalised the same way. */
+export function normalisePath(pathname: string): string {
+  const p = String(pathname || '/').toLowerCase().split(/[?#]/)[0];
+  return p.length > 1 ? p.replace(/\/+$/, '') || '/' : p;
+}
+
+/** The page a module opens for a role: the link the sidebar shows when the user has that module. */
+const MODULE_ROUTE: Record<string, (role: string) => string> = {
+  dashboard:     r => r === 'Manager' ? '/manager' : r === 'Teacher' ? '/teacher' : r === 'DM' ? '/dm/dashboard' : r === 'Sales/HR' ? '/sales/dashboard' : '/ceo/dashboard',
+  tasks:         r => r === 'Manager' ? '/manager/tasks' : r === 'Teacher' ? '/teacher/tasks' : r === 'DM' ? '/dm/tasks' : r === 'Sales/HR' ? '/sales/tasks' : '/ceo/tasks',
+  reports:       r => r === 'Manager' ? '/manager/reports' : '/ceo/reports',
+  sales:         r => r === 'Sales/HR' ? '/sales/pipeline' : '/ceo/sales-pipeline',
+  sales_history: r => r === 'Sales/HR' ? '/sales/history' : '/ceo/history',
+  users:         r => r === 'Manager' ? '/manager/users' : '/ceo/users',
+  students:      r => r === 'Manager' ? '/manager/students' : '/ceo/students',
+  certificates:  r => r === 'Manager' ? '/manager/certificates' : '/ceo/certificates',
+  attendance:    r => r === 'CEO' ? '/ceo/attendance' : r === 'Manager' ? '/manager/attendance' : '/teacher/attendance',
+  courses:       r => r === 'Manager' ? '/manager/courses' : r === 'Teacher' ? '/teacher/courses' : r === 'DM' ? '/dm/courses' : r === 'Sales/HR' ? '/sales/courses' : '/ceo/courses',
+  timetable:     r => r === 'Manager' ? '/manager/timetable' : r === 'Teacher' ? '/teacher/timetable' : '/ceo/timetable',
+  classes:       () => '/teacher/live',
+  marketing:     r => r === 'DM' ? '/dm/planner' : '/ceo/dm-dashboard',
+  ai_voice:      r => r === 'Teacher' ? '/teacher/settings' : '/ceo/ai-voice',
+  gamification:  r => r === 'Manager' ? '/manager/gamification' : '/ceo/gamification',
+  settings:      r => r === 'Manager' ? '/manager/student-settings' : '/ceo/student-settings',
+};
+
+export function getModuleRoute(moduleId: string, role: string): string | undefined {
+  return MODULE_ROUTE[moduleId]?.(role);
+}
+
+/** True when the user carries a permissions_json the CEO set (as opposed to the role defaults). */
+export function hasExplicitPermissions(permissionsJson?: string | null): boolean {
+  if (!permissionsJson) return false;
+  try { const v = JSON.parse(permissionsJson); return !!v && typeof v === 'object'; } catch { return false; }
+}
+
+/**
+ * Decides whether a logged-in user may open a page. Rules:
+ *  1. The CEO may open everything.
+ *  2. Pages with no module are decided by the route's allowed roles alone.
+ *  3. A module that is off for the user closes its pages, whatever the role list says.
+ *  4. A role listed on the route may open it (module on).
+ *  5. A module grant ADDS access only when the CEO set it explicitly (permissions_json), and only to that module's
+ *     own page for the role (the sidebar link). Role defaults never open another role's pages.
+ * The path is normalised first, so "/Manager/Certificates/" cannot slip past a lookup that "/manager/certificates" fails.
+ */
+export function decideRouteAccess(o: {
+  role: string;
+  pathname: string;
+  allowedRoles?: string[];
+  accessLevels: string[];
+  explicitPermissions: boolean;
+  moduleAccess: (moduleId: string) => AccessLevel;
+}): boolean {
+  if (o.role === 'CEO') return true;
+  const path = normalisePath(o.pathname);
+  const roleAllowed = o.allowedRoles ? o.allowedRoles.some(r => o.accessLevels.includes(r)) : true;
+  const moduleId = ROUTE_MODULE_MAP[path];
+  if (!moduleId) return roleAllowed;
+  if (o.moduleAccess(moduleId) === 'none') return false;
+  if (roleAllowed) return true;
+  return o.explicitPermissions && getModuleRoute(moduleId, o.role) === path;
+}

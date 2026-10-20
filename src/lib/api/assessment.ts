@@ -14,13 +14,13 @@ export const submitSQLTest = async (
   batch: string,
   score: number,
   answers: Record<string, string>
-) => {
+): Promise<{ success: boolean; id?: string; error?: unknown }> => {
   if (!isTursoConfigured || !client) {
-    console.warn("Turso not configured. Mock saving.");
-    return { success: true };
+    // Never report success when nothing was saved: the candidate would believe the result was recorded.
+    return { success: false, error: 'Database not connected' };
   }
   
-  const id = 'test_' + Date.now().toString(36);
+  const id = 'test_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
   try {
     await client.execute({
       sql: `INSERT INTO sql_test_results (id, student_name, batch, score, answers_json) VALUES (?, ?, ?, ?, ?)`,

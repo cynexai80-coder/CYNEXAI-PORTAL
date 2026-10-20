@@ -24,6 +24,8 @@ vi.mock('../turso', () => ({
 describe('Student API', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // clearAllMocks keeps queued mockResolvedValueOnce values: reset so tests cannot leak into each other.
+    vi.mocked(client!.execute).mockReset();
   });
 
   describe('getStudentDashboardData', () => {
@@ -44,7 +46,8 @@ describe('Student API', () => {
 
     it('should return null course if no active course found', async () => {
       vi.mocked(client!.execute).mockResolvedValue({ rows: [] } as any);
-      const result = await getStudentDashboardData('std_1');
+      // forceRefresh: the previous test cached std_1 for a few seconds
+      const result = await getStudentDashboardData('std_1', true);
       expect(result.course).toBeNull();
     });
   });
@@ -67,6 +70,21 @@ describe('Student API', () => {
 
       const result = await getClassFlowData('invalid');
       expect(result.classData).toBeNull();
+    });
+
+    it('opens the class being taught for a timetable slot, not always the first class', async () => {
+      vi.mocked(client!.execute)
+        .mockResolvedValueOnce({ rows: [{ course_name: '["Data Science with AI"]' }] } as any) // slot lookup
+        .mockResolvedValueOnce({ rows: [{ id: 'cl5', title: 'Pandas', youtube_video_id: null, meet_link: null, type: 'live', status: 'in_progress', ai_summary: '', description: '' }] } as any) // matched class
+        .mockResolvedValueOnce({ rows: [] } as any); // questions
+
+      const result = await getClassFlowData('ts_abc');
+      expect(result.classData?.id).toBe('cl5');
+
+      const calls = vi.mocked(client!.execute).mock.calls.map(c => (c[0] as any).sql ?? c[0]);
+      const classQuery = calls.find(sql => String(sql).includes('course_module_mapping'));
+      // completed classes sort last, so a later class is picked while the course is running
+      expect(String(classQuery)).toMatch(/WHEN c\.status IN \('completed','ended'\) THEN 1 ELSE 0 END ASC/);
     });
   });
 
@@ -145,10 +163,23 @@ describe('Student API', () => {
   });
 
   describe('submitOnlineAttendance', () => {
-    it('should insert attendance log for online student', async () => {
+    it('starts tracking on the first click (presence must be earned by staying)', async () => {
       vi.mocked(client!.execute)
         .mockResolvedValueOnce({ rows: [{ id: 'cl1', status: 'in_progress' }] } as any) // class status check
-        .mockResolvedValueOnce({ rows: [] } as any); // insert attendance
+        .mockResolvedValueOnce({ rows: [] } as any) // no attendance row yet
+        .mockResolvedValueOnce({ rows: [] } as any); // insert pending row
+
+      const result = await submitOnlineAttendance('std_1', 'cl1');
+      expect(result.success).toBe(false);
+      expect(result.message).toContain('tracking started');
+    });
+
+    it('marks present once the student has stayed at least 4 minutes', async () => {
+      const joined = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+      vi.mocked(client!.execute)
+        .mockResolvedValueOnce({ rows: [{ id: 'cl1', status: 'in_progress' }] } as any)
+        .mockResolvedValueOnce({ rows: [{ id: 'att_1', status: 'Pending', duration_minutes: 1, join_time: joined }] } as any)
+        .mockResolvedValueOnce({ rows: [] } as any); // update to Present
 
       const result = await submitOnlineAttendance('std_1', 'cl1');
       expect(result.success).toBe(true);

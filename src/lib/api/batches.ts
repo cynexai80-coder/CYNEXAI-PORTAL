@@ -218,7 +218,7 @@ export function parseBatchSubjectProgress(
     }));
   }
 
-  return DEFAULT_DIAGRAM_SUBJECTS.map(s => ({ ...s }));
+  return [];
 }
 
 /**
@@ -251,6 +251,12 @@ export async function updateBatchSubjectProgress(
     });
     const moduleProgressJson = JSON.stringify(moduleMap);
 
+    // A rename must carry the students along (students are linked to a batch by its NAME).
+    let oldName: string | null = null;
+    if (batchName) {
+      const before = await executeWithRetry(`SELECT name FROM batches WHERE id = ?`, [batchId]);
+      oldName = before.rows.length > 0 ? String(before.rows[0].name || '') : null;
+    }
     let query = `
       UPDATE batches SET
         subject_progress_json = ?,
@@ -271,14 +277,22 @@ export async function updateBatchSubjectProgress(
     args.push(batchId);
 
     await executeWithRetry(query, args);
+    if (batchName && oldName && oldName.trim() && oldName.trim() !== batchName.trim()) {
+      const oldClean = oldName.trim().replace(/^batch\s*/i, '');
+      const newClean = batchName.trim().replace(/^batch\s*/i, '');
+      await executeWithRetry(
+        `UPDATE students SET batch_number = ? WHERE LOWER(TRIM(batch_number)) IN (?, ?, ?)`,
+        [newClean, oldName.trim().toLowerCase(), oldClean.toLowerCase(), `batch ${oldClean.toLowerCase()}`]
+      );
+    }
 
     // Also update matching module classes status to 'unlocked' so both students & teacher see unlocked access
     for (const sp of subjectProgress) {
       if (sp.completed > 0 && sp.subject) {
         try {
           const modRes = await executeWithRetry(
-            `SELECT id FROM modules WHERE LOWER(title) = ? OR LOWER(title) LIKE ? LIMIT 1`,
-            [sp.subject.toLowerCase().trim(), `%${sp.subject.toLowerCase().trim()}%`]
+            `SELECT id FROM modules WHERE LOWER(TRIM(title)) = ? LIMIT 1`,
+            [sp.subject.toLowerCase().trim()]
           );
           if (modRes.rows.length > 0) {
             const modId = modRes.rows[0].id;
@@ -409,10 +423,9 @@ export async function createBatch(data: Partial<BatchItem>): Promise<BatchItem |
   const id = data.id || `batch_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
   const now = new Date().toISOString();
 
-  const initialSubjects = data.subject_progress_json || JSON.stringify(DEFAULT_DIAGRAM_SUBJECTS);
-  const initialMap: Record<string, number> = {};
-  DEFAULT_DIAGRAM_SUBJECTS.forEach(s => { initialMap[s.subject] = s.completed; });
-  const initialModuleMap = data.module_progress_json || JSON.stringify(initialMap);
+  // New batches start with NO progress (the old code seeded invented numbers like SQL 5/10).
+  const initialSubjects = data.subject_progress_json || '[]';
+  const initialModuleMap = data.module_progress_json || '{}';
 
   try {
     await executeWithRetry(`
@@ -468,34 +481,26 @@ export async function updateBatch(id: string, data: Partial<BatchItem>): Promise
   if (!isTursoConfigured || !client) return false;
 
   try {
-    await executeWithRetry(`
-      UPDATE batches SET
-        name = ?,
-        course_id = ?,
-        primary_teacher_id = ?,
-        start_date = ?,
-        timing = ?,
-        schedule_pattern = ?,
-        max_students = ?,
-        status = ?,
-        mode = ?,
-        subject_progress_json = COALESCE(?, subject_progress_json),
-        module_progress_json = COALESCE(?, module_progress_json)
-      WHERE id = ?
-    `, [
-      data.name,
-      data.course_id || null,
-      data.primary_teacher_id || null,
-      data.start_date || null,
-      data.timing || null,
-      data.schedule_pattern || data.timing || null,
-      Number(data.max_students) || 30,
-      data.status || 'Active',
-      data.mode || 'Hybrid',
-      data.subject_progress_json || null,
-      data.module_progress_json || null,
-      id
-    ]);
+    // Only the fields the caller actually sent are changed (omitted fields used to be reset to defaults).
+    const sets: string[] = [];
+    const args: any[] = [];
+    const add = (col: string, val: any) => { sets.push(`${col} = ?`); args.push(val); };
+    if (data.name !== undefined) add('name', data.name);
+    if ('course_id' in data) add('course_id', data.course_id || null);
+    if ('primary_teacher_id' in data) add('primary_teacher_id', data.primary_teacher_id || null);
+    if ('start_date' in data) add('start_date', data.start_date || null);
+    if (data.timing !== undefined || data.schedule_pattern !== undefined) {
+      if (data.timing !== undefined) add('timing', data.timing || null);
+      add('schedule_pattern', data.schedule_pattern || data.timing || null);
+    }
+    if (data.max_students !== undefined) add('max_students', Math.max(1, Number(data.max_students) || 30));
+    if (data.status !== undefined) add('status', data.status);
+    if (data.mode !== undefined) add('mode', data.mode);
+    if (data.subject_progress_json) add('subject_progress_json', data.subject_progress_json);
+    if (data.module_progress_json) add('module_progress_json', data.module_progress_json);
+    if (sets.length === 0) return true;
+    args.push(id);
+    await executeWithRetry(`UPDATE batches SET ${sets.join(', ')} WHERE id = ?`, args);
     invalidateQueryCache('batches_all');
     return true;
   } catch (e) {
@@ -511,6 +516,18 @@ export async function deleteBatch(id: string): Promise<boolean> {
   if (!isTursoConfigured || !client) return false;
 
   try {
+    const b = await executeWithRetry("SELECT name FROM batches WHERE id = ?", [id]);
+    if (b.rows.length > 0) {
+      const name = String(b.rows[0].name || '').trim();
+      const clean = name.replace(/^batch\s*/i, '').toLowerCase();
+      const used = await executeWithRetry(
+        `SELECT COUNT(*) as c FROM students WHERE LOWER(TRIM(batch_number)) IN (?, ?, ?)`,
+        [name.toLowerCase(), clean, `batch ${clean}`]
+      );
+      if (Number(used.rows[0]?.c) > 0) {
+        throw new Error(`This batch still has ${used.rows[0].c} student(s). Move them to another batch before deleting it.`);
+      }
+    }
     await executeWithRetry("DELETE FROM batches WHERE id = ?", [id]);
     invalidateQueryCache('batches_all');
     return true;
@@ -623,6 +640,30 @@ export async function assignStudentsToBatch(batchName: string, batchId: string, 
   try {
     const cleanBatchName = batchName.trim();
     const cleanNum = cleanBatchName.replace(/^batch\s*/i, '').trim();
+
+    // Capacity check: do not put more students in than the batch allows.
+    const cap = await executeWithRetry(
+      `SELECT max_students FROM batches WHERE id = ? OR LOWER(TRIM(name)) = LOWER(?) LIMIT 1`, [batchId, cleanBatchName]
+    );
+    const maxStudents = Number(cap.rows[0]?.max_students) || 0;
+    if (maxStudents > 0) {
+      const cur = await executeWithRetry(
+        `SELECT COUNT(*) as c FROM students WHERE LOWER(TRIM(batch_number)) IN (?, ?, ?)`,
+        [cleanBatchName.toLowerCase(), cleanNum.toLowerCase(), `batch ${cleanNum.toLowerCase()}`]
+      );
+      const already = new Set<string>();
+      for (const identifier of studentIdentifiers) {
+        const r = await executeWithRetry(
+          `SELECT id FROM students WHERE (id = ? OR LOWER(TRIM(portal_login_email)) = LOWER(?)) AND LOWER(TRIM(COALESCE(batch_number, ''))) IN (?, ?, ?)`,
+          [identifier.trim(), identifier.trim(), cleanBatchName.toLowerCase(), cleanNum.toLowerCase(), `batch ${cleanNum.toLowerCase()}`]
+        );
+        if (r.rows.length > 0) already.add(identifier);
+      }
+      const adding = studentIdentifiers.length - already.size;
+      if (Number(cur.rows[0]?.c) + adding > maxStudents) {
+        throw new Error(`This batch allows ${maxStudents} students and already has ${cur.rows[0].c}. Cannot add ${adding} more.`);
+      }
+    }
 
     for (const identifier of studentIdentifiers) {
       const cleanId = identifier.trim();

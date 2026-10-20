@@ -140,13 +140,14 @@ export const login = async (email: string, password: string): Promise<User | nul
         decryptedDbPassword = row.password_encrypted;
       }
       
-      const normEmail = (email || '').toLowerCase().trim();
-      const isPasswordMatch = 
-        decryptedDbPassword === password ||
-        row.password_encrypted === password ||
-        (normEmail === 'sandeep.cynexai@gmail.com' && (password === 'Sandeep@142' || password === 'admin123')) ||
-        (password === 'admin123' && (decryptedDbPassword === 'admin123' || decryptedDbPassword === 'cynex123' || !decryptedDbPassword));
-      
+      // Strict match only: both sides must be non-empty and equal. (No master passwords,
+      // no per-user overrides, and the stored ciphertext is not accepted as a password.)
+      const isPasswordMatch =
+        typeof password === 'string' &&
+        password.length > 0 &&
+        decryptedDbPassword.length > 0 &&
+        decryptedDbPassword === password;
+
       if (isPasswordMatch) {
         const user: User = {
           id: row.id as string,

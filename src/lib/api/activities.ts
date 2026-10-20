@@ -62,9 +62,9 @@ export const getActivitiesByLead = async (leadId: string): Promise<Activity[]> =
   if (isTursoConfigured && client) {
     try {
       const result = await client.execute({
-        sql: `SELECT crm_activities.*, erp_users.name as user_name 
+        sql: `SELECT crm_activities.*, COALESCE(users.name, erp_users.name) as user_name 
               FROM crm_activities 
-              LEFT JOIN erp_users ON crm_activities.user_id = erp_users.id 
+              LEFT JOIN users ON crm_activities.user_id = users.id LEFT JOIN erp_users ON crm_activities.user_id = erp_users.id 
               WHERE lead_id = ? 
               ORDER BY crm_activities.created_at DESC`,
         args: [leadId]
@@ -81,9 +81,9 @@ export const getActivitiesByStudent = async (studentId: string): Promise<Activit
   if (isTursoConfigured && client) {
     try {
       const result = await client.execute({
-        sql: `SELECT crm_activities.*, erp_users.name as user_name 
+        sql: `SELECT crm_activities.*, COALESCE(users.name, erp_users.name) as user_name 
               FROM crm_activities 
-              LEFT JOIN erp_users ON crm_activities.user_id = erp_users.id 
+              LEFT JOIN users ON crm_activities.user_id = users.id LEFT JOIN erp_users ON crm_activities.user_id = erp_users.id 
               WHERE student_id = ? 
               ORDER BY crm_activities.created_at DESC`,
         args: [studentId]

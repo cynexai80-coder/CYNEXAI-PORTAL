@@ -62,7 +62,8 @@ describe('Teacher API', () => {
 
   describe('logAttendance', () => {
     it('should insert an attendance log', async () => {
-      vi.mocked(client.execute).mockResolvedValueOnce({ rows: [] } as any);
+      // every query (schema check, duplicate lookup, insert) returns "no rows"
+      vi.mocked(client.execute).mockResolvedValue({ rows: [] } as any);
       await logAttendance('std_1', 'c1');
       
       expect(client.execute).toHaveBeenCalledWith(expect.objectContaining({

@@ -11,14 +11,16 @@ export interface UserRow {
   permissions_json?: string;
 }
 
-const FALLBACK_USERS: UserRow[] = [
+// Local-development-only demo accounts. Only reachable when running `vite dev`
+// (import.meta.env.DEV is false in production builds, so this is never used there).
+const getDevFallbackUsers = (): UserRow[] => [
   { id: 'usr_ceo', name: 'CEO', email: 'ceo@cynexai.com', role: 'CEO', password_encrypted: encryptPassword('admin123'), salary: 150000 },
   { id: 'usr_ceo_eswar', name: 'Eswar Sudheer', email: 'eswarsudheer98@gmail.com', role: 'CEO', password_encrypted: encryptPassword('admin123'), salary: 150000 },
   { id: 'usr_admin', name: 'Admin', email: 'admin@cynexai.com', role: 'Admin', password_encrypted: encryptPassword('admin123'), salary: 100000 },
   { id: 'usr_admin_in', name: 'Admin IN', email: 'admin@cynexai.in', role: 'Admin', password_encrypted: encryptPassword('admin123'), salary: 100000 },
   { id: 'usr_manager', name: 'Manager', email: 'manager@cynexai.com', role: 'Manager', password_encrypted: encryptPassword('admin123'), salary: 85000 },
   { id: 'usr_manager_leonard', name: 'Leonard', email: 'leonard001@gmail.com', role: 'Manager', password_encrypted: encryptPassword('admin123'), salary: 85000 },
-  { id: 'usr_sales', name: 'Sandeep', email: 'sandeep.cynexai@gmail.com', role: 'Sales/HR', password_encrypted: encryptPassword('Sandeep@142'), salary: 45000 },
+  { id: 'usr_sales', name: 'Sandeep', email: 'sandeep.cynexai@gmail.com', role: 'Sales/HR', password_encrypted: encryptPassword('admin123'), salary: 45000 },
   { id: 'usr_sales_default', name: 'Sales Exec', email: 'sales@cynexai.com', role: 'Sales/HR', password_encrypted: encryptPassword('admin123'), salary: 45000 },
   { id: 'usr_teacher', name: 'Teacher', email: 'teacher@cynexai.com', role: 'Teacher', password_encrypted: encryptPassword('admin123'), salary: 50000 },
   { id: 'usr_teacher_venkat', name: 'Venkateswar Reddy', email: 'venkateswarreddykatreddy29@gmail.com', role: 'Teacher', password_encrypted: encryptPassword('admin123'), salary: 50000 },
@@ -51,10 +53,12 @@ export const getUserByEmail = async (email: string) => {
     }
   }
   
-  // Fallback to local system accounts
-  const fallback = FALLBACK_USERS.find(u => u.email.toLowerCase() === normEmail);
-  if (fallback) {
-    return fallback;
+  // Demo accounts are available only in local development, never in production builds.
+  if (import.meta.env.DEV) {
+    const fallback = getDevFallbackUsers().find(u => u.email.toLowerCase() === normEmail);
+    if (fallback) {
+      return fallback;
+    }
   }
   
   return null;

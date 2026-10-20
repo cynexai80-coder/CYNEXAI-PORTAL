@@ -5,6 +5,7 @@ import { client } from '../../turso';
 vi.mock('../../turso', () => ({
   client: {
     execute: vi.fn(),
+    batch: vi.fn(),
   },
   isTursoConfigured: true,
 }));
@@ -15,29 +16,19 @@ describe('Settings API', () => {
   });
 
   describe('setSetting', () => {
-    it('upserts a setting into the database', async () => {
-      vi.mocked(client.execute).mockResolvedValueOnce({
-        rows: [],
-        columns: [],
-        columnTypes: [],
-        rowsAffected: 1,
-        lastInsertRowid: undefined,
-      });
+    it('replaces a GLOBAL setting row (NULL user_id never conflicts in SQLite, so delete + insert in one batch)', async () => {
+      vi.mocked(client.batch).mockResolvedValueOnce([] as any);
 
       const result = await settingsApi.setSetting('global', 'company_name', 'CynexAI ERP');
-      
+
       expect(result).toBe(true);
-      
-      expect(client.execute).toHaveBeenCalledTimes(1);
-      const callArgs = vi.mocked(client.execute).mock.calls[0][0] as any;
-      expect(callArgs.sql).toContain('INSERT INTO settings');
-      expect(callArgs.sql).toContain('ON CONFLICT(user_id, setting_group, key) DO UPDATE');
-      expect(callArgs.args).toEqual([
-        null, // user_id null for global
-        'global',
-        'company_name',
-        'CynexAI ERP'
-      ]);
+      expect(client.batch).toHaveBeenCalledTimes(1);
+      const [stmts, mode] = vi.mocked(client.batch).mock.calls[0] as any;
+      expect(mode).toBe('write');
+      expect(stmts[0].sql).toContain('DELETE FROM settings WHERE user_id IS NULL');
+      expect(stmts[0].args).toEqual(['global', 'company_name']);
+      expect(stmts[1].sql).toContain('INSERT INTO settings');
+      expect(stmts[1].args).toEqual(['global', 'company_name', 'CynexAI ERP']);
     });
 
     it('upserts a user-specific setting', async () => {
@@ -79,7 +70,7 @@ describe('Settings API', () => {
       
       const callArgs = vi.mocked(client.execute).mock.calls[0][0] as any;
       expect(callArgs.sql).toContain('SELECT value FROM settings');
-      expect(callArgs.args).toEqual([null, 'global', 'company_name']);
+      expect(callArgs.args).toEqual(['global', 'company_name']);
     });
     
     it('returns null if setting is not found', async () => {

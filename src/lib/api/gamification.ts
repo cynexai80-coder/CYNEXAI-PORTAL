@@ -49,6 +49,9 @@ export async function updateGamificationSetting(taskType: string, isEnabled: boo
 }
 
 export async function awardCoinsManually(targetStudentId: string, rewardAmount: number): Promise<void> {
+  if (!Number.isFinite(rewardAmount) || Math.abs(rewardAmount) > 100000) {
+    throw new Error('Invalid reward amount');
+  }
   try {
     await executeWithRetry(
       "UPDATE students SET coins = coins + ? WHERE student_code = ? OR id = ?",
